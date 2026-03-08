@@ -6,6 +6,7 @@ import SwiftUI
 struct PaneHeaderView: View {
     let pane: Pane
     let isFocused: Bool
+    let onFocus: () -> Void
     let onClose: () -> Void
 
     var body: some View {
@@ -33,6 +34,8 @@ struct PaneHeaderView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 2)
+        .contentShape(Rectangle())
+        .onTapGesture { onFocus() }
         .background {
             ZStack {
                 Color(nsColor: .windowBackgroundColor)

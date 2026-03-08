@@ -47,6 +47,7 @@ struct PaneGridView: View {
             PaneHeaderView(
                 pane: pane,
                 isFocused: pane.id == focusedPaneID,
+                onFocus: { onFocusPane(pane.id) },
                 onClose: { onClosePane(pane.id) }
             )
 
