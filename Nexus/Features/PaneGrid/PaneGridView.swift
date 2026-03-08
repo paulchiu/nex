@@ -36,8 +36,8 @@ struct PaneGridView: View {
                     }
                 }
             }
-            // Prevent NavigationSplitView's implicit detail animations from
-            // interfering with NSView re-parenting during layout transitions.
+            // Prevent implicit animations from interfering with
+            // NSView re-parenting during layout transitions.
             .transaction { $0.animation = nil }
         }
     }

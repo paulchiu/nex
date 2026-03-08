@@ -1,30 +1,20 @@
 import ComposableArchitecture
 import SwiftUI
 
-/// Root view: NavigationSplitView with workspace sidebar + pane grid detail.
+/// Root view: HStack with workspace sidebar + pane grid detail.
 struct ContentView: View {
     let store: StoreOf<AppReducer>
 
     var body: some View {
         WithPerceptionTracking {
-            NavigationSplitView(
-                columnVisibility: Binding(
-                    get: {
-                        store.isSidebarVisible
-                            ? .doubleColumn
-                            : .detailOnly
-                    },
-                    set: { visibility in
-                        let shouldShow = visibility != .detailOnly
-                        if shouldShow != store.isSidebarVisible {
-                            store.send(.toggleSidebar)
-                        }
-                    }
-                )
-            ) {
-                WorkspaceListView(store: store)
-                    .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 300)
-            } detail: {
+            HStack(spacing: 0) {
+                if store.isSidebarVisible {
+                    WorkspaceListView(store: store)
+                        .frame(minWidth: 180, idealWidth: 220, maxWidth: 300)
+
+                    Divider()
+                }
+
                 if let activeID = store.activeWorkspaceID,
                    let workspace = store.workspaces[id: activeID] {
                     PaneGridView(
@@ -61,6 +51,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            .animation(.default, value: store.isSidebarVisible)
             .sheet(isPresented: Binding(
                 get: { store.isNewWorkspaceSheetPresented },
                 set: { if !$0 { store.send(.dismissNewWorkspaceSheet) } }

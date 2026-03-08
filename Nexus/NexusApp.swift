@@ -33,8 +33,8 @@ struct NexusApp: App {
                     let config = GhosttyConfigClient.load()
                     GhosttyConfigClient.liveValue = config
 
-                    if config.backgroundOpacity < 1 {
-                        if let window = NSApp.windows.first {
+                    if let window = NSApp.windows.first {
+                        if config.backgroundOpacity < 1 {
                             window.isOpaque = false
                             window.backgroundColor = .white.withAlphaComponent(0.001)
                         }
@@ -48,7 +48,6 @@ struct NexusApp: App {
                 }
         }
         .windowStyle(.titleBar)
-        .windowToolbarStyle(.unifiedCompact(showsTitle: false))
         .commands {
             NexusCommands(store: store)
         }
