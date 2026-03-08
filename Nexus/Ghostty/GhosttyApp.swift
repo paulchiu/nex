@@ -7,9 +7,9 @@ import Foundation
 final class GhosttyApp {
     static let shared = GhosttyApp()
 
-    // nonisolated(unsafe) so deinit can access without actor hop
+    // nonisolated(unsafe) so deinit and config client can access without actor hop
     nonisolated(unsafe) private(set) var app: ghostty_app_t?
-    private var config: GhosttyConfig?
+    nonisolated(unsafe) var config: GhosttyConfig?
 
     /// Notification posted when a surface title changes.
     /// userInfo: ["surface": ghostty_surface_t, "title": String]

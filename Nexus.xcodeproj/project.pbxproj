@@ -8,11 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		087888F2C9CCD49A5DB19E89 /* WorkspaceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B99B9BACA8153BE1ABE412 /* WorkspaceListView.swift */; };
+		0CFAA877D93376BE849A45BF /* SettingsFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5602EB5926D7D5AE4425F2 /* SettingsFeature.swift */; };
 		103C1B62EE40C88B59C81705 /* Pane.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93167BDC0E7772D231F99E8 /* Pane.swift */; };
 		1B5BABDA615D3462A789355D /* PaneType.swift in Sources */ = {isa = PBXBuildFile; fileRef = C047E92FE7823AD19A207A82 /* PaneType.swift */; };
+		23626EE07F58122AEE57E28E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA084843197E68484EDF41F /* SettingsView.swift */; };
 		23B7A4375CFBA2A0AF0BD4B5 /* WorkspaceFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5BE660397D7CA67D909D988 /* WorkspaceFeatureTests.swift */; };
 		2CB3848DCA20C5F575116C33 /* PaneHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5C2505807A0297370DC70D /* PaneHeaderView.swift */; };
 		2FC734D4C60D40384C0CC762 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CFC6CC21FCE4E91003E7CE82 /* IOKit.framework */; };
+		35CD4C3C9E2AFB3A51F2041D /* GhosttyConfigClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C66990CB73BAC11D753EA94D /* GhosttyConfigClient.swift */; };
 		375C8BCC9F11700FEBFAC68D /* NewWorkspaceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 319C35E223267880C3247786 /* NewWorkspaceSheet.swift */; };
 		40AA44A23F333093A2CB0D73 /* SurfaceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C18E2F1249EAC70CE79F613 /* SurfaceManager.swift */; };
 		4EB99A1B277034863DAE58D0 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8DF4ADB86C4AE07CB9C53E2A /* QuartzCore.framework */; };
@@ -70,6 +73,7 @@
 		69ED62341195FDE8DC9B5405 /* NexusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NexusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6EDF2C4B37E684819F441FA4 /* PaneLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayoutTests.swift; sourceTree = "<group>"; };
 		705D6277A1B79CE63A2D0AAF /* AppReducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReducer.swift; sourceTree = "<group>"; };
+		7AA084843197E68484EDF41F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		7EC807E893030C5E46495AFF /* WorkspaceRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceRowView.swift; sourceTree = "<group>"; };
 		7F5C2505807A0297370DC70D /* PaneHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneHeaderView.swift; sourceTree = "<group>"; };
 		8DF4ADB86C4AE07CB9C53E2A /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
@@ -78,10 +82,12 @@
 		A6C7D51FECC970E31659DFBD /* DatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseService.swift; sourceTree = "<group>"; };
 		B93167BDC0E7772D231F99E8 /* Pane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pane.swift; sourceTree = "<group>"; };
 		BC14CB4D58153A7113FD26F8 /* GhosttyConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfig.swift; sourceTree = "<group>"; };
+		BF5602EB5926D7D5AE4425F2 /* SettingsFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFeature.swift; sourceTree = "<group>"; };
 		C047E92FE7823AD19A207A82 /* PaneType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneType.swift; sourceTree = "<group>"; };
 		C1B856A0577AA63F438DC24C /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		C377966C52CB02012F211F65 /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
 		C5BE660397D7CA67D909D988 /* WorkspaceFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceFeatureTests.swift; sourceTree = "<group>"; };
+		C66990CB73BAC11D753EA94D /* GhosttyConfigClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfigClient.swift; sourceTree = "<group>"; };
 		C6C3010C6A7FE17BCD379254 /* GhosttySurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttySurface.swift; sourceTree = "<group>"; };
 		CFC6CC21FCE4E91003E7CE82 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		D649B49DF0AA5FFD3746D604 /* Nexus.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Nexus.entitlements; sourceTree = "<group>"; };
@@ -178,6 +184,15 @@
 			);
 			sourceTree = "<group>";
 		};
+		585B7073214DDA4BC17CC01C /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				BF5602EB5926D7D5AE4425F2 /* SettingsFeature.swift */,
+				7AA084843197E68484EDF41F /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
 		5E412486ED50A7F5F6A86C05 /* Nexus */ = {
 			isa = PBXGroup;
 			children = (
@@ -199,6 +214,7 @@
 			isa = PBXGroup;
 			children = (
 				98421479324531D11A510B5D /* PaneGrid */,
+				585B7073214DDA4BC17CC01C /* Settings */,
 				351E01E7A3E7FEC74320C3AA /* Workspace */,
 			);
 			path = Features;
@@ -228,6 +244,7 @@
 			children = (
 				280C2FE6D0DE2494A16A6DAC /* GhosttyApp.swift */,
 				BC14CB4D58153A7113FD26F8 /* GhosttyConfig.swift */,
+				C66990CB73BAC11D753EA94D /* GhosttyConfigClient.swift */,
 				C6C3010C6A7FE17BCD379254 /* GhosttySurface.swift */,
 				E1CCDF319563AC5D3B26D08C /* SurfaceView.swift */,
 			);
@@ -341,6 +358,7 @@
 				B060959AEA2A5E363A9A6C72 /* DatabaseService.swift in Sources */,
 				FB580C1521D18D37B4ABDD35 /* GhosttyApp.swift in Sources */,
 				8BF11F2C2112AC09BA6EEB08 /* GhosttyConfig.swift in Sources */,
+				35CD4C3C9E2AFB3A51F2041D /* GhosttyConfigClient.swift in Sources */,
 				D853E5646ACE4A2A4E47E539 /* GhosttySurface.swift in Sources */,
 				375C8BCC9F11700FEBFAC68D /* NewWorkspaceSheet.swift in Sources */,
 				56A1FC9C1A5285DA29A904AD /* NexusApp.swift in Sources */,
@@ -351,6 +369,8 @@
 				E2EEC6EE25A4E7F372E94A87 /* PaneLayout.swift in Sources */,
 				1B5BABDA615D3462A789355D /* PaneType.swift in Sources */,
 				4FE40D67FB1FA6F90950FAA1 /* PersistenceService.swift in Sources */,
+				0CFAA877D93376BE849A45BF /* SettingsFeature.swift in Sources */,
+				23626EE07F58122AEE57E28E /* SettingsView.swift in Sources */,
 				9752B8F62EC1E917DA3D1D27 /* SplitDividerView.swift in Sources */,
 				57DB32B8D4EC27378781BEF5 /* SurfaceContainerView.swift in Sources */,
 				40AA44A23F333093A2CB0D73 /* SurfaceManager.swift in Sources */,

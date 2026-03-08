@@ -9,6 +9,7 @@ struct AppReducer {
         var activeWorkspaceID: UUID?
         var isSidebarVisible: Bool = true
         var isNewWorkspaceSheetPresented: Bool = false
+        var settings = SettingsFeature.State()
 
         var activeWorkspace: WorkspaceFeature.State? {
             guard let id = activeWorkspaceID else { return nil }
@@ -30,6 +31,7 @@ struct AppReducer {
         case persistState
         case stateLoaded(IdentifiedArrayOf<WorkspaceFeature.State>, activeWorkspaceID: UUID?)
         case workspaces(IdentifiedActionOf<WorkspaceFeature>)
+        case settings(SettingsFeature.Action)
     }
 
     @Dependency(\.surfaceManager) var surfaceManager
@@ -40,10 +42,13 @@ struct AppReducer {
         Reduce { state, action in
             switch action {
             case .appLaunched:
-                return .run { send in
-                    let (workspaces, activeID) = await persistenceService.load()
-                    await send(.stateLoaded(workspaces, activeWorkspaceID: activeID))
-                }
+                return .merge(
+                    .run { send in
+                        let (workspaces, activeID) = await persistenceService.load()
+                        await send(.stateLoaded(workspaces, activeWorkspaceID: activeID))
+                    },
+                    .send(.settings(.loadSettings))
+                )
 
             case .createWorkspace(let name, let color):
                 let workspace = WorkspaceFeature.State(
@@ -149,10 +154,18 @@ struct AppReducer {
             case .workspaces:
                 // Child workspace actions — persist after mutations
                 return .send(.persistState)
+
+            case .settings:
+                // Handled by scoped SettingsFeature reducer
+                return .none
             }
         }
         .forEach(\.workspaces, action: \.workspaces) {
             WorkspaceFeature()
+        }
+
+        Scope(state: \.settings, action: \.settings) {
+            SettingsFeature()
         }
     }
 }

@@ -32,8 +32,15 @@ struct PaneHeaderView: View {
             .help("Close pane (⌘W)")
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(isFocused ? Color.accentColor.opacity(0.08) : Color.clear)
+        .padding(.vertical, 2)
+        .background {
+            ZStack {
+                Color(nsColor: .windowBackgroundColor)
+                if isFocused {
+                    Color.accentColor.opacity(0.08)
+                }
+            }
+        }
     }
 
     private var displayPath: String {

@@ -14,7 +14,8 @@ struct SplitDividerView: View {
 
     var body: some View {
         Rectangle()
-            .fill(isDragging ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.2))
+            .fill(Color(nsColor: .windowBackgroundColor))
+            .overlay(isDragging ? Color.accentColor.opacity(0.5) : Color.secondary.opacity(0.2))
             .frame(
                 width: isHorizontal ? 4 : nil,
                 height: isHorizontal ? nil : 4

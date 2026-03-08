@@ -20,11 +20,11 @@ final class SurfaceView: NSView, @preconcurrency NSTextInputClient {
     private var resizeWorkItem: DispatchWorkItem?
 
 
-    init(paneID: UUID, workingDirectory: String) {
+    init(paneID: UUID, workingDirectory: String, backgroundOpacity: Double = 1.0) {
         self.paneID = paneID
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.isOpaque = true
+        layer?.isOpaque = backgroundOpacity >= 1.0
         layerContentsRedrawPolicy = .duringViewResize
 
         guard let app = GhosttyApp.shared.app else { return }

@@ -70,6 +70,7 @@ struct WorkspaceFeature {
     }
 
     @Dependency(\.surfaceManager) var surfaceManager
+    @Dependency(\.ghosttyConfig) var ghosttyConfig
     @Dependency(\.date.now) var now
     @Dependency(\.uuid) var uuid
 
@@ -90,10 +91,12 @@ struct WorkspaceFeature {
                 state.panes.append(newPane)
                 state.layout = .leaf(newPaneID)
                 state.focusedPaneID = newPaneID
+                let opacity = ghosttyConfig.backgroundOpacity
                 return .run { _ in
                     await surfaceManager.createSurface(
                         paneID: newPaneID,
-                        workingDirectory: newPane.workingDirectory
+                        workingDirectory: newPane.workingDirectory,
+                        backgroundOpacity: opacity
                     )
                 }
 
@@ -117,10 +120,12 @@ struct WorkspaceFeature {
                 state.panes.append(newPane)
                 state.focusedPaneID = newPaneID
 
+                let opacity = ghosttyConfig.backgroundOpacity
                 return .run { _ in
                     await surfaceManager.createSurface(
                         paneID: newPaneID,
-                        workingDirectory: newPane.workingDirectory
+                        workingDirectory: newPane.workingDirectory,
+                        backgroundOpacity: opacity
                     )
                 }
 

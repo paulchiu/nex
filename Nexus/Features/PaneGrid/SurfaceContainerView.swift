@@ -7,6 +7,7 @@ struct SurfaceContainerView: NSViewRepresentable {
     let workingDirectory: String
     let isFocused: Bool
     @Environment(\.surfaceManager) private var surfaceManager
+    @Environment(\.ghosttyConfig) private var ghosttyConfig
 
     func makeNSView(context: Context) -> NSView {
         let container = NSView()
@@ -14,7 +15,11 @@ struct SurfaceContainerView: NSViewRepresentable {
 
         // Create surface lazily if it doesn't exist yet
         if surfaceManager.surface(for: paneID) == nil {
-            surfaceManager.createSurface(paneID: paneID, workingDirectory: workingDirectory)
+            surfaceManager.createSurface(
+                paneID: paneID,
+                workingDirectory: workingDirectory,
+                backgroundOpacity: ghosttyConfig.backgroundOpacity
+            )
         }
 
         if let surface = surfaceManager.surface(for: paneID) {

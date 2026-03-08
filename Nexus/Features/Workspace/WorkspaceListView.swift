@@ -13,7 +13,10 @@ struct WorkspaceListView: View {
                     if let id { store.send(.setActiveWorkspace(id)) }
                 }
             )) {
-                ForEach(Array(store.workspaces.enumerated()), id: \.element.id) { index, workspace in
+                ForEach(store.workspaces) { workspace in
+                    let index = store.workspaces.index(id: workspace.id).map {
+                        store.workspaces.distance(from: store.workspaces.startIndex, to: $0)
+                    } ?? 0
                     WorkspaceRowView(
                         name: workspace.name,
                         color: workspace.color,
