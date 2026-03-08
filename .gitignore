@@ -1,0 +1,25 @@
+# Xcode
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+xcuserdata/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Ghostty submodule build artifacts
+ghostty/zig-out/
+ghostty/zig-cache/
+ghostty/.zig-cache/
+
+# SPM
+.build/
+Packages/
+Package.resolved
+
+# Claude
+.claude/

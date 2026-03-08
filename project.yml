@@ -1,0 +1,73 @@
+name: Nexus
+options:
+  bundleIdPrefix: com.nexus
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+  defaultConfig: Debug
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+
+packages:
+  ComposableArchitecture:
+    url: https://github.com/pointfreeco/swift-composable-architecture
+    version: 1.17.1
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    version: 7.3.0
+
+targets:
+  Nexus:
+    type: application
+    platform: macOS
+    sources:
+      - path: Nexus
+        excludes:
+          - "**/*.h"
+          - "**/*.c"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nexus.app
+        PRODUCT_NAME: Nexus
+        INFOPLIST_FILE: Nexus/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Nexus/Nexus.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: Nexus/Ghostty/Ghostty-Bridging-Header.h
+        OTHER_LDFLAGS:
+          - "-lc++"
+          - "-lz"
+          - "-L$(SRCROOT)/lib"
+          - "-lghostty"
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/ghostty/include"
+        GENERATE_INFOPLIST_FILE: false
+    dependencies:
+      - package: ComposableArchitecture
+      - package: GRDB
+        product: GRDB
+      - sdk: Metal.framework
+      - sdk: QuartzCore.framework
+      - sdk: CoreText.framework
+      - sdk: AppKit.framework
+      - sdk: IOKit.framework
+      - sdk: Foundation.framework
+      - sdk: Carbon.framework
+
+  NexusTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: NexusTests
+    dependencies:
+      - target: Nexus
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nexus.tests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Nexus.app/Contents/MacOS/Nexus"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/ghostty/include"

@@ -1,0 +1,656 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		087888F2C9CCD49A5DB19E89 /* WorkspaceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B99B9BACA8153BE1ABE412 /* WorkspaceListView.swift */; };
+		103C1B62EE40C88B59C81705 /* Pane.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93167BDC0E7772D231F99E8 /* Pane.swift */; };
+		1B5BABDA615D3462A789355D /* PaneType.swift in Sources */ = {isa = PBXBuildFile; fileRef = C047E92FE7823AD19A207A82 /* PaneType.swift */; };
+		23B7A4375CFBA2A0AF0BD4B5 /* WorkspaceFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5BE660397D7CA67D909D988 /* WorkspaceFeatureTests.swift */; };
+		2CB3848DCA20C5F575116C33 /* PaneHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5C2505807A0297370DC70D /* PaneHeaderView.swift */; };
+		2FC734D4C60D40384C0CC762 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CFC6CC21FCE4E91003E7CE82 /* IOKit.framework */; };
+		375C8BCC9F11700FEBFAC68D /* NewWorkspaceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 319C35E223267880C3247786 /* NewWorkspaceSheet.swift */; };
+		40AA44A23F333093A2CB0D73 /* SurfaceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C18E2F1249EAC70CE79F613 /* SurfaceManager.swift */; };
+		4EB99A1B277034863DAE58D0 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8DF4ADB86C4AE07CB9C53E2A /* QuartzCore.framework */; };
+		4FE40D67FB1FA6F90950FAA1 /* PersistenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55BE5E732B98707B64C6CCC1 /* PersistenceService.swift */; };
+		556DE281F89A0258C29208A5 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ADBDF643D25D92B538C4EA9 /* ContentView.swift */; };
+		56A1FC9C1A5285DA29A904AD /* NexusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC04BDAB61F82D3189AC43C6 /* NexusApp.swift */; };
+		57DB32B8D4EC27378781BEF5 /* SurfaceContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5495E12EC7C814B95EE2732 /* SurfaceContainerView.swift */; };
+		5C23191D3FB6A6469701D3EA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 51CA985BADE5CE7057E2E2B4 /* Metal.framework */; };
+		5E20EF3FAFAC6280DE7084C5 /* WorkspaceFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 427B2ECC946094756012A25F /* WorkspaceFeature.swift */; };
+		60540450EC5091215339A570 /* WorkspaceColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94EB494A4A627FA920CD3C24 /* WorkspaceColor.swift */; };
+		62A5626A8F79713B8822FC2A /* CoreText.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 620FC3BC6EDDA3073A852809 /* CoreText.framework */; };
+		665EBD0DA670A820E57863DE /* NexusCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CE0337B159EEA8C987E0998 /* NexusCommands.swift */; };
+		6E3A0DD305DB01F5F0D25EBC /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1B856A0577AA63F438DC24C /* AppKit.framework */; };
+		6FA0DA9D860493F2DB0EA2EA /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D86C730015BEA184D84A2921 /* Carbon.framework */; };
+		76CB14ECF2247E233B2614BE /* PersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD58D51CC4DC22E568D4B0A3 /* PersistenceTests.swift */; };
+		8BF11F2C2112AC09BA6EEB08 /* GhosttyConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC14CB4D58153A7113FD26F8 /* GhosttyConfig.swift */; };
+		9752B8F62EC1E917DA3D1D27 /* SplitDividerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 192C20DFC402F0694288E4F9 /* SplitDividerView.swift */; };
+		B060959AEA2A5E363A9A6C72 /* DatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6C7D51FECC970E31659DFBD /* DatabaseService.swift */; };
+		B500FE46357F83C65C91E19B /* WorkspaceRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC807E893030C5E46495AFF /* WorkspaceRowView.swift */; };
+		B737A59624C6208E64752356 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 1C285DFED557074F51A0ED1D /* GRDB */; };
+		B9C2E796D5E09945264F81D2 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C82DD33A39D1BC1A1D8CA29 /* Foundation.framework */; };
+		C6BAFDCD619CAC21E4269342 /* PaneLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EDF2C4B37E684819F441FA4 /* PaneLayoutTests.swift */; };
+		CEA2876B7A8C383C24C28BD7 /* AppReducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 705D6277A1B79CE63A2D0AAF /* AppReducer.swift */; };
+		D853E5646ACE4A2A4E47E539 /* GhosttySurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6C3010C6A7FE17BCD379254 /* GhosttySurface.swift */; };
+		E1AE1880E0973899257BE022 /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = E50A1A944F9AE47DBB6B4763 /* ComposableArchitecture */; };
+		E2EEC6EE25A4E7F372E94A87 /* PaneLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C377966C52CB02012F211F65 /* PaneLayout.swift */; };
+		E71B6E45BE8F61CE19EDD29A /* SurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1CCDF319563AC5D3B26D08C /* SurfaceView.swift */; };
+		EC469F7A77CE8588D4EBFCB2 /* PaneGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D41B355C6BEEDE8BA3B2061 /* PaneGridView.swift */; };
+		FB580C1521D18D37B4ABDD35 /* GhosttyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 280C2FE6D0DE2494A16A6DAC /* GhosttyApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A5AC4F8A845CB0DFA21DF1E1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6E0546D7A1020B804447C56B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C33A72293F18700680F43B8C;
+			remoteInfo = Nexus;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0C82DD33A39D1BC1A1D8CA29 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		192C20DFC402F0694288E4F9 /* SplitDividerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitDividerView.swift; sourceTree = "<group>"; };
+		1CE0337B159EEA8C987E0998 /* NexusCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusCommands.swift; sourceTree = "<group>"; };
+		280C2FE6D0DE2494A16A6DAC /* GhosttyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyApp.swift; sourceTree = "<group>"; };
+		319C35E223267880C3247786 /* NewWorkspaceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewWorkspaceSheet.swift; sourceTree = "<group>"; };
+		427B2ECC946094756012A25F /* WorkspaceFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceFeature.swift; sourceTree = "<group>"; };
+		4ADBDF643D25D92B538C4EA9 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		51CA985BADE5CE7057E2E2B4 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		55BE5E732B98707B64C6CCC1 /* PersistenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceService.swift; sourceTree = "<group>"; };
+		5C18E2F1249EAC70CE79F613 /* SurfaceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceManager.swift; sourceTree = "<group>"; };
+		620FC3BC6EDDA3073A852809 /* CoreText.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreText.framework; path = System/Library/Frameworks/CoreText.framework; sourceTree = SDKROOT; };
+		648D0058F2A96114778976EB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		69ED62341195FDE8DC9B5405 /* NexusTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NexusTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6EDF2C4B37E684819F441FA4 /* PaneLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayoutTests.swift; sourceTree = "<group>"; };
+		705D6277A1B79CE63A2D0AAF /* AppReducer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReducer.swift; sourceTree = "<group>"; };
+		7EC807E893030C5E46495AFF /* WorkspaceRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceRowView.swift; sourceTree = "<group>"; };
+		7F5C2505807A0297370DC70D /* PaneHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneHeaderView.swift; sourceTree = "<group>"; };
+		8DF4ADB86C4AE07CB9C53E2A /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		94EB494A4A627FA920CD3C24 /* WorkspaceColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceColor.swift; sourceTree = "<group>"; };
+		9D41B355C6BEEDE8BA3B2061 /* PaneGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneGridView.swift; sourceTree = "<group>"; };
+		A6C7D51FECC970E31659DFBD /* DatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseService.swift; sourceTree = "<group>"; };
+		B93167BDC0E7772D231F99E8 /* Pane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pane.swift; sourceTree = "<group>"; };
+		BC14CB4D58153A7113FD26F8 /* GhosttyConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfig.swift; sourceTree = "<group>"; };
+		C047E92FE7823AD19A207A82 /* PaneType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneType.swift; sourceTree = "<group>"; };
+		C1B856A0577AA63F438DC24C /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		C377966C52CB02012F211F65 /* PaneLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayout.swift; sourceTree = "<group>"; };
+		C5BE660397D7CA67D909D988 /* WorkspaceFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceFeatureTests.swift; sourceTree = "<group>"; };
+		C6C3010C6A7FE17BCD379254 /* GhosttySurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttySurface.swift; sourceTree = "<group>"; };
+		CFC6CC21FCE4E91003E7CE82 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		D649B49DF0AA5FFD3746D604 /* Nexus.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Nexus.entitlements; sourceTree = "<group>"; };
+		D86C730015BEA184D84A2921 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
+		E1CCDF319563AC5D3B26D08C /* SurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceView.swift; sourceTree = "<group>"; };
+		E7B99B9BACA8153BE1ABE412 /* WorkspaceListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceListView.swift; sourceTree = "<group>"; };
+		F5495E12EC7C814B95EE2732 /* SurfaceContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceContainerView.swift; sourceTree = "<group>"; };
+		FC04BDAB61F82D3189AC43C6 /* NexusApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexusApp.swift; sourceTree = "<group>"; };
+		FCF0E4BE82C411A3DAAED3C7 /* Nexus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nexus.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD58D51CC4DC22E568D4B0A3 /* PersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0717F30BCC141C38ED1CB4CD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E1AE1880E0973899257BE022 /* ComposableArchitecture in Frameworks */,
+				B737A59624C6208E64752356 /* GRDB in Frameworks */,
+				5C23191D3FB6A6469701D3EA /* Metal.framework in Frameworks */,
+				4EB99A1B277034863DAE58D0 /* QuartzCore.framework in Frameworks */,
+				62A5626A8F79713B8822FC2A /* CoreText.framework in Frameworks */,
+				6E3A0DD305DB01F5F0D25EBC /* AppKit.framework in Frameworks */,
+				2FC734D4C60D40384C0CC762 /* IOKit.framework in Frameworks */,
+				B9C2E796D5E09945264F81D2 /* Foundation.framework in Frameworks */,
+				6FA0DA9D860493F2DB0EA2EA /* Carbon.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		06AE5C7DF58DFEFE5668FEAF /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C1B856A0577AA63F438DC24C /* AppKit.framework */,
+				D86C730015BEA184D84A2921 /* Carbon.framework */,
+				620FC3BC6EDDA3073A852809 /* CoreText.framework */,
+				0C82DD33A39D1BC1A1D8CA29 /* Foundation.framework */,
+				CFC6CC21FCE4E91003E7CE82 /* IOKit.framework */,
+				51CA985BADE5CE7057E2E2B4 /* Metal.framework */,
+				8DF4ADB86C4AE07CB9C53E2A /* QuartzCore.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		0C9A4B5DA2CC95094AEBF610 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A6C7D51FECC970E31659DFBD /* DatabaseService.swift */,
+				55BE5E732B98707B64C6CCC1 /* PersistenceService.swift */,
+				5C18E2F1249EAC70CE79F613 /* SurfaceManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		0EBCEF7719D6AE51AC9B466C /* NexusTests */ = {
+			isa = PBXGroup;
+			children = (
+				6EDF2C4B37E684819F441FA4 /* PaneLayoutTests.swift */,
+				FD58D51CC4DC22E568D4B0A3 /* PersistenceTests.swift */,
+				C5BE660397D7CA67D909D988 /* WorkspaceFeatureTests.swift */,
+			);
+			path = NexusTests;
+			sourceTree = "<group>";
+		};
+		11E3CC88B7BCE0F356595ACA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FCF0E4BE82C411A3DAAED3C7 /* Nexus.app */,
+				69ED62341195FDE8DC9B5405 /* NexusTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		351E01E7A3E7FEC74320C3AA /* Workspace */ = {
+			isa = PBXGroup;
+			children = (
+				319C35E223267880C3247786 /* NewWorkspaceSheet.swift */,
+				427B2ECC946094756012A25F /* WorkspaceFeature.swift */,
+				E7B99B9BACA8153BE1ABE412 /* WorkspaceListView.swift */,
+				7EC807E893030C5E46495AFF /* WorkspaceRowView.swift */,
+			);
+			path = Workspace;
+			sourceTree = "<group>";
+		};
+		4C1E6137A6EA9FA191EB9AA8 = {
+			isa = PBXGroup;
+			children = (
+				5E412486ED50A7F5F6A86C05 /* Nexus */,
+				0EBCEF7719D6AE51AC9B466C /* NexusTests */,
+				06AE5C7DF58DFEFE5668FEAF /* Frameworks */,
+				11E3CC88B7BCE0F356595ACA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5E412486ED50A7F5F6A86C05 /* Nexus */ = {
+			isa = PBXGroup;
+			children = (
+				705D6277A1B79CE63A2D0AAF /* AppReducer.swift */,
+				4ADBDF643D25D92B538C4EA9 /* ContentView.swift */,
+				648D0058F2A96114778976EB /* Info.plist */,
+				D649B49DF0AA5FFD3746D604 /* Nexus.entitlements */,
+				FC04BDAB61F82D3189AC43C6 /* NexusApp.swift */,
+				650B49880AEA3A783D9C7836 /* Commands */,
+				61089546895321585E6E1719 /* Features */,
+				81C9CBDB8066539A67DFF914 /* Ghostty */,
+				79B194B5DA539610FBD78C7E /* Models */,
+				0C9A4B5DA2CC95094AEBF610 /* Services */,
+			);
+			path = Nexus;
+			sourceTree = "<group>";
+		};
+		61089546895321585E6E1719 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				98421479324531D11A510B5D /* PaneGrid */,
+				351E01E7A3E7FEC74320C3AA /* Workspace */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		650B49880AEA3A783D9C7836 /* Commands */ = {
+			isa = PBXGroup;
+			children = (
+				1CE0337B159EEA8C987E0998 /* NexusCommands.swift */,
+			);
+			path = Commands;
+			sourceTree = "<group>";
+		};
+		79B194B5DA539610FBD78C7E /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B93167BDC0E7772D231F99E8 /* Pane.swift */,
+				C377966C52CB02012F211F65 /* PaneLayout.swift */,
+				C047E92FE7823AD19A207A82 /* PaneType.swift */,
+				94EB494A4A627FA920CD3C24 /* WorkspaceColor.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		81C9CBDB8066539A67DFF914 /* Ghostty */ = {
+			isa = PBXGroup;
+			children = (
+				280C2FE6D0DE2494A16A6DAC /* GhosttyApp.swift */,
+				BC14CB4D58153A7113FD26F8 /* GhosttyConfig.swift */,
+				C6C3010C6A7FE17BCD379254 /* GhosttySurface.swift */,
+				E1CCDF319563AC5D3B26D08C /* SurfaceView.swift */,
+			);
+			path = Ghostty;
+			sourceTree = "<group>";
+		};
+		98421479324531D11A510B5D /* PaneGrid */ = {
+			isa = PBXGroup;
+			children = (
+				9D41B355C6BEEDE8BA3B2061 /* PaneGridView.swift */,
+				7F5C2505807A0297370DC70D /* PaneHeaderView.swift */,
+				192C20DFC402F0694288E4F9 /* SplitDividerView.swift */,
+				F5495E12EC7C814B95EE2732 /* SurfaceContainerView.swift */,
+			);
+			path = PaneGrid;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2A1E5A123A1BF5FF36233484 /* NexusTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 126340C0FF895F25DCB8BA26 /* Build configuration list for PBXNativeTarget "NexusTests" */;
+			buildPhases = (
+				2B0306F2350409CF18E1A3B3 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				64B63C38E4B0E2B503A2F82D /* PBXTargetDependency */,
+			);
+			name = NexusTests;
+			packageProductDependencies = (
+			);
+			productName = NexusTests;
+			productReference = 69ED62341195FDE8DC9B5405 /* NexusTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		C33A72293F18700680F43B8C /* Nexus */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 53C579BF4CA941AFC4DF3BAE /* Build configuration list for PBXNativeTarget "Nexus" */;
+			buildPhases = (
+				9BA272A32A7DD46181642993 /* Sources */,
+				0717F30BCC141C38ED1CB4CD /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Nexus;
+			packageProductDependencies = (
+				E50A1A944F9AE47DBB6B4763 /* ComposableArchitecture */,
+				1C285DFED557074F51A0ED1D /* GRDB */,
+			);
+			productName = Nexus;
+			productReference = FCF0E4BE82C411A3DAAED3C7 /* Nexus.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		6E0546D7A1020B804447C56B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 17896972B6EAD3EB1C3E2233 /* Build configuration list for PBXProject "Nexus" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 4C1E6137A6EA9FA191EB9AA8;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				59C00D0DB2C093DC558EA643 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */,
+				53F54A08BA1E8F405C26D69B /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 11E3CC88B7BCE0F356595ACA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C33A72293F18700680F43B8C /* Nexus */,
+				2A1E5A123A1BF5FF36233484 /* NexusTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2B0306F2350409CF18E1A3B3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C6BAFDCD619CAC21E4269342 /* PaneLayoutTests.swift in Sources */,
+				76CB14ECF2247E233B2614BE /* PersistenceTests.swift in Sources */,
+				23B7A4375CFBA2A0AF0BD4B5 /* WorkspaceFeatureTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9BA272A32A7DD46181642993 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CEA2876B7A8C383C24C28BD7 /* AppReducer.swift in Sources */,
+				556DE281F89A0258C29208A5 /* ContentView.swift in Sources */,
+				B060959AEA2A5E363A9A6C72 /* DatabaseService.swift in Sources */,
+				FB580C1521D18D37B4ABDD35 /* GhosttyApp.swift in Sources */,
+				8BF11F2C2112AC09BA6EEB08 /* GhosttyConfig.swift in Sources */,
+				D853E5646ACE4A2A4E47E539 /* GhosttySurface.swift in Sources */,
+				375C8BCC9F11700FEBFAC68D /* NewWorkspaceSheet.swift in Sources */,
+				56A1FC9C1A5285DA29A904AD /* NexusApp.swift in Sources */,
+				665EBD0DA670A820E57863DE /* NexusCommands.swift in Sources */,
+				103C1B62EE40C88B59C81705 /* Pane.swift in Sources */,
+				EC469F7A77CE8588D4EBFCB2 /* PaneGridView.swift in Sources */,
+				2CB3848DCA20C5F575116C33 /* PaneHeaderView.swift in Sources */,
+				E2EEC6EE25A4E7F372E94A87 /* PaneLayout.swift in Sources */,
+				1B5BABDA615D3462A789355D /* PaneType.swift in Sources */,
+				4FE40D67FB1FA6F90950FAA1 /* PersistenceService.swift in Sources */,
+				9752B8F62EC1E917DA3D1D27 /* SplitDividerView.swift in Sources */,
+				57DB32B8D4EC27378781BEF5 /* SurfaceContainerView.swift in Sources */,
+				40AA44A23F333093A2CB0D73 /* SurfaceManager.swift in Sources */,
+				E71B6E45BE8F61CE19EDD29A /* SurfaceView.swift in Sources */,
+				60540450EC5091215339A570 /* WorkspaceColor.swift in Sources */,
+				5E20EF3FAFAC6280DE7084C5 /* WorkspaceFeature.swift in Sources */,
+				087888F2C9CCD49A5DB19E89 /* WorkspaceListView.swift in Sources */,
+				B500FE46357F83C65C91E19B /* WorkspaceRowView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		64B63C38E4B0E2B503A2F82D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C33A72293F18700680F43B8C /* Nexus */;
+			targetProxy = A5AC4F8A845CB0DFA21DF1E1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		00EFA657DA51B02098A9D6ED /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		31506F6B136916F6C9AE4005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Nexus/Nexus.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ghostty/include",
+				);
+				INFOPLIST_FILE = Nexus/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-lc++",
+					"-lz",
+					"-L$(SRCROOT)/lib",
+					"-lghostty",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nexus.app;
+				PRODUCT_NAME = Nexus;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "Nexus/Ghostty/Ghostty-Bridging-Header.h";
+			};
+			name = Release;
+		};
+		31CFB435AC1B5F3DB183FD08 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Nexus/Nexus.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ghostty/include",
+				);
+				INFOPLIST_FILE = Nexus/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"-lc++",
+					"-lz",
+					"-L$(SRCROOT)/lib",
+					"-lghostty",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nexus.app;
+				PRODUCT_NAME = Nexus;
+				SDKROOT = macosx;
+				SWIFT_OBJC_BRIDGING_HEADER = "Nexus/Ghostty/Ghostty-Bridging-Header.h";
+			};
+			name = Debug;
+		};
+		958B4D27785146E84A1E24AF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		D17B27C8C2387F063C632FC0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ghostty/include",
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nexus.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Nexus.app/Contents/MacOS/Nexus";
+			};
+			name = Release;
+		};
+		DA1A129B45F0651E320D9A55 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/ghostty/include",
+				);
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nexus.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Nexus.app/Contents/MacOS/Nexus";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		126340C0FF895F25DCB8BA26 /* Build configuration list for PBXNativeTarget "NexusTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DA1A129B45F0651E320D9A55 /* Debug */,
+				D17B27C8C2387F063C632FC0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		17896972B6EAD3EB1C3E2233 /* Build configuration list for PBXProject "Nexus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00EFA657DA51B02098A9D6ED /* Debug */,
+				958B4D27785146E84A1E24AF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		53C579BF4CA941AFC4DF3BAE /* Build configuration list for PBXNativeTarget "Nexus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				31CFB435AC1B5F3DB183FD08 /* Debug */,
+				31506F6B136916F6C9AE4005 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		53F54A08BA1E8F405C26D69B /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/groue/GRDB.swift";
+			requirement = {
+				kind = exactVersion;
+				version = 7.3.0;
+			};
+		};
+		59C00D0DB2C093DC558EA643 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-composable-architecture";
+			requirement = {
+				kind = exactVersion;
+				version = 1.17.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1C285DFED557074F51A0ED1D /* GRDB */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 53F54A08BA1E8F405C26D69B /* XCRemoteSwiftPackageReference "GRDB.swift" */;
+			productName = GRDB;
+		};
+		E50A1A944F9AE47DBB6B4763 /* ComposableArchitecture */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 59C00D0DB2C093DC558EA643 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */;
+			productName = ComposableArchitecture;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 6E0546D7A1020B804447C56B /* Project object */;
+}
