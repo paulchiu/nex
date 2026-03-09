@@ -4,18 +4,27 @@ import Foundation
 
 @Reducer
 struct SettingsFeature {
+    static let defaultWorktreeBasePath = "~/nexus/workspaces"
+
     @ObservableState
     struct State: Equatable {
         var backgroundOpacity: Double = 1.0
         var backgroundColorR: Double = 0.0
         var backgroundColorG: Double = 0.0
         var backgroundColorB: Double = 0.0
+        var worktreeBasePath: String = SettingsFeature.defaultWorktreeBasePath
+
+        /// The resolved absolute worktree base path (expands ~).
+        var resolvedWorktreeBasePath: String {
+            (worktreeBasePath as NSString).expandingTildeInPath
+        }
     }
 
     enum Action: Equatable, Sendable {
         case loadSettings
         case setBackgroundOpacity(Double)
         case setBackgroundColor(r: Double, g: Double, b: Double)
+        case setWorktreeBasePath(String)
         case _applyAppearance(opacity: Double, r: Double, g: Double, b: Double)
     }
 
@@ -26,6 +35,7 @@ struct SettingsFeature {
     private static let defaultsKeyColorG = "settings.backgroundColorG"
     private static let defaultsKeyColorB = "settings.backgroundColorB"
     private static let defaultsKeyHasCustomColor = "settings.hasCustomColor"
+    private static let defaultsKeyWorktreeBasePath = "settings.worktreeBasePath"
 
     @Dependency(\.surfaceManager) var surfaceManager
 
@@ -36,6 +46,9 @@ struct SettingsFeature {
                 let defaults = UserDefaults.standard
                 if defaults.object(forKey: Self.defaultsKeyOpacity) != nil {
                     state.backgroundOpacity = defaults.double(forKey: Self.defaultsKeyOpacity)
+                }
+                if let basePath = defaults.string(forKey: Self.defaultsKeyWorktreeBasePath) {
+                    state.worktreeBasePath = basePath
                 }
                 if defaults.bool(forKey: Self.defaultsKeyHasCustomColor) {
                     state.backgroundColorR = defaults.double(forKey: Self.defaultsKeyColorR)
@@ -75,6 +88,11 @@ struct SettingsFeature {
                     r: r, g: g, b: b
                 ))
                 .debounce(id: AppearanceDebounceID.debounce, for: .milliseconds(100), scheduler: DispatchQueue.main)
+
+            case .setWorktreeBasePath(let path):
+                state.worktreeBasePath = path
+                UserDefaults.standard.set(path, forKey: Self.defaultsKeyWorktreeBasePath)
+                return .none
 
             case ._applyAppearance(let opacity, let r, let g, let b):
                 // Persist to UserDefaults

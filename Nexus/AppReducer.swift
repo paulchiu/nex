@@ -263,8 +263,8 @@ struct AppReducer {
             case .createWorktree(let workspaceID, let repoID, let worktreeName, let branchName):
                 guard let repo = state.repoRegistry[id: repoID],
                       let workspace = state.workspaces[id: workspaceID] else { return .none }
-                let home = NSHomeDirectory()
-                let worktreePath = "\(home)/nexus/workspaces/\(workspace.slug)/\(worktreeName)"
+                let basePath = state.settings.resolvedWorktreeBasePath
+                let worktreePath = "\(basePath)/\(workspace.slug)/\(worktreeName)"
                 return .run { send in
                     do {
                         try await gitService.createWorktree(repo.path, worktreePath, branchName)

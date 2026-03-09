@@ -7,6 +7,11 @@ struct SettingsView: View {
     var body: some View {
         WithPerceptionTracking {
             TabView {
+                GeneralSettingsView(store: store.scope(state: \.settings, action: \.settings))
+                    .tabItem {
+                        Label("General", systemImage: "gear")
+                    }
+
                 AppearanceSettingsView(store: store.scope(state: \.settings, action: \.settings))
                     .tabItem {
                         Label("Appearance", systemImage: "paintbrush")
@@ -19,6 +24,27 @@ struct SettingsView: View {
             }
             .frame(width: 500, height: 400)
         }
+    }
+}
+
+/// General settings tab.
+private struct GeneralSettingsView: View {
+    @Bindable var store: StoreOf<SettingsFeature>
+
+    var body: some View {
+        Form {
+            Section("Worktrees") {
+                HStack {
+                    Text("Base path")
+                    TextField("", text: $store.worktreeBasePath.sending(\.setWorktreeBasePath))
+                        .textFieldStyle(.plain)
+                }
+                Text("Worktrees are created at <base path>/<workspace>/<name>")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

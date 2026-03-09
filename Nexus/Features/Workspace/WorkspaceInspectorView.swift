@@ -93,6 +93,7 @@ struct WorkspaceInspectorView: View {
                     CreateWorktreeSheet(
                         repoName: store.repoRegistry[id: repoID]?.name ?? "repo",
                         workspaceSlug: workspace.slug,
+                        worktreeBasePath: store.settings.worktreeBasePath,
                         worktreeName: $worktreeName,
                         branchName: $worktreeBranchName,
                         onCreate: {
@@ -270,6 +271,7 @@ struct WorkspaceInspectorView: View {
 struct CreateWorktreeSheet: View {
     let repoName: String
     let workspaceSlug: String
+    let worktreeBasePath: String
     @Binding var worktreeName: String
     @Binding var branchName: String
     let onCreate: () -> Void
@@ -296,7 +298,7 @@ struct CreateWorktreeSheet: View {
                 .textFieldStyle(.roundedBorder)
                 .onSubmit { if isValid { onCreate() } }
 
-            Text("~/nexus/workspaces/\(workspaceSlug)/\(worktreeName.isEmpty ? "<name>" : worktreeName)")
+            Text("\(worktreeBasePath)/\(workspaceSlug)/\(worktreeName.isEmpty ? "<name>" : worktreeName)")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
