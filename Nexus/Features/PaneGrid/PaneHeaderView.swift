@@ -30,6 +30,20 @@ struct PaneHeaderView: View {
 
             Spacer()
 
+            if let branch = pane.gitBranch {
+                HStack(spacing: 2) {
+                    Image(systemName: "arrow.triangle.branch")
+                        .font(.system(size: 9))
+                    Text(branch)
+                        .font(.system(size: 10, design: .monospaced))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 3))
+            }
+
             Button(action: onSplitHorizontal) {
                 Image(systemName: "square.split.2x1")
                     .font(.system(size: 10))

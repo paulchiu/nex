@@ -104,20 +104,6 @@ struct NewWorkspaceSheet: View {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
 
-        store.send(.createWorkspace(name: trimmed, color: color))
-
-        // Add repo associations to the newly created workspace after it's created
-        if !selectedRepos.isEmpty, let activeID = store.activeWorkspaceID {
-            for repo in selectedRepos {
-                let assoc = RepoAssociation(
-                    repoID: repo.id,
-                    worktreePath: repo.path
-                )
-                store.send(.workspaces(.element(
-                    id: activeID,
-                    action: .addRepoAssociation(assoc)
-                )))
-            }
-        }
+        store.send(.createWorkspace(name: trimmed, color: color, repos: selectedRepos))
     }
 }

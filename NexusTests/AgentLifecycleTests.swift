@@ -21,6 +21,7 @@ struct AgentLifecycleTests {
         } withDependencies: {
             $0.surfaceManager = SurfaceManager()
             $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.gitService.getCurrentBranch = { _ in nil }
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
         return store

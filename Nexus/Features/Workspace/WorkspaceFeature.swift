@@ -90,12 +90,14 @@ struct WorkspaceFeature {
         case movePane(paneID: UUID, targetPaneID: UUID, zone: PaneLayout.DropZone)
         case agentStatusChanged(paneID: UUID, event: AgentEvent)
         case clearPaneStatus(UUID)
+        case paneBranchChanged(paneID: UUID, branch: String?)
         case addRepoAssociation(RepoAssociation)
         case removeRepoAssociation(UUID)
     }
 
     @Dependency(\.surfaceManager) var surfaceManager
     @Dependency(\.ghosttyConfig) var ghosttyConfig
+    @Dependency(\.gitService) var gitService
     @Dependency(\.date.now) var now
     @Dependency(\.uuid) var uuid
 
@@ -222,7 +224,10 @@ struct WorkspaceFeature {
             case .paneDirectoryChanged(let paneID, let directory):
                 state.panes[id: paneID]?.workingDirectory = directory
                 state.panes[id: paneID]?.lastActivityAt = now
-                return .none
+                return .run { send in
+                    let branch = try? await gitService.getCurrentBranch(directory)
+                    await send(.paneBranchChanged(paneID: paneID, branch: branch))
+                }
 
             case .paneProcessTerminated(let paneID):
                 // Close the pane when its shell exits
@@ -256,6 +261,10 @@ struct WorkspaceFeature {
                 if state.panes[id: paneID]?.status == .waitingForInput {
                     state.panes[id: paneID]?.status = .idle
                 }
+                return .none
+
+            case .paneBranchChanged(let paneID, let branch):
+                state.panes[id: paneID]?.gitBranch = branch
                 return .none
 
             case .addRepoAssociation(let assoc):

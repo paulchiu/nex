@@ -12,6 +12,7 @@ struct Pane: Identifiable, Equatable, Sendable {
     var type: PaneType
     var title: String?
     var workingDirectory: String
+    var gitBranch: String?
     var status: PaneStatus
     var createdAt: Date
     var lastActivityAt: Date
@@ -22,6 +23,7 @@ struct Pane: Identifiable, Equatable, Sendable {
         type: PaneType = .shell,
         title: String? = nil,
         workingDirectory: String = NSHomeDirectory(),
+        gitBranch: String? = nil,
         status: PaneStatus = .idle,
         createdAt: Date = Date(),
         lastActivityAt: Date = Date()
@@ -31,6 +33,7 @@ struct Pane: Identifiable, Equatable, Sendable {
         self.type = type
         self.title = title
         self.workingDirectory = workingDirectory
+        self.gitBranch = gitBranch
         self.status = status
         self.createdAt = createdAt
         self.lastActivityAt = lastActivityAt

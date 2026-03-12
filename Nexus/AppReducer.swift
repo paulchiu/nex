@@ -23,7 +23,7 @@ struct AppReducer {
 
     enum Action: Equatable, Sendable {
         case appLaunched
-        case createWorkspace(name: String, color: WorkspaceColor)
+        case createWorkspace(name: String, color: WorkspaceColor, repos: [Repo] = [])
         case deleteWorkspace(UUID)
         case setActiveWorkspace(UUID)
         case switchToWorkspaceByIndex(Int)
@@ -102,12 +102,28 @@ struct AppReducer {
                     .send(.settings(.loadSettings))
                 )
 
-            case .createWorkspace(let name, let color):
-                let workspace = WorkspaceFeature.State(
+            case .createWorkspace(let name, let color, let repos):
+                var workspace = WorkspaceFeature.State(
                     id: uuid(),
                     name: name,
                     color: color
                 )
+
+                // If exactly one repo, start the first pane in that repo's directory
+                if repos.count == 1 {
+                    workspace.panes[workspace.panes.startIndex].workingDirectory = repos[0].path
+                }
+
+                // Add repo associations
+                for repo in repos {
+                    let assoc = RepoAssociation(
+                        id: uuid(),
+                        repoID: repo.id,
+                        worktreePath: repo.path
+                    )
+                    workspace.repoAssociations.append(assoc)
+                }
+
                 state.workspaces.append(workspace)
                 state.activeWorkspaceID = workspace.id
                 state.isNewWorkspaceSheetPresented = false
