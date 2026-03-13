@@ -27,6 +27,26 @@ final class GhosttySurface {
         }
     }
 
+    /// Send a Return key press+release to the terminal.
+    func sendEnterKey() {
+        var key = ghostty_input_key_s()
+        key.action = GHOSTTY_ACTION_PRESS
+        key.keycode = 0x24 // macOS Return keycode
+        key.mods = GHOSTTY_MODS_NONE
+        key.consumed_mods = GHOSTTY_MODS_NONE
+        key.composing = false
+        key.unshifted_codepoint = 0x0D
+        "\r".withCString { ptr in
+            key.text = ptr
+            _ = ghostty_surface_key(surface, key)
+        }
+
+        var release = key
+        release.action = GHOSTTY_ACTION_RELEASE
+        release.text = nil
+        _ = ghostty_surface_key(surface, release)
+    }
+
     func sendPreedit(_ text: String) {
         text.withCString { ptr in
             ghostty_surface_preedit(surface, ptr, UInt(text.utf8.count))

@@ -216,7 +216,30 @@ struct AppReducer {
                 state.activeWorkspaceID = activeID ?? workspaces.first?.id
                 state.repoRegistry = repoRegistry
 
+                // Collect panes eligible for auto-resume before clearing.
+                // Any pane with a claudeSessionID is resumable — the session
+                // remains valid regardless of the pane's current status.
+                var resumablePanes: [(paneID: UUID, sessionID: String)] = []
+                for workspace in workspaces {
+                    for pane in workspace.panes {
+                        if let sessionID = pane.claudeSessionID {
+                            resumablePanes.append((paneID: pane.id, sessionID: sessionID))
+                        }
+                    }
+                }
+
+                // Clear session IDs and reset status to prevent stale resumes on next restart
+                for workspace in state.workspaces {
+                    for pane in workspace.panes {
+                        if pane.claudeSessionID != nil {
+                            state.workspaces[id: workspace.id]?.panes[id: pane.id]?.claudeSessionID = nil
+                            state.workspaces[id: workspace.id]?.panes[id: pane.id]?.status = .idle
+                        }
+                    }
+                }
+
                 // Create surfaces for all panes in all workspaces
+                let panesToResume = resumablePanes
                 return .merge(
                     .run { _ in
                         for workspace in workspaces {
@@ -227,9 +250,21 @@ struct AppReducer {
                                 )
                             }
                         }
+
+                        // Auto-resume Claude Code sessions after surfaces are ready
+                        if !panesToResume.isEmpty {
+                            try? await clock.sleep(for: .seconds(1))
+                            for entry in panesToResume {
+                                await surfaceManager.sendCommand(
+                                    to: entry.paneID,
+                                    command: "claude --resume \(entry.sessionID)"
+                                )
+                            }
+                        }
                     },
                     .send(.refreshGitStatus),
-                    .send(._startGitStatusTimer)
+                    .send(._startGitStatusTimer),
+                    .send(.persistState)
                 )
 
             case .workspaces(.element(_, action: .agentStatusChanged)):
@@ -318,6 +353,8 @@ struct AppReducer {
                         })
                     }
                 case .started:
+                    break
+                case .sessionStarted:
                     break
                 }
                 return .merge(effects)

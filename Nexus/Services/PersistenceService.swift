@@ -81,6 +81,8 @@ actor PersistenceService {
                             label: pane.label,
                             type: pane.type.rawValue,
                             workingDirectory: pane.workingDirectory,
+                            claudeSessionID: pane.claudeSessionID,
+                            status: pane.status.rawValue,
                             createdAt: pane.createdAt.timeIntervalSince1970,
                             lastActivityAt: pane.lastActivityAt.timeIntervalSince1970
                         )
@@ -160,6 +162,8 @@ actor PersistenceService {
                             label: pr.label,
                             type: PaneType(rawValue: pr.type) ?? .shell,
                             workingDirectory: pr.workingDirectory,
+                            status: PaneStatus(rawValue: pr.status) ?? .idle,
+                            claudeSessionID: pr.claudeSessionID,
                             createdAt: Date(timeIntervalSince1970: pr.createdAt),
                             lastActivityAt: Date(timeIntervalSince1970: pr.lastActivityAt)
                         )

@@ -210,6 +210,21 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    @Test func sessionStartedStoresSessionID() async {
+        let workspace = WorkspaceFeature.State(name: "Test")
+        let paneID = workspace.panes.first!.id
+
+        let store = TestStore(initialState: workspace) {
+            WorkspaceFeature()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+        }
+
+        await store.send(.agentStatusChanged(paneID: paneID, event: .sessionStarted(sessionID: "abc-123"))) {
+            $0.panes[id: paneID]?.claudeSessionID = "abc-123"
+        }
+    }
+
     @Test func notificationEventSetsWaitingForInput() async {
         let workspace = WorkspaceFeature.State(name: "Test")
         let paneID = workspace.panes.first!.id

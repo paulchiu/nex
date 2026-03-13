@@ -7,6 +7,7 @@ enum AgentEvent: Equatable, Sendable {
     case stopped
     case error(message: String)
     case notification(title: String, body: String)
+    case sessionStarted(sessionID: String)
 }
 
 /// Unix domain socket server that listens for structured JSON messages
@@ -164,6 +165,7 @@ final class SocketServer: Sendable {
             var message: String?
             var title: String?
             var body: String?
+            var session_id: String?
         }
 
         guard let msg = try? JSONDecoder().decode(Message.self, from: data),
@@ -182,6 +184,9 @@ final class SocketServer: Sendable {
                 title: msg.title ?? "Agent",
                 body: msg.body ?? ""
             )
+        case "session-start":
+            guard let sessionID = msg.session_id, !sessionID.isEmpty else { return }
+            agentEvent = .sessionStarted(sessionID: sessionID)
         default:
             return
         }
@@ -189,6 +194,13 @@ final class SocketServer: Sendable {
         let callback = lock.withLock { onEvent }
         DispatchQueue.main.async {
             callback?(paneID, agentEvent)
+            // session_id is a common field on all Claude Code hook stdin JSON.
+            // Fire .sessionStarted whenever it's present (unless the event
+            // itself is already session-start, to avoid a duplicate).
+            if msg.event != "session-start",
+               let sessionID = msg.session_id, !sessionID.isEmpty {
+                callback?(paneID, .sessionStarted(sessionID: sessionID))
+            }
         }
     }
 

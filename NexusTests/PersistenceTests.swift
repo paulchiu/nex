@@ -58,6 +58,46 @@ struct PersistenceTests {
         #expect(loadedWS.focusedPaneID == paneID)
     }
 
+    @Test func claudeSessionIDRoundTrip() async throws {
+        let db = try DatabaseService(inMemory: true)
+        let persistence = PersistenceService(db: db)
+
+        let paneID = UUID()
+        let pane = Pane(
+            id: paneID,
+            type: .shell,
+            workingDirectory: "/tmp",
+            status: .running,
+            claudeSessionID: "75a91227-c977-4c75-8921-ba01e070dd21",
+            createdAt: Date(timeIntervalSince1970: 1000),
+            lastActivityAt: Date(timeIntervalSince1970: 2000)
+        )
+
+        let wsID = UUID()
+        let workspace = WorkspaceFeature.State(
+            id: wsID,
+            name: "Session Test",
+            slug: "session-test-\(wsID.uuidString.prefix(8).lowercased())",
+            color: .blue,
+            panes: [pane],
+            layout: .leaf(paneID),
+            focusedPaneID: paneID,
+            createdAt: Date(timeIntervalSince1970: 1000),
+            lastAccessedAt: Date(timeIntervalSince1970: 2000)
+        )
+
+        var workspaces = IdentifiedArrayOf<WorkspaceFeature.State>()
+        workspaces.append(workspace)
+
+        await persistence.save(workspaces: workspaces, activeWorkspaceID: wsID)
+        try await Task.sleep(for: .seconds(1))
+
+        let result = await persistence.load()
+        let loadedPane = result.workspaces.first!.panes.first!
+        #expect(loadedPane.claudeSessionID == "75a91227-c977-4c75-8921-ba01e070dd21")
+        #expect(loadedPane.status == .running)
+    }
+
     @Test func loadEmptyDatabaseReturnsEmpty() async throws {
         let db = try DatabaseService(inMemory: true)
         let persistence = PersistenceService(db: db)

@@ -92,6 +92,20 @@ final class DatabaseService: Sendable {
             }
         }
 
+        migrator.registerMigration("v4_agent_session") { db in
+            let columns = try db.columns(in: "pane").map(\.name)
+            if !columns.contains("claudeSessionID") {
+                try db.alter(table: "pane") { t in
+                    t.add(column: "claudeSessionID", .text)
+                }
+            }
+            if !columns.contains("status") {
+                try db.alter(table: "pane") { t in
+                    t.add(column: "status", .text).defaults(to: "idle")
+                }
+            }
+        }
+
         try migrator.migrate(writer)
     }
 }
@@ -120,6 +134,8 @@ struct PaneRecord: Codable, FetchableRecord, PersistableRecord {
     var label: String?
     var type: String
     var workingDirectory: String
+    var claudeSessionID: String?
+    var status: String
     var createdAt: Double
     var lastActivityAt: Double
 }

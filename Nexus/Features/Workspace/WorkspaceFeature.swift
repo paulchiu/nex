@@ -248,6 +248,8 @@ struct WorkspaceFeature {
                     state.panes[id: paneID]?.status = .running
                 case .stopped, .error, .notification:
                     state.panes[id: paneID]?.status = .waitingForInput
+                case .sessionStarted(let sessionID):
+                    state.panes[id: paneID]?.claudeSessionID = sessionID
                 }
                 return .none
 

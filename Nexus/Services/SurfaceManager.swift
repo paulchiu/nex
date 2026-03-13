@@ -61,6 +61,21 @@ final class SurfaceManager: Sendable {
         }
     }
 
+    @MainActor
+    func sendText(to paneID: UUID, text: String) {
+        let surfaceView = lock.withLock { surfaces[paneID] }
+        surfaceView?.ghosttySurface?.sendText(text)
+    }
+
+    /// Send text to a pane's terminal and press Enter to execute it.
+    @MainActor
+    func sendCommand(to paneID: UUID, command: String) {
+        let surfaceView = lock.withLock { surfaces[paneID] }
+        guard let surface = surfaceView?.ghosttySurface else { return }
+        surface.sendText(command)
+        surface.sendEnterKey()
+    }
+
     func paneID(for rawSurface: ghostty_surface_t) -> UUID? {
         lock.withLock {
             surfaces.first { _, view in
