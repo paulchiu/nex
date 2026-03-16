@@ -109,6 +109,7 @@ Each workspace contains one or more terminal panes in a split layout.
 | Split horizontally | `Cmd+D` |
 | Split vertically | `Cmd+Shift+D` |
 | Close pane | `Cmd+W` |
+| Reopen closed pane | `Cmd+Shift+T` |
 | Focus next pane | `Cmd+Option+Right` |
 | Focus previous pane | `Cmd+Option+Left` |
 
