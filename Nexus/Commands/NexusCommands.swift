@@ -23,17 +23,6 @@ struct NexusCommands: Commands {
                 .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: [.command])
             }
 
-            Divider()
-
-            Button("Next Workspace") {
-                store.send(.switchToNextWorkspace)
-            }
-            .keyboardShortcut("]", modifiers: [.command, .shift])
-
-            Button("Previous Workspace") {
-                store.send(.switchToPreviousWorkspace)
-            }
-            .keyboardShortcut("[", modifiers: [.command, .shift])
         }
 
         // View
@@ -117,8 +106,11 @@ final class PaneShortcutMonitor {
             return false
         }
 
+        // Arrow keys include .numericPad and .function in their modifier flags
+        let arrowFlags = flags.subtracting([.numericPad, .function])
+
         // ⌘⌥→ — focus next pane
-        if event.keyCode == 124 /* right arrow */ && flags == [.command, .option] {
+        if event.keyCode == 124 /* → */ && arrowFlags == [.command, .option] {
             store.send(.workspaces(.element(
                 id: activeID,
                 action: .focusNextPane
@@ -127,11 +119,23 @@ final class PaneShortcutMonitor {
         }
 
         // ⌘⌥← — focus previous pane
-        if event.keyCode == 123 /* left arrow */ && flags == [.command, .option] {
+        if event.keyCode == 123 /* ← */ && arrowFlags == [.command, .option] {
             store.send(.workspaces(.element(
                 id: activeID,
                 action: .focusPreviousPane
             )))
+            return true
+        }
+
+        // ⌘⌥↓ — next workspace
+        if event.keyCode == 125 /* ↓ */ && arrowFlags == [.command, .option] {
+            store.send(.switchToNextWorkspace)
+            return true
+        }
+
+        // ⌘⌥↑ — previous workspace
+        if event.keyCode == 126 /* ↑ */ && arrowFlags == [.command, .option] {
+            store.send(.switchToPreviousWorkspace)
             return true
         }
 

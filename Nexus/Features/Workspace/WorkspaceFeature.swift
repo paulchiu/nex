@@ -200,13 +200,15 @@ struct WorkspaceFeature {
                 return .none
 
             case .focusNextPane:
-                guard let current = state.focusedPaneID else { return .none }
-                state.focusedPaneID = state.layout.nextPaneID(after: current)
+                guard let current = state.focusedPaneID,
+                      let next = state.layout.nextPaneID(after: current) else { return .none }
+                state.focusedPaneID = next
                 return .none
 
             case .focusPreviousPane:
-                guard let current = state.focusedPaneID else { return .none }
-                state.focusedPaneID = state.layout.previousPaneID(before: current)
+                guard let current = state.focusedPaneID,
+                      let prev = state.layout.previousPaneID(before: current) else { return .none }
+                state.focusedPaneID = prev
                 return .none
 
             case .updateSplitRatio(let firstChildPaneID, let ratio):

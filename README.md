@@ -95,8 +95,8 @@ Workspaces are the core unit in Nexus. Each workspace is a named context with it
 |---|---|
 | New workspace | `Cmd+N` |
 | Switch by index | `Cmd+1` through `Cmd+9` |
-| Next workspace | `Cmd+Shift+]` |
-| Previous workspace | `Cmd+Shift+[` |
+| Next workspace | `Cmd+Option+Down` |
+| Previous workspace | `Cmd+Option+Up` |
 
 Right-click a workspace in the sidebar to rename it, change its color, or delete it.
 
@@ -109,7 +109,8 @@ Each workspace contains one or more terminal panes in a split layout.
 | Split horizontally | `Cmd+D` |
 | Split vertically | `Cmd+Shift+D` |
 | Close pane | `Cmd+W` |
-| Cycle focus | `Cmd+Up` / `Cmd+Down` |
+| Focus next pane | `Cmd+Option+Right` |
+| Focus previous pane | `Cmd+Option+Left` |
 
 Drag split dividers to resize. Pane headers show the working directory and current git branch.
 
