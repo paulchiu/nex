@@ -98,8 +98,14 @@ struct PaneHeaderView: View {
             ZStack {
                 Color(nsColor: .windowBackgroundColor)
                 if isFocused {
-                    Color.accentColor.opacity(0.08)
+                    Color.accentColor.opacity(0.15)
                 }
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if isFocused {
+                Color.accentColor.opacity(0.6)
+                    .frame(height: 2)
             }
         }
     }
