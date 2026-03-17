@@ -27,7 +27,7 @@
     <key>SUFeedURL</key>
     <string>https://raw.githubusercontent.com/benfriebe/nexus/main/appcast.xml</string>
     <key>SUPublicEDKey</key>
-    <string>PLACEHOLDER</string>
+    <string>ut31p12qPZOXEjkFYoGTOdgMgAEjqMpHwyCRp6OaTa8=</string>
     <key>SUEnableAutomaticChecks</key>
     <true/>
 </dict>
