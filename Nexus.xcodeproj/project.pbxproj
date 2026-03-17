@@ -42,6 +42,7 @@
 		88AB951C2D8FA04BDBBBF5E7 /* RepoRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE85F7FC60685F87C266F01 /* RepoRegistryTests.swift */; };
 		89537007F8FCAE80F380ACEB /* GitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B43F76D69B7E837A41C13448 /* GitService.swift */; };
 		8BF11F2C2112AC09BA6EEB08 /* GhosttyConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC14CB4D58153A7113FD26F8 /* GhosttyConfig.swift */; };
+		91705279803AA3B943C3DDBF /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 5429C81C2DE2C3887E1F5363 /* Sparkle */; };
 		9752B8F62EC1E917DA3D1D27 /* SplitDividerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 192C20DFC402F0694288E4F9 /* SplitDividerView.swift */; };
 		ABBA3F8960FA8C6F2558CB9B /* RepoAssociation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 973DFAD268E5D80FC7948975 /* RepoAssociation.swift */; };
 		B060959AEA2A5E363A9A6C72 /* DatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6C7D51FECC970E31659DFBD /* DatabaseService.swift */; };
@@ -143,6 +144,7 @@
 			files = (
 				E1AE1880E0973899257BE022 /* ComposableArchitecture in Frameworks */,
 				B737A59624C6208E64752356 /* GRDB in Frameworks */,
+				91705279803AA3B943C3DDBF /* Sparkle in Frameworks */,
 				5C23191D3FB6A6469701D3EA /* Metal.framework in Frameworks */,
 				4EB99A1B277034863DAE58D0 /* QuartzCore.framework in Frameworks */,
 				62A5626A8F79713B8822FC2A /* CoreText.framework in Frameworks */,
@@ -369,6 +371,7 @@
 			packageProductDependencies = (
 				E50A1A944F9AE47DBB6B4763 /* ComposableArchitecture */,
 				1C285DFED557074F51A0ED1D /* GRDB */,
+				5429C81C2DE2C3887E1F5363 /* Sparkle */,
 			);
 			productName = Nexus;
 			productReference = FCF0E4BE82C411A3DAAED3C7 /* Nexus.app */;
@@ -397,6 +400,7 @@
 			packageReferences = (
 				59C00D0DB2C093DC558EA643 /* XCRemoteSwiftPackageReference "swift-composable-architecture" */,
 				53F54A08BA1E8F405C26D69B /* XCRemoteSwiftPackageReference "GRDB.swift" */,
+				2FFBE80ACC6E19C3A11684D0 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 11E3CC88B7BCE0F356595ACA /* Products */;
@@ -751,6 +755,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		2FFBE80ACC6E19C3A11684D0 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
 		53F54A08BA1E8F405C26D69B /* XCRemoteSwiftPackageReference "GRDB.swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/groue/GRDB.swift";
@@ -774,6 +786,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 53F54A08BA1E8F405C26D69B /* XCRemoteSwiftPackageReference "GRDB.swift" */;
 			productName = GRDB;
+		};
+		5429C81C2DE2C3887E1F5363 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2FFBE80ACC6E19C3A11684D0 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 		E50A1A944F9AE47DBB6B4763 /* ComposableArchitecture */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -19,6 +19,9 @@ packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift
     version: 7.3.0
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 
 targets:
   Nexus:
@@ -48,6 +51,7 @@ targets:
       - package: ComposableArchitecture
       - package: GRDB
         product: GRDB
+      - package: Sparkle
       - sdk: Metal.framework
       - sdk: QuartzCore.framework
       - sdk: CoreText.framework
