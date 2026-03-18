@@ -37,7 +37,14 @@ jobs:
           zig build -Dapp-runtime=none -Doptimize=ReleaseFast -Demit-macos-app=false
           # Extract the macOS universal lib from the installed xcframework
           mkdir -p ../lib
-          MACOS_LIB=$(find zig-out -path "*/macos-*/libghostty.a" -type f | head -1)
+          # zig-out may be relative to the ghostty dir or the repo root
+          MACOS_LIB=$(find . "$ZIG_LOCAL_CACHE_DIR" -path "*/macos-*/libghostty.a" -type f 2>/dev/null | head -1)
+          if [ -z "$MACOS_LIB" ]; then
+            echo "::error::Could not find macOS libghostty.a in xcframework output"
+            echo "Searching for any libghostty files:"
+            find . "$ZIG_LOCAL_CACHE_DIR" -name "libghostty*" -type f 2>/dev/null
+            exit 1
+          fi
           cp "$MACOS_LIB" ../lib/libghostty.a
 
       - name: Generate Xcode project
