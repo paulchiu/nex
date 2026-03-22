@@ -18,5 +18,17 @@
       length="10149535"
       type="application/octet-stream" />
   </item>
+    <item>
+    <title>Version 0.3.9</title>
+    <pubDate>Sun, 22 Mar 2026 05:35:34 +0000</pubDate>
+    <sparkle:version>0.3.9</sparkle:version>
+    <sparkle:shortVersionString>0.3.9</sparkle:shortVersionString>
+    <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+    <enclosure
+      url="https://github.com/benfriebe/nexus/releases/download/v0.3.9/Nexus-0.3.9.dmg"
+      sparkle:edSignature="N0ttfndNv9hQimhFgAU6EQFb12shyIsVg7of5mInLC3TPAOjaG9SQMDaGgCTLeQtfyOo2XGeR8KSAKCuqaRpCA=="
+      length="10151098"
+      type="application/octet-stream" />
+  </item>
   </channel>
 </rss>
