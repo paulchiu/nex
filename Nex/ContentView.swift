@@ -42,6 +42,12 @@ struct ContentView: View {
                         onFocusPane: { paneID in
                             store.send(.workspaces(.element(id: activeID, action: .focusPane(paneID))))
                         },
+                        onToggleMarkdownEdit: { paneID in
+                            store.send(.workspaces(.element(
+                                id: activeID,
+                                action: .toggleMarkdownEdit(paneID)
+                            )))
+                        },
                         onUpdateRatio: { firstChildPaneID, ratio in
                             store.send(.workspaces(.element(
                                 id: activeID,

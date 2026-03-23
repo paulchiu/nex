@@ -15,6 +15,7 @@
 		2061570DEABB0E43847DBB5D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A198A2F5EA992907A3031ED /* ContentView.swift */; };
 		2364A5458060B16493954543 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 281D0362CA8542610B8329F6 /* Metal.framework */; };
 		27D6386295651D4FE9A3DF6B /* Pane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D96CD47FF756C95404DF4F6 /* Pane.swift */; };
+		291A22061671351813971551 /* MarkdownEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED3289901F70616FC36F80B /* MarkdownEditorView.swift */; };
 		29C636F17D2FEF2D5E0BE55D /* SettingsFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8322D3C28268495A01EA0597 /* SettingsFeature.swift */; };
 		2B4533964D77117EE6D98690 /* SocketParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC84F1EBC8A83D60127093E9 /* SocketParsingTests.swift */; };
 		2BD04AF1F25BBC3516E5F706 /* GhosttyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000C46C62FB60503295A92E8 /* GhosttyApp.swift */; };
@@ -115,6 +116,7 @@
 		6B4B95F852C737F18989F8FA /* WorkspaceColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceColor.swift; sourceTree = "<group>"; };
 		75DCD589969583F84BFCE38B /* NexTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NexTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7DED98594372C8E34542A5C2 /* SplitDividerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitDividerView.swift; sourceTree = "<group>"; };
+		7ED3289901F70616FC36F80B /* MarkdownEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownEditorView.swift; sourceTree = "<group>"; };
 		7F561A2375008B0EC39BF86D /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
 		8322D3C28268495A01EA0597 /* SettingsFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFeature.swift; sourceTree = "<group>"; };
 		94CA6C20BB3882E02348ADF4 /* SurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceView.swift; sourceTree = "<group>"; };
@@ -348,6 +350,7 @@
 		B83E9D548B12F0748394A98C /* MarkdownPane */ = {
 			isa = PBXGroup;
 			children = (
+				7ED3289901F70616FC36F80B /* MarkdownEditorView.swift */,
 				1E7D450881FC7318F58CB78F /* MarkdownHTMLRenderer.swift */,
 				B02A888F436610636F5A4D55 /* MarkdownPaneView.swift */,
 			);
@@ -497,6 +500,7 @@
 				7C78EA65C2D22749546715A0 /* GhosttySurface.swift in Sources */,
 				DBBD0CD88C3B7EF588D5CB04 /* GitService.swift in Sources */,
 				E19F4E0C87CB85D959F0C8F2 /* GitStatus.swift in Sources */,
+				291A22061671351813971551 /* MarkdownEditorView.swift in Sources */,
 				AC234A5AAADE90A7EC7BB5F8 /* MarkdownHTMLRenderer.swift in Sources */,
 				E56B0EC49D7AC553B5CDC2CC /* MarkdownPaneView.swift in Sources */,
 				4985E51407DE646EB856C28A /* NewWorkspaceSheet.swift in Sources */,

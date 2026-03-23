@@ -10,6 +10,8 @@ struct PaneHeaderView: View {
     let onSplitHorizontal: () -> Void
     let onSplitVertical: () -> Void
     let onClose: () -> Void
+    var isEditing: Bool = false
+    var onToggleEdit: (() -> Void)?
     var onDragChanged: ((CGPoint) -> Void)?
     var onDragEnded: (() -> Void)?
 
@@ -49,6 +51,19 @@ struct PaneHeaderView: View {
                 .padding(.horizontal, 4)
                 .padding(.vertical, 1)
                 .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 3))
+            }
+
+            if pane.type == .markdown, let onToggleEdit {
+                Button(action: onToggleEdit) {
+                    Image(systemName: isEditing ? "eye" : "pencil")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20, height: 20)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .opacity(0.6)
+                .help(isEditing ? "Preview (⌘E)" : "Edit (⌘E)")
             }
 
             Button(action: onSplitHorizontal) {

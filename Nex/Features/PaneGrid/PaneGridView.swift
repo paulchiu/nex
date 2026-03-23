@@ -13,8 +13,11 @@ struct PaneGridView: View {
     let onSplitPane: (UUID, PaneLayout.SplitDirection) -> Void
     let onClosePane: (UUID) -> Void
     let onFocusPane: (UUID) -> Void
+    let onToggleMarkdownEdit: (UUID) -> Void
     let onUpdateRatio: (UUID, Double) -> Void
     var onMovePane: ((UUID, UUID, PaneLayout.DropZone) -> Void)?
+
+    @Environment(\.ghosttyConfig) private var ghosttyConfig
 
     @State private var dragSourcePaneID: UUID?
     @State private var dragTargetPaneID: UUID?
@@ -70,6 +73,8 @@ struct PaneGridView: View {
                 onSplitHorizontal: { onSplitPane(pane.id, .horizontal) },
                 onSplitVertical: { onSplitPane(pane.id, .vertical) },
                 onClose: { onClosePane(pane.id) },
+                isEditing: pane.isEditing,
+                onToggleEdit: pane.type == .markdown ? { onToggleMarkdownEdit(pane.id) } : nil,
                 onDragChanged: { point in
                     dragSourcePaneID = pane.id
                     let bounds = CGRect(origin: .zero, size: gridSize)
@@ -109,11 +114,23 @@ struct PaneGridView: View {
                     isFocused: pane.id == focusedPaneID
                 )
             case .markdown:
-                MarkdownPaneView(
-                    paneID: pane.id,
-                    filePath: pane.filePath ?? "",
-                    isFocused: pane.id == focusedPaneID
-                )
+                if pane.isEditing {
+                    MarkdownEditorView(
+                        paneID: pane.id,
+                        filePath: pane.filePath ?? "",
+                        isFocused: pane.id == focusedPaneID,
+                        backgroundColor: ghosttyConfig.backgroundColor,
+                        backgroundOpacity: ghosttyConfig.backgroundOpacity
+                    )
+                } else {
+                    MarkdownPaneView(
+                        paneID: pane.id,
+                        filePath: pane.filePath ?? "",
+                        isFocused: pane.id == focusedPaneID,
+                        backgroundColor: ghosttyConfig.backgroundColor,
+                        backgroundOpacity: ghosttyConfig.backgroundOpacity
+                    )
+                }
             }
         }
         .overlay {

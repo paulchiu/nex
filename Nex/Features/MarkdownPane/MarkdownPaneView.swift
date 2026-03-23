@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import WebKit
 
@@ -6,6 +7,8 @@ struct MarkdownPaneView: NSViewRepresentable {
     let paneID: UUID
     let filePath: String
     let isFocused: Bool
+    var backgroundColor: NSColor = .windowBackgroundColor
+    var backgroundOpacity: Double = 1.0
 
     func makeCoordinator() -> Coordinator {
         Coordinator()
@@ -19,6 +22,8 @@ struct MarkdownPaneView: NSViewRepresentable {
 
         context.coordinator.webView = webView
         context.coordinator.filePath = filePath
+        context.coordinator.backgroundColor = backgroundColor
+        context.coordinator.backgroundOpacity = backgroundOpacity
         context.coordinator.loadFile()
         context.coordinator.startWatching()
 
@@ -45,6 +50,8 @@ struct MarkdownPaneView: NSViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate {
         var webView: WKWebView?
         var filePath: String = ""
+        var backgroundColor: NSColor = .windowBackgroundColor
+        var backgroundOpacity: Double = 1.0
         private var currentContent: String = ""
         nonisolated(unsafe) var fileWatcher: DispatchSourceFileSystemObject?
         nonisolated(unsafe) var fileDescriptor: Int32 = -1
@@ -62,7 +69,11 @@ struct MarkdownPaneView: NSViewRepresentable {
             guard content != currentContent else { return }
             currentContent = content
 
-            let html = MarkdownRenderer.renderToHTML(content)
+            let html = MarkdownRenderer.renderToHTML(
+                content,
+                backgroundColor: backgroundColor,
+                backgroundOpacity: backgroundOpacity
+            )
             let baseURL = URL(fileURLWithPath: filePath).deletingLastPathComponent()
 
             // Save scroll position, reload, then restore

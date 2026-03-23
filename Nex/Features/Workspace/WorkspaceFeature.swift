@@ -101,6 +101,7 @@ struct WorkspaceFeature {
         case clearPaneStatus(UUID)
         case paneBranchChanged(paneID: UUID, branch: String?)
         case openMarkdownFile(filePath: String)
+        case toggleMarkdownEdit(UUID)
         case addRepoAssociation(RepoAssociation)
         case removeRepoAssociation(UUID)
         case reopenClosedPane
@@ -323,6 +324,11 @@ struct WorkspaceFeature {
 
             case .paneBranchChanged(let paneID, let branch):
                 state.panes[id: paneID]?.gitBranch = branch
+                return .none
+
+            case .toggleMarkdownEdit(let paneID):
+                guard state.panes[id: paneID]?.type == .markdown else { return .none }
+                state.panes[id: paneID]?.isEditing.toggle()
                 return .none
 
             case .addRepoAssociation(let assoc):
