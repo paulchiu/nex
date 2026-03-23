@@ -369,7 +369,7 @@ struct WorkspaceFeature {
                         backgroundOpacity: opacity
                     )
                     if let sessionID {
-                        try? await Task.sleep(for: .seconds(1))
+                        try? await Task.sleep(for: .seconds(2))
                         await surfaceManager.sendCommand(
                             to: newPaneID,
                             command: "claude --resume \(sessionID)"

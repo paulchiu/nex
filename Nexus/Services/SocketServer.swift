@@ -33,10 +33,12 @@ final class SocketServer: Sendable {
     nonisolated(unsafe) var onEvent: (@Sendable (UUID, AgentEvent) -> Void)?
 
     func start() {
-        lock.withLock {
-            guard !isRunning else { return }
+        let alreadyRunning = lock.withLock {
+            if isRunning { return true }
             isRunning = true
+            return false
         }
+        guard !alreadyRunning else { return }
 
         // Clean up stale socket file
         unlink(Self.socketPath)
@@ -89,21 +91,27 @@ final class SocketServer: Sendable {
     }
 
     func stop() {
-        let (source, clients) = lock.withLock {
+        let (source, clients, wasRunning) = lock.withLock {
             let s = acceptSource
             let c = clientSources
+            let running = isRunning
             acceptSource = nil
             clientSources = [:]
             socketFD = -1
             isRunning = false
-            return (s, c)
+            return (s, c, running)
         }
 
         source?.cancel()
         for (_, clientSource) in clients {
             clientSource.cancel()
         }
-        unlink(Self.socketPath)
+        // Only remove the socket file if this instance actually created it.
+        // Other SocketServer instances (e.g. SwiftUI @Entry defaults, TCA
+        // testValue) must not delete the live socket on deinit.
+        if wasRunning {
+            unlink(Self.socketPath)
+        }
     }
 
     private func acceptConnection(serverFD: Int32) {

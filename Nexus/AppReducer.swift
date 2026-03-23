@@ -245,7 +245,7 @@ struct AppReducer {
                 // Create surfaces for shell panes only (markdown panes use WKWebView)
                 let panesToResume = resumablePanes
                 return .merge(
-                    .run { _ in
+                    .run { send in
                         for workspace in workspaces {
                             for pane in workspace.panes where pane.type == .shell {
                                 await surfaceManager.createSurface(
@@ -255,9 +255,11 @@ struct AppReducer {
                             }
                         }
 
-                        // Auto-resume Claude Code sessions after surfaces are ready
+                        // Auto-resume Claude Code sessions after surfaces are ready.
+                        // Persist AFTER sending resume commands so session IDs survive
+                        // if the app crashes before the resume actually executes.
                         if !panesToResume.isEmpty {
-                            try? await clock.sleep(for: .seconds(1))
+                            try? await clock.sleep(for: .seconds(2))
                             for entry in panesToResume {
                                 await surfaceManager.sendCommand(
                                     to: entry.paneID,
@@ -265,10 +267,12 @@ struct AppReducer {
                                 )
                             }
                         }
+
+                        // Now that resume commands have been sent, persist the cleared state
+                        await send(.persistState)
                     },
                     .send(.refreshGitStatus),
-                    .send(.startGitStatusTimer),
-                    .send(.persistState)
+                    .send(.startGitStatusTimer)
                 )
 
             case .workspaces(.element(_, action: .agentStatusChanged)):
