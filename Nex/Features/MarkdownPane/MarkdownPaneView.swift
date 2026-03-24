@@ -14,24 +14,43 @@ struct MarkdownPaneView: NSViewRepresentable {
         Coordinator()
     }
 
-    func makeNSView(context: Context) -> WKWebView {
+    func makeNSView(context: Context) -> PaneFocusView {
+        let container = PaneFocusView(paneID: paneID)
+
         let config = WKWebViewConfiguration()
+        let scrollHandler = context.coordinator
+        config.userContentController.add(scrollHandler, name: "scrollHandler")
+        config.userContentController.addUserScript(WKUserScript(
+            source: """
+            window.addEventListener('scroll', function() {
+                var maxScroll = document.body.scrollHeight - window.innerHeight;
+                var fraction = maxScroll > 0 ? window.scrollY / maxScroll : 0;
+                window.webkit.messageHandlers.scrollHandler.postMessage(fraction);
+            });
+            """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        ))
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
         webView.underPageBackgroundColor = .clear
         webView.navigationDelegate = context.coordinator
 
         context.coordinator.webView = webView
+        context.coordinator.paneID = paneID
+        context.coordinator.pendingScrollFraction = PaneFocusView.scrollFraction(for: paneID)
         context.coordinator.filePath = filePath
         context.coordinator.backgroundColor = backgroundColor
         context.coordinator.backgroundOpacity = backgroundOpacity
         context.coordinator.loadFile()
         context.coordinator.startWatching()
 
-        return webView
+        container.embed(webView)
+        return container
     }
 
-    func updateNSView(_: WKWebView, context: Context) {
+    func updateNSView(_: PaneFocusView, context: Context) {
         if context.coordinator.filePath != filePath {
             context.coordinator.stopWatching()
             context.coordinator.filePath = filePath
@@ -40,7 +59,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         }
     }
 
-    static func dismantleNSView(_: WKWebView, coordinator: Coordinator) {
+    static func dismantleNSView(_: PaneFocusView, coordinator: Coordinator) {
         coordinator.stopWatching()
         coordinator.webView = nil
     }
@@ -48,12 +67,14 @@ struct MarkdownPaneView: NSViewRepresentable {
     // MARK: - Coordinator
 
     @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var webView: WKWebView?
+        var paneID: UUID?
         var filePath: String = ""
         var backgroundColor: NSColor = .windowBackgroundColor
         var backgroundOpacity: Double = 1.0
         private var currentContent: String = ""
+        var pendingScrollFraction: CGFloat?
         nonisolated(unsafe) var fileWatcher: DispatchSourceFileSystemObject?
         nonisolated(unsafe) var fileDescriptor: Int32 = -1
 
@@ -82,8 +103,35 @@ struct MarkdownPaneView: NSViewRepresentable {
                 let scrollY = result as? Double ?? 0
                 self?.webView?.loadHTMLString(html, baseURL: baseURL)
                 if scrollY > 0 {
+                    self?.pendingScrollFraction = nil
                     self?.webView?.evaluateJavaScript("window.scrollTo(0, \(scrollY))")
                 }
+            }
+        }
+
+        // MARK: - WKScriptMessageHandler
+
+        @preconcurrency
+        func userContentController(
+            _: WKUserContentController,
+            didReceive message: WKScriptMessage
+        ) {
+            guard let fraction = message.body as? Double, let paneID else { return }
+            PaneFocusView.saveScrollFraction(CGFloat(fraction), for: paneID)
+        }
+
+        // MARK: - WKNavigationDelegate (scroll restore)
+
+        @preconcurrency
+        func webView(_: WKWebView, didFinish _: WKNavigation!) {
+            // Restore scroll fraction from shared store (e.g. after switching from edit mode)
+            guard let paneID else { return }
+            let fraction = pendingScrollFraction ?? PaneFocusView.scrollFraction(for: paneID)
+            if let fraction, fraction > 0 {
+                pendingScrollFraction = nil
+                webView?.evaluateJavaScript(
+                    "window.scrollTo(0, \(fraction) * Math.max(1, document.body.scrollHeight - window.innerHeight))"
+                )
             }
         }
 

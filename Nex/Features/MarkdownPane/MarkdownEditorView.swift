@@ -12,7 +12,9 @@ struct MarkdownEditorView: NSViewRepresentable {
         Coordinator()
     }
 
-    func makeNSView(context: Context) -> NSScrollView {
+    func makeNSView(context: Context) -> PaneFocusView {
+        let container = PaneFocusView(paneID: paneID)
+
         let textView = NSTextView()
         textView.isEditable = true
         textView.isSelectable = true
@@ -36,17 +38,31 @@ struct MarkdownEditorView: NSViewRepresentable {
         scrollView.documentView = textView
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = false
-        scrollView.drawsBackground = false
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = backgroundColor.withAlphaComponent(backgroundOpacity)
 
         context.coordinator.textView = textView
+        context.coordinator.scrollView = scrollView
+        context.coordinator.paneID = paneID
         context.coordinator.filePath = filePath
         context.coordinator.loadFile()
+        context.coordinator.restoreScrollFraction()
         textView.delegate = context.coordinator
 
-        return scrollView
+        // Track scroll position changes
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.scrollViewDidScroll(_:)),
+            name: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView
+        )
+
+        container.embed(scrollView)
+        return container
     }
 
-    func updateNSView(_: NSScrollView, context: Context) {
+    func updateNSView(_: PaneFocusView, context: Context) {
         if context.coordinator.filePath != filePath {
             context.coordinator.filePath = filePath
             context.coordinator.loadFile()
@@ -58,6 +74,8 @@ struct MarkdownEditorView: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, NSTextViewDelegate {
         var textView: NSTextView?
+        var scrollView: NSScrollView?
+        var paneID: UUID?
         var filePath: String = ""
         private var saveTask: Task<Void, Never>?
 
@@ -69,6 +87,32 @@ struct MarkdownEditorView: NSViewRepresentable {
             } catch {
                 textView?.string = "// Failed to load: \(error.localizedDescription)"
             }
+        }
+
+        func restoreScrollFraction() {
+            guard let paneID,
+                  let fraction = PaneFocusView.scrollFraction(for: paneID),
+                  fraction > 0,
+                  let scrollView,
+                  let documentView = scrollView.documentView else { return }
+            // Defer so layout has completed
+            DispatchQueue.main.async { [weak self] in
+                guard let scrollView = self?.scrollView,
+                      let documentView = scrollView.documentView else { return }
+                let maxScroll = documentView.frame.height - scrollView.contentSize.height
+                if maxScroll > 0 {
+                    let y = fraction * maxScroll
+                    documentView.scroll(NSPoint(x: 0, y: y))
+                }
+            }
+        }
+
+        @objc func scrollViewDidScroll(_: Notification) {
+            guard let paneID, let scrollView, let documentView = scrollView.documentView else { return }
+            let maxScroll = documentView.frame.height - scrollView.contentSize.height
+            guard maxScroll > 0 else { return }
+            let fraction = scrollView.contentView.bounds.origin.y / maxScroll
+            PaneFocusView.saveScrollFraction(fraction, for: paneID)
         }
 
         @preconcurrency
@@ -88,6 +132,10 @@ struct MarkdownEditorView: NSViewRepresentable {
             } catch {
                 print("MarkdownEditorView: save failed — \(error)")
             }
+        }
+
+        deinit {
+            NotificationCenter.default.removeObserver(self)
         }
     }
 }

@@ -60,6 +60,7 @@
 		C276E6F9F7B46ED43FF491D5 /* NexApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3714AA1F15C85762BF36B1FE /* NexApp.swift */; };
 		CCBCDD690DA8A082B0C3D1EF /* StatusBarPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110D5179A9834B4AB19B705B /* StatusBarPopoverView.swift */; };
 		D9A2EC37D7FABEAFE48E109A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DB65E3CCBB3A287C413A6015 /* Foundation.framework */; };
+		DA4AC555E9C3FC84061F2FB9 /* PaneFocusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FD9BCE4ABC267C7E34EAF09 /* PaneFocusView.swift */; };
 		DBBD0CD88C3B7EF588D5CB04 /* GitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0153509BA13BB205C40DE2D5 /* GitService.swift */; };
 		DE4BB209669A230B465E2722 /* WorkspaceFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA19A5A6562DDB77C0AE44B6 /* WorkspaceFeatureTests.swift */; };
 		E19F4E0C87CB85D959F0C8F2 /* GitStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB94C2B6250E68349B287AF7 /* GitStatus.swift */; };
@@ -114,6 +115,7 @@
 		57C59BDCBA03302FC7FDE16B /* WorkspaceInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceInspectorView.swift; sourceTree = "<group>"; };
 		61D6AE6635332105A3C18A03 /* VibrancyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VibrancyView.swift; sourceTree = "<group>"; };
 		6B4B95F852C737F18989F8FA /* WorkspaceColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceColor.swift; sourceTree = "<group>"; };
+		6FD9BCE4ABC267C7E34EAF09 /* PaneFocusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneFocusView.swift; sourceTree = "<group>"; };
 		75DCD589969583F84BFCE38B /* NexTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NexTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7DED98594372C8E34542A5C2 /* SplitDividerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitDividerView.swift; sourceTree = "<group>"; };
 		7ED3289901F70616FC36F80B /* MarkdownEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownEditorView.swift; sourceTree = "<group>"; };
@@ -275,6 +277,7 @@
 		575CB385F691D30D4A449F9C /* PaneGrid */ = {
 			isa = PBXGroup;
 			children = (
+				6FD9BCE4ABC267C7E34EAF09 /* PaneFocusView.swift */,
 				005B56542A2F5FD5D3BC588C /* PaneGridView.swift */,
 				BB94DA665D3B322A44251454 /* PaneHeaderView.swift */,
 				7DED98594372C8E34542A5C2 /* SplitDividerView.swift */,
@@ -514,6 +517,7 @@
 				8132EF9FB6ACF51F7AEB57CE /* NexCommands.swift in Sources */,
 				A0056823B88DEBC5006159A2 /* NotificationService.swift in Sources */,
 				27D6386295651D4FE9A3DF6B /* Pane.swift in Sources */,
+				DA4AC555E9C3FC84061F2FB9 /* PaneFocusView.swift in Sources */,
 				0053A91856EF3EB22FEB03B7 /* PaneGridView.swift in Sources */,
 				8E99D6024CA5451216D39602 /* PaneHeaderView.swift in Sources */,
 				8BACC3111C7193B1AC30B40B /* PaneLayout.swift in Sources */,
