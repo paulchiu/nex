@@ -133,6 +133,12 @@ struct PaneGridView: View {
                 }
             }
         }
+        .background {
+            if pane.type == .markdown {
+                Color(nsColor: ghosttyConfig.backgroundColor)
+                    .opacity(ghosttyConfig.backgroundOpacity)
+            }
+        }
         .overlay {
             if pane.id == focusedPaneID {
                 Rectangle()

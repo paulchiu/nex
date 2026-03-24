@@ -220,7 +220,10 @@ struct WorkspaceFeature {
                 }
                 state.panes.append(newPane)
                 state.focusedPaneID = newPaneID
-                return .none
+                return .run { send in
+                    let branch = try? await gitService.getCurrentBranch(dir)
+                    await send(.paneBranchChanged(paneID: newPaneID, branch: branch))
+                }
 
             case .closePane(let paneID):
                 let paneType = state.panes[id: paneID]?.type ?? .shell

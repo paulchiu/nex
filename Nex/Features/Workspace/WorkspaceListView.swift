@@ -20,6 +20,7 @@ struct WorkspaceListView: View {
                 }
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
             .safeAreaInset(edge: .bottom) {
                 Button(action: { store.send(.showNewWorkspaceSheet) }) {
                     Label("New Workspace", systemImage: "plus")

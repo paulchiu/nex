@@ -144,6 +144,19 @@ final class PaneShortcutMonitor {
             return true
         }
 
+        // ⌘E — toggle markdown edit/preview
+        if event.keyCode == 14 /* e */, flags == .command {
+            if let workspace = store.workspaces[id: activeID],
+               let focusedID = workspace.focusedPaneID,
+               workspace.panes[id: focusedID]?.type == .markdown {
+                store.send(.workspaces(.element(
+                    id: activeID,
+                    action: .toggleMarkdownEdit(focusedID)
+                )))
+                return true
+            }
+        }
+
         // ⌘⇧T — reopen closed pane
         if event.keyCode == 17 /* t */, flags == [.command, .shift] {
             store.send(.workspaces(.element(
