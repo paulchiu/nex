@@ -115,6 +115,17 @@ Each workspace contains one or more terminal panes in a split layout.
 
 Drag split dividers to resize. Pane headers show the working directory and current git branch.
 
+### Markdown panes
+
+Open a markdown file with `Cmd+O` or drag-and-drop a `.md` file onto the window. The file renders in a styled preview with live file watching — edits from external tools (Vim, VS Code, etc.) update the preview automatically.
+
+| Action | Shortcut |
+|---|---|
+| Open markdown file | `Cmd+O` |
+| Toggle edit/preview | `Cmd+E` |
+
+Press `Cmd+E` to switch to a plain-text editor with auto-save (500ms debounce). Scroll position is preserved when toggling between modes. Markdown panes support the same layout operations as terminal panes — splitting, closing, dragging, and reopening.
+
 ### UI panels
 
 | Action | Shortcut |
