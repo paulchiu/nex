@@ -42,32 +42,52 @@ final class SurfaceView: NSView, @preconcurrency NSTextInputClient {
         config.font_size = 0 // 0 = use config default
         config.context = GHOSTTY_SURFACE_CONTEXT_SPLIT
 
-        // Inject NEX_PANE_ID so hook scripts know which pane fired
+        // Inject NEX_PANE_ID so hook scripts know which pane fired.
+        // Also prepend Contents/Helpers to PATH so `nex` (CLI) is found before
+        // `Nex` (app binary) in Contents/MacOS on case-insensitive filesystems.
         let paneIDString = paneID.uuidString
+        let helpersDir = Bundle.main.bundlePath + "/Contents/Helpers"
+        let currentPath = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/local/bin:/usr/bin:/bin"
+        let modifiedPath = helpersDir + ":" + currentPath
+
         paneIDString.withCString { paneIDCStr in
-            var envVar = ghostty_env_var_s()
-            let keyStr = strdup("NEX_PANE_ID")!
-            let valStr = strdup(paneIDCStr)!
-            envVar.key = UnsafePointer(keyStr)
-            envVar.value = UnsafePointer(valStr)
+            modifiedPath.withCString { pathCStr in
+                var envVars: [ghostty_env_var_s] = []
 
-            withUnsafeMutablePointer(to: &envVar) { envPtr in
-                config.env_vars = envPtr
-                config.env_var_count = 1
+                let paneKey = strdup("NEX_PANE_ID")!
+                let paneVal = strdup(paneIDCStr)!
+                var paneEnv = ghostty_env_var_s()
+                paneEnv.key = UnsafePointer(paneKey)
+                paneEnv.value = UnsafePointer(paneVal)
+                envVars.append(paneEnv)
 
-                workingDirectory.withCString { cwd in
-                    config.working_directory = cwd
-                    let rawSurface = ghostty_surface_new(app, &config)
-                    if let rawSurface {
-                        ghosttySurface = GhosttySurface(surface: rawSurface)
-                        // Start unfocused — focus is granted explicitly via makeFirstResponder
-                        ghosttySurface?.setFocus(false)
+                let pathKey = strdup("PATH")!
+                let pathVal = strdup(pathCStr)!
+                var pathEnv = ghostty_env_var_s()
+                pathEnv.key = UnsafePointer(pathKey)
+                pathEnv.value = UnsafePointer(pathVal)
+                envVars.append(pathEnv)
+
+                envVars.withUnsafeMutableBufferPointer { buffer in
+                    config.env_vars = buffer.baseAddress
+                    config.env_var_count = buffer.count
+
+                    workingDirectory.withCString { cwd in
+                        config.working_directory = cwd
+                        let rawSurface = ghostty_surface_new(app, &config)
+                        if let rawSurface {
+                            ghosttySurface = GhosttySurface(surface: rawSurface)
+                            // Start unfocused — focus is granted explicitly via makeFirstResponder
+                            ghosttySurface?.setFocus(false)
+                        }
                     }
                 }
-            }
 
-            free(keyStr)
-            free(valStr)
+                free(paneKey)
+                free(paneVal)
+                free(pathKey)
+                free(pathVal)
+            }
         }
     }
 
