@@ -18,6 +18,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         let config = WKWebViewConfiguration()
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.setValue(false, forKey: "drawsBackground")
+        webView.underPageBackgroundColor = .clear
         webView.navigationDelegate = context.coordinator
 
         context.coordinator.webView = webView

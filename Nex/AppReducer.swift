@@ -85,6 +85,7 @@ struct AppReducer {
     @Dependency(\.socketServer) var socketServer
     @Dependency(\.notificationService) var notificationService
     @Dependency(\.statusBarController) var statusBarController
+    @Dependency(\.ghosttyConfig) var ghosttyConfig
     @Dependency(\.uuid) var uuid
     @Dependency(\.continuousClock) var clock
 
@@ -135,9 +136,10 @@ struct AppReducer {
                 // Create the initial surface for the default pane
                 let paneID = workspace.panes.first!.id
                 let cwd = workspace.panes.first!.workingDirectory
+                let opacity = ghosttyConfig.backgroundOpacity
                 return .merge(
                     .run { _ in
-                        await surfaceManager.createSurface(paneID: paneID, workingDirectory: cwd)
+                        await surfaceManager.createSurface(paneID: paneID, workingDirectory: cwd, backgroundOpacity: opacity)
                     },
                     .send(.persistState)
                 )
@@ -244,13 +246,15 @@ struct AppReducer {
 
                 // Create surfaces for shell panes only (markdown panes use WKWebView)
                 let panesToResume = resumablePanes
+                let opacity = ghosttyConfig.backgroundOpacity
                 return .merge(
                     .run { send in
                         for workspace in workspaces {
                             for pane in workspace.panes where pane.type == .shell {
                                 await surfaceManager.createSurface(
                                     paneID: pane.id,
-                                    workingDirectory: pane.workingDirectory
+                                    workingDirectory: pane.workingDirectory,
+                                    backgroundOpacity: opacity
                                 )
                             }
                         }
