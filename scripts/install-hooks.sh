@@ -46,7 +46,7 @@ HOOKS='{
         "hooks": [
           {
             "type": "command",
-            "command": "nex --event stop"
+            "command": "nex event stop"
           }
         ]
       }
@@ -56,7 +56,7 @@ HOOKS='{
         "hooks": [
           {
             "type": "command",
-            "command": "nex --event notification"
+            "command": "nex event notification"
           }
         ]
       }
@@ -67,7 +67,7 @@ HOOKS='{
         "hooks": [
           {
             "type": "command",
-            "command": "nex --event session-start"
+            "command": "nex event session-start"
           }
         ]
       }
@@ -77,7 +77,7 @@ HOOKS='{
         "hooks": [
           {
             "type": "command",
-            "command": "nex --event start"
+            "command": "nex event start"
           }
         ]
       }
