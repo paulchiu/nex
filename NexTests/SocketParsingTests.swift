@@ -73,7 +73,7 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: .vertical, path: "/tmp", name: nil))
+        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: .vertical, path: "/tmp", name: nil, target: nil))
     }
 
     @Test func parsePaneSplitMinimal() {
@@ -82,7 +82,7 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: nil, path: nil, name: nil))
+        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: nil, path: nil, name: nil, target: nil))
     }
 
     @Test func parsePaneSplitWithName() {
@@ -91,7 +91,16 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: .horizontal, path: nil, name: "worker-1"))
+        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: .horizontal, path: nil, name: "worker-1", target: nil))
+    }
+
+    @Test func parsePaneSplitWithTarget() {
+        let data = jsonData("""
+        {"command":"pane-split","pane_id":"\(Self.paneIDString)","name":"sub-1","target":"worker-1"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result != nil)
+        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: nil, path: nil, name: "sub-1", target: "worker-1"))
     }
 
     @Test func parsePaneCreateCommand() {
@@ -100,7 +109,7 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneCreate(paneID: Self.paneUUID, path: "/home/user", name: nil))
+        #expect(result?.0 == .paneCreate(paneID: Self.paneUUID, path: "/home/user", name: nil, target: nil))
     }
 
     @Test func parsePaneCreateWithName() {
@@ -109,7 +118,7 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneCreate(paneID: Self.paneUUID, path: "/tmp", name: "build"))
+        #expect(result?.0 == .paneCreate(paneID: Self.paneUUID, path: "/tmp", name: "build", target: nil))
     }
 
     @Test func parsePaneCloseCommand() {
@@ -291,7 +300,7 @@ struct SocketParsingTests {
         let results = SocketServer.parseMessages(jsonData(input))
         #expect(results.count == 3)
         #expect(results[0] == .agentStarted(paneID: Self.paneUUID))
-        #expect(results[1] == .paneSplit(paneID: Self.paneUUID, direction: .horizontal, path: nil, name: nil))
+        #expect(results[1] == .paneSplit(paneID: Self.paneUUID, direction: .horizontal, path: nil, name: nil, target: nil))
         #expect(results[2] == .workspaceCreate(name: "New", path: nil, color: nil))
     }
 }

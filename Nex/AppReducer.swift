@@ -455,10 +455,12 @@ struct AppReducer {
 
                 // MARK: Pane commands
 
-                case .paneSplit(let paneID, let direction, let path, let name):
-                    guard let workspace = state.workspaces.first(where: { $0.panes[id: paneID] != nil })
+                case .paneSplit(let paneID, let direction, let path, let name, let target):
+                    // Resolve which pane to split: target (by name/UUID) or pane_id
+                    let sourcePaneID = Self.resolveTarget(target, from: paneID, state: state) ?? paneID
+                    guard let workspace = state.workspaces.first(where: { $0.panes[id: sourcePaneID] != nil })
                     else { return .none }
-                    state.workspaces[id: workspace.id]?.focusedPaneID = paneID
+                    state.workspaces[id: workspace.id]?.focusedPaneID = sourcePaneID
                     if let path {
                         return .send(.workspaces(.element(
                             id: workspace.id, action: .splitPaneAtPath(path, label: name)
@@ -466,13 +468,14 @@ struct AppReducer {
                     }
                     return .send(.workspaces(.element(
                         id: workspace.id,
-                        action: .splitPane(direction: direction ?? .horizontal, sourcePaneID: paneID, label: name)
+                        action: .splitPane(direction: direction ?? .horizontal, sourcePaneID: sourcePaneID, label: name)
                     )))
 
-                case .paneCreate(let paneID, let path, let name):
-                    guard let workspace = state.workspaces.first(where: { $0.panes[id: paneID] != nil })
+                case .paneCreate(let paneID, let path, let name, let target):
+                    let sourcePaneID = Self.resolveTarget(target, from: paneID, state: state) ?? paneID
+                    guard let workspace = state.workspaces.first(where: { $0.panes[id: sourcePaneID] != nil })
                     else { return .none }
-                    state.workspaces[id: workspace.id]?.focusedPaneID = paneID
+                    state.workspaces[id: workspace.id]?.focusedPaneID = sourcePaneID
                     if let path {
                         return .send(.workspaces(.element(
                             id: workspace.id, action: .splitPaneAtPath(path, label: name)
@@ -480,7 +483,7 @@ struct AppReducer {
                     }
                     return .send(.workspaces(.element(
                         id: workspace.id,
-                        action: .splitPane(direction: .horizontal, sourcePaneID: paneID, label: name)
+                        action: .splitPane(direction: .horizontal, sourcePaneID: sourcePaneID, label: name)
                     )))
 
                 case .paneClose(let paneID):
@@ -495,23 +498,11 @@ struct AppReducer {
                     return .send(.persistState)
 
                 case .paneSend(let paneID, let target, let text):
-                    guard let workspace = state.workspaces.first(where: { $0.panes[id: paneID] != nil })
+                    guard state.workspaces.first(where: { $0.panes[id: paneID] != nil }) != nil
                     else { return .none }
 
-                    // Resolve target: try UUID first, then label in same workspace, then all workspaces
-                    let resolvedID: UUID? = if let targetUUID = UUID(uuidString: target) {
-                        targetUUID
-                    } else {
-                        // Search by label — same workspace first
-                        if let match = workspace.panes.first(where: { $0.label == target }) {
-                            match.id
-                        } else {
-                            state.workspaces
-                                .flatMap(\.panes)
-                                .first(where: { $0.label == target })?.id
-                        }
-                    }
-                    guard let resolvedID else { return .none }
+                    guard let resolvedID = Self.resolveTarget(target, from: paneID, state: state)
+                    else { return .none }
 
                     let mgr = surfaceManager
                     return .run { _ in
@@ -772,5 +763,22 @@ struct AppReducer {
         Scope(state: \.settings, action: \.settings) {
             SettingsFeature()
         }
+    }
+
+    /// Resolve a target string (UUID or pane label) to a pane UUID.
+    /// Searches by UUID first, then label in the originating pane's workspace,
+    /// then label across all workspaces.
+    private static func resolveTarget(
+        _ target: String?,
+        from originPaneID: UUID,
+        state: State
+    ) -> UUID? {
+        guard let target, !target.isEmpty else { return nil }
+        if let uuid = UUID(uuidString: target) { return uuid }
+        let originWorkspace = state.workspaces.first { $0.panes[id: originPaneID] != nil }
+        if let match = originWorkspace?.panes.first(where: { $0.label == target }) {
+            return match.id
+        }
+        return state.workspaces.flatMap(\.panes).first(where: { $0.label == target })?.id
     }
 }
