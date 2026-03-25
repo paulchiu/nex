@@ -4,8 +4,8 @@
 //
 // Usage:
 //   nex event stop|start|error|notification|session-start [--message ...] [--title ...] [--body ...]
-//   nex pane split [--direction horizontal|vertical] [--path /dir]
-//   nex pane create [--path /dir]
+//   nex pane split [--direction horizontal|vertical] [--path /dir] [--name <label>]
+//   nex pane create [--path /dir] [--name <label>]
 //   nex pane close
 //   nex pane name <name>
 //   nex pane send --to <name-or-uuid> <command...>
@@ -27,8 +27,8 @@ func printUsage() {
     fputs("""
     Usage:
       nex event stop|start|error|notification|session-start [--message ...] [--title ...] [--body ...]
-      nex pane split [--direction horizontal|vertical] [--path /dir]
-      nex pane create [--path /dir]
+      nex pane split [--direction horizontal|vertical] [--path /dir] [--name <label>]
+      nex pane create [--path /dir] [--name <label>]
       nex pane close
       nex pane name <name>
       nex pane send --to <name-or-uuid> <command...>
@@ -166,6 +166,7 @@ func handlePane(_ args: inout ArraySlice<String>) {
     case "split":
         let direction = parseFlag("--direction", from: &args)
         let path = parseFlag("--path", from: &args)
+        let name = parseFlag("--name", from: &args)
 
         var payload: [String: String] = [
             "command": "pane-split",
@@ -173,16 +174,19 @@ func handlePane(_ args: inout ArraySlice<String>) {
         ]
         if let direction { payload["direction"] = direction }
         if let path { payload["path"] = path }
+        if let name { payload["name"] = name }
         sendJSON(payload)
 
     case "create":
         let path = parseFlag("--path", from: &args)
+        let name = parseFlag("--name", from: &args)
 
         var payload: [String: String] = [
             "command": "pane-create",
             "pane_id": paneID
         ]
         if let path { payload["path"] = path }
+        if let name { payload["name"] = name }
         sendJSON(payload)
 
     case "close":

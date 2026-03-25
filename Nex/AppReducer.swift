@@ -455,28 +455,32 @@ struct AppReducer {
 
                 // MARK: Pane commands
 
-                case .paneSplit(let paneID, let direction, let path):
+                case .paneSplit(let paneID, let direction, let path, let name):
                     guard let workspace = state.workspaces.first(where: { $0.panes[id: paneID] != nil })
                     else { return .none }
                     state.workspaces[id: workspace.id]?.focusedPaneID = paneID
                     if let path {
-                        return .send(.workspaces(.element(id: workspace.id, action: .splitPaneAtPath(path))))
+                        return .send(.workspaces(.element(
+                            id: workspace.id, action: .splitPaneAtPath(path, label: name)
+                        )))
                     }
                     return .send(.workspaces(.element(
                         id: workspace.id,
-                        action: .splitPane(direction: direction ?? .horizontal, sourcePaneID: paneID)
+                        action: .splitPane(direction: direction ?? .horizontal, sourcePaneID: paneID, label: name)
                     )))
 
-                case .paneCreate(let paneID, let path):
+                case .paneCreate(let paneID, let path, let name):
                     guard let workspace = state.workspaces.first(where: { $0.panes[id: paneID] != nil })
                     else { return .none }
                     state.workspaces[id: workspace.id]?.focusedPaneID = paneID
                     if let path {
-                        return .send(.workspaces(.element(id: workspace.id, action: .splitPaneAtPath(path))))
+                        return .send(.workspaces(.element(
+                            id: workspace.id, action: .splitPaneAtPath(path, label: name)
+                        )))
                     }
                     return .send(.workspaces(.element(
                         id: workspace.id,
-                        action: .splitPane(direction: .horizontal, sourcePaneID: paneID)
+                        action: .splitPane(direction: .horizontal, sourcePaneID: paneID, label: name)
                     )))
 
                 case .paneClose(let paneID):

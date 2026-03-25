@@ -73,7 +73,7 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: .vertical, path: "/tmp"))
+        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: .vertical, path: "/tmp", name: nil))
     }
 
     @Test func parsePaneSplitMinimal() {
@@ -82,7 +82,16 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: nil, path: nil))
+        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: nil, path: nil, name: nil))
+    }
+
+    @Test func parsePaneSplitWithName() {
+        let data = jsonData("""
+        {"command":"pane-split","pane_id":"\(Self.paneIDString)","direction":"horizontal","name":"worker-1"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result != nil)
+        #expect(result?.0 == .paneSplit(paneID: Self.paneUUID, direction: .horizontal, path: nil, name: "worker-1"))
     }
 
     @Test func parsePaneCreateCommand() {
@@ -91,7 +100,16 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneCreate(paneID: Self.paneUUID, path: "/home/user"))
+        #expect(result?.0 == .paneCreate(paneID: Self.paneUUID, path: "/home/user", name: nil))
+    }
+
+    @Test func parsePaneCreateWithName() {
+        let data = jsonData("""
+        {"command":"pane-create","pane_id":"\(Self.paneIDString)","path":"/tmp","name":"build"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result != nil)
+        #expect(result?.0 == .paneCreate(paneID: Self.paneUUID, path: "/tmp", name: "build"))
     }
 
     @Test func parsePaneCloseCommand() {
@@ -273,7 +291,7 @@ struct SocketParsingTests {
         let results = SocketServer.parseMessages(jsonData(input))
         #expect(results.count == 3)
         #expect(results[0] == .agentStarted(paneID: Self.paneUUID))
-        #expect(results[1] == .paneSplit(paneID: Self.paneUUID, direction: .horizontal, path: nil))
+        #expect(results[1] == .paneSplit(paneID: Self.paneUUID, direction: .horizontal, path: nil, name: nil))
         #expect(results[2] == .workspaceCreate(name: "New", path: nil, color: nil))
     }
 }

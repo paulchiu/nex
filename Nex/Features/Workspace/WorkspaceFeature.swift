@@ -86,8 +86,8 @@ struct WorkspaceFeature {
         case rename(String)
         case setColor(WorkspaceColor)
         case createPane
-        case splitPaneAtPath(String)
-        case splitPane(direction: PaneLayout.SplitDirection, sourcePaneID: UUID?)
+        case splitPaneAtPath(String, label: String? = nil)
+        case splitPane(direction: PaneLayout.SplitDirection, sourcePaneID: UUID?, label: String? = nil)
         case closePane(UUID)
         case focusPane(UUID)
         case focusNextPane
@@ -143,7 +143,7 @@ struct WorkspaceFeature {
                     )
                 }
 
-            case .splitPaneAtPath(let path):
+            case .splitPaneAtPath(let path, let label):
                 guard let sourceID = state.focusedPaneID else { return .none }
 
                 let newPaneID = uuid()
@@ -156,6 +156,7 @@ struct WorkspaceFeature {
                 )
                 state.layout = newLayout
                 state.panes.append(newPane)
+                if let label { state.panes[id: newPaneID]?.label = label }
                 state.focusedPaneID = newPaneID
 
                 let opacity = ghosttyConfig.backgroundOpacity
@@ -167,7 +168,7 @@ struct WorkspaceFeature {
                     )
                 }
 
-            case .splitPane(let direction, let sourcePaneID):
+            case .splitPane(let direction, let sourcePaneID, let label):
                 let sourceID = sourcePaneID ?? state.focusedPaneID
                 guard let sourceID else { return .none }
                 guard let sourcPane = state.panes[id: sourceID] else { return .none }
@@ -185,6 +186,7 @@ struct WorkspaceFeature {
                 )
                 state.layout = newLayout
                 state.panes.append(newPane)
+                if let label { state.panes[id: newPaneID]?.label = label }
                 state.focusedPaneID = newPaneID
 
                 let opacity = ghosttyConfig.backgroundOpacity

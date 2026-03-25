@@ -10,8 +10,8 @@ enum SocketMessage: Equatable {
     case notification(paneID: UUID, title: String, body: String)
     case sessionStarted(paneID: UUID, sessionID: String)
     // Pane commands
-    case paneSplit(paneID: UUID, direction: PaneLayout.SplitDirection?, path: String?)
-    case paneCreate(paneID: UUID, path: String?)
+    case paneSplit(paneID: UUID, direction: PaneLayout.SplitDirection?, path: String?, name: String?)
+    case paneCreate(paneID: UUID, path: String?, name: String?)
     case paneClose(paneID: UUID)
     case paneName(paneID: UUID, name: String)
     case paneSend(paneID: UUID, target: String, text: String)
@@ -234,9 +234,9 @@ final class SocketServer: Sendable {
             socketMessage = .sessionStarted(paneID: paneID, sessionID: sessionID)
         case "pane-split":
             let dir = wire.direction.flatMap { PaneLayout.SplitDirection(rawValue: $0) }
-            socketMessage = .paneSplit(paneID: paneID, direction: dir, path: wire.path)
+            socketMessage = .paneSplit(paneID: paneID, direction: dir, path: wire.path, name: wire.name)
         case "pane-create":
-            socketMessage = .paneCreate(paneID: paneID, path: wire.path)
+            socketMessage = .paneCreate(paneID: paneID, path: wire.path, name: wire.name)
         case "pane-close":
             socketMessage = .paneClose(paneID: paneID)
         case "pane-name":
