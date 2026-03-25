@@ -14,7 +14,7 @@ struct PaneGridView: View {
     let onClosePane: (UUID) -> Void
     let onFocusPane: (UUID) -> Void
     let onToggleMarkdownEdit: (UUID) -> Void
-    let onUpdateRatio: (UUID, Double) -> Void
+    let onUpdateRatio: (String, Double) -> Void
     var onMovePane: ((UUID, UUID, PaneLayout.DropZone) -> Void)?
 
     @Environment(\.ghosttyConfig) private var ghosttyConfig
@@ -152,9 +152,8 @@ struct PaneGridView: View {
 
     private func dividerView(info: SplitDividerInfo) -> some View {
         SplitDividerView(direction: info.direction) { delta in
-            guard let id = info.firstChildPaneID else { return }
             let newRatio = (info.firstSize + delta) / info.available
-            onUpdateRatio(id, newRatio)
+            onUpdateRatio(info.id, newRatio)
         }
         .frame(width: info.rect.width, height: info.rect.height)
         .offset(x: info.rect.origin.x, y: info.rect.origin.y)

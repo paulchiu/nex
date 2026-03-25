@@ -48,10 +48,10 @@ struct ContentView: View {
                                 action: .toggleMarkdownEdit(paneID)
                             )))
                         },
-                        onUpdateRatio: { firstChildPaneID, ratio in
+                        onUpdateRatio: { splitPath, ratio in
                             store.send(.workspaces(.element(
                                 id: activeID,
-                                action: .updateSplitRatio(firstChildPaneID: firstChildPaneID, ratio: ratio)
+                                action: .updateSplitRatio(splitPath: splitPath, ratio: ratio)
                             )))
                         },
                         onMovePane: { paneID, targetPaneID, zone in

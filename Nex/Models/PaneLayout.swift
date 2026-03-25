@@ -4,7 +4,6 @@ struct SplitDividerInfo: Identifiable {
     let id: String
     let direction: PaneLayout.SplitDirection
     let rect: CGRect
-    let firstChildPaneID: UUID?
     let available: CGFloat
     let firstSize: CGFloat
 }
@@ -218,7 +217,6 @@ indirect enum PaneLayout: Equatable, Codable {
                 id: prefix,
                 direction: direction,
                 rect: dividerRect,
-                firstChildPaneID: first.allPaneIDs.first,
                 available: available,
                 firstSize: firstSize
             )
@@ -262,34 +260,35 @@ indirect enum PaneLayout: Equatable, Codable {
 
     // MARK: - Split Ratio Updates
 
-    /// Update the ratio of the split node whose first child contains `firstChildPaneID`.
-    func updatingSplitRatio(firstChildPaneID: UUID, to newRatio: Double) -> PaneLayout {
+    /// Update the ratio of the split node identified by `splitPath`.
+    /// The path uses the same encoding as `SplitDividerInfo.id`:
+    /// `"d"` = root split, each `L`/`R` suffix navigates into the first/second child.
+    func updatingSplitRatio(atPath splitPath: String, to newRatio: Double) -> PaneLayout {
+        // Strip the leading "d" to get the navigation sequence
+        let navigation = splitPath.dropFirst()
+        return updatingSplitRatioByNavigation(navigation[...], newRatio: newRatio)
+    }
+
+    private func updatingSplitRatioByNavigation(_ nav: Substring, newRatio: Double) -> PaneLayout {
         let clamped = min(max(newRatio, 0.1), 0.9)
         switch self {
         case .leaf, .empty:
             return self
         case .split(let direction, let ratio, let first, let second):
-            if first.contains(paneID: firstChildPaneID), !second.contains(paneID: firstChildPaneID) {
-                // This split's first child contains the target — update this node's ratio
-                // But only if the pane is a direct leaf or we're at the right level
-                if case .leaf = first {
-                    return .split(direction, ratio: clamped, first: first, second: second)
-                }
-                // Recurse into the first child
-                let updatedFirst = first.updatingSplitRatio(firstChildPaneID: firstChildPaneID, to: newRatio)
-                if updatedFirst != first {
-                    return .split(direction, ratio: ratio, first: updatedFirst, second: second)
-                }
-                // The pane wasn't found deeper — this must be the right split
+            if nav.isEmpty {
+                // This is the target split node
                 return .split(direction, ratio: clamped, first: first, second: second)
             }
-            // Recurse into second child
-            return .split(
-                direction,
-                ratio: ratio,
-                first: first,
-                second: second.updatingSplitRatio(firstChildPaneID: firstChildPaneID, to: newRatio)
-            )
+            let remaining = nav.dropFirst()
+            if nav.first == "L" {
+                return .split(direction, ratio: ratio,
+                              first: first.updatingSplitRatioByNavigation(remaining, newRatio: newRatio),
+                              second: second)
+            } else {
+                return .split(direction, ratio: ratio,
+                              first: first,
+                              second: second.updatingSplitRatioByNavigation(remaining, newRatio: newRatio))
+            }
         }
     }
 }

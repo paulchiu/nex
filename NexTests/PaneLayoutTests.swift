@@ -111,6 +111,102 @@ struct PaneLayoutTests {
         #expect(layout.previousPaneID(before: id) == nil)
     }
 
+    // MARK: - Split ratio updates
+
+    @Test func updateRatioAtRoot() {
+        let a = UUID(), b = UUID()
+        let layout = PaneLayout.split(.horizontal, ratio: 0.5, first: .leaf(a), second: .leaf(b))
+        let updated = layout.updatingSplitRatio(atPath: "d", to: 0.7)
+        #expect(updated == .split(.horizontal, ratio: 0.7, first: .leaf(a), second: .leaf(b)))
+    }
+
+    @Test func updateRatioNestedLeft() {
+        let a = UUID(), b = UUID(), c = UUID()
+        // (A|B) | C — inner split is in the first child
+        let layout = PaneLayout.split(
+            .horizontal, ratio: 0.5,
+            first: .split(.vertical, ratio: 0.5, first: .leaf(a), second: .leaf(b)),
+            second: .leaf(c)
+        )
+        // "dL" targets the inner split (first child of root)
+        let updated = layout.updatingSplitRatio(atPath: "dL", to: 0.3)
+        if case .split(_, let rootRatio, let first, _) = updated {
+            #expect(rootRatio == 0.5) // root ratio unchanged
+            if case .split(_, let innerRatio, _, _) = first {
+                #expect(innerRatio == 0.3) // inner ratio updated
+            } else {
+                Issue.record("Expected nested split")
+            }
+        } else {
+            Issue.record("Expected split layout")
+        }
+    }
+
+    @Test func updateRatioNestedRight() {
+        let a = UUID(), b = UUID(), c = UUID()
+        // A | (B|C) — inner split is in the second child
+        let layout = PaneLayout.split(
+            .horizontal, ratio: 0.5,
+            first: .leaf(a),
+            second: .split(.vertical, ratio: 0.5, first: .leaf(b), second: .leaf(c))
+        )
+        // "dR" targets the inner split (second child of root)
+        let updated = layout.updatingSplitRatio(atPath: "dR", to: 0.8)
+        if case .split(_, let rootRatio, _, let second) = updated {
+            #expect(rootRatio == 0.5)
+            if case .split(_, let innerRatio, _, _) = second {
+                #expect(innerRatio == 0.8)
+            } else {
+                Issue.record("Expected nested split")
+            }
+        } else {
+            Issue.record("Expected split layout")
+        }
+    }
+
+    @Test func updateRatioClampsToRange() {
+        let a = UUID(), b = UUID()
+        let layout = PaneLayout.split(.horizontal, ratio: 0.5, first: .leaf(a), second: .leaf(b))
+        let tooLow = layout.updatingSplitRatio(atPath: "d", to: 0.01)
+        let tooHigh = layout.updatingSplitRatio(atPath: "d", to: 0.99)
+        if case .split(_, let lowRatio, _, _) = tooLow {
+            #expect(lowRatio == 0.1)
+        }
+        if case .split(_, let highRatio, _, _) = tooHigh {
+            #expect(highRatio == 0.9)
+        }
+    }
+
+    @Test func updateRatioAmbiguousFirstPaneHandledCorrectly() {
+        let a = UUID(), b = UUID(), c = UUID()
+        // split(split(A|B) | C) — both root and inner share pane A as leftmost
+        // The old firstChildPaneID approach would be ambiguous here.
+        // With path-based targeting, "d" = root, "dL" = inner — no ambiguity.
+        let layout = PaneLayout.split(
+            .horizontal, ratio: 0.5,
+            first: .split(.horizontal, ratio: 0.5, first: .leaf(a), second: .leaf(b)),
+            second: .leaf(c)
+        )
+
+        // Update root ratio only
+        let updatedRoot = layout.updatingSplitRatio(atPath: "d", to: 0.7)
+        if case .split(_, let rootRatio, let first, _) = updatedRoot {
+            #expect(rootRatio == 0.7)
+            if case .split(_, let innerRatio, _, _) = first {
+                #expect(innerRatio == 0.5) // inner unchanged
+            }
+        }
+
+        // Update inner ratio only
+        let updatedInner = layout.updatingSplitRatio(atPath: "dL", to: 0.3)
+        if case .split(_, let rootRatio, let first, _) = updatedInner {
+            #expect(rootRatio == 0.5) // root unchanged
+            if case .split(_, let innerRatio, _, _) = first {
+                #expect(innerRatio == 0.3)
+            }
+        }
+    }
+
     // MARK: - Codable round-trip
 
     @Test func codableRoundTrip() throws {
