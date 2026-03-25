@@ -147,6 +147,9 @@ struct PaneHeaderView: View {
         if pane.type == .markdown, let filePath = pane.filePath {
             return (filePath as NSString).lastPathComponent
         }
+        if let label = pane.label, !label.isEmpty {
+            return label
+        }
         if let title = pane.title, !title.isEmpty {
             return title
         }
