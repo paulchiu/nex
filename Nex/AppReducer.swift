@@ -25,6 +25,7 @@ struct AppReducer {
         case appLaunched
         case createWorkspace(name: String, color: WorkspaceColor, repos: [Repo] = [], workingDirectory: String? = nil)
         case deleteWorkspace(UUID)
+        case moveWorkspace(id: UUID, toIndex: Int)
         case setActiveWorkspace(UUID)
         case switchToWorkspaceByIndex(Int)
         case switchToNextWorkspace
@@ -163,6 +164,16 @@ struct AppReducer {
                     },
                     .send(.persistState)
                 )
+
+            case .moveWorkspace(let id, let toIndex):
+                guard let fromIndex = state.workspaces.index(id: id),
+                      fromIndex != toIndex,
+                      toIndex >= 0,
+                      toIndex < state.workspaces.count
+                else { return .none }
+                let workspace = state.workspaces.remove(at: fromIndex)
+                state.workspaces.insert(workspace, at: min(toIndex, state.workspaces.endIndex))
+                return .send(.persistState)
 
             case .setActiveWorkspace(let id):
                 state.activeWorkspaceID = id

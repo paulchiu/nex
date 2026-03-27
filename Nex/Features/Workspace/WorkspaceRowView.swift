@@ -50,14 +50,14 @@ struct WorkspaceRowView: View {
             if index < 9 {
                 Text("⌘\(index + 1)")
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.quaternary)
+                    .foregroundStyle(.tertiary)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
         .padding(.horizontal, 8)
         .background(
             isActive
-                ? RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.1))
+                ? RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1))
                 : nil
         )
         .contentShape(Rectangle())
