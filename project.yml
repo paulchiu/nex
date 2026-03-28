@@ -87,6 +87,8 @@ targets:
           cp "${SRCROOT}/scripts/install-hooks.sh" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh"
           chmod +x "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh"
           codesign --force --sign "Developer ID Application: BENJAMIN RYAN FRIEBE (4ASXCG2599)" --timestamp "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh"
+          mkdir -p "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/skills/nex-agentic"
+          cp "${SRCROOT}/Resources/skills/nex-agentic/SKILL.md" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/skills/nex-agentic/SKILL.md"
         name: Bundle nex CLI and install script
 
   NexTests:

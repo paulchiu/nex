@@ -113,6 +113,17 @@ with open('$SETTINGS_FILE', 'w') as f:
     echo "  Created $SETTINGS_FILE"
 fi
 
+# Install nex-agentic skill
+SKILL_SRC="$APP_PATH/Contents/Resources/skills/nex-agentic"
+SKILL_DEST="$HOME/.claude/skills/nex-agentic"
+
+if [ -d "$SKILL_SRC" ]; then
+    echo "Installing nex-agentic skill..."
+    mkdir -p "$SKILL_DEST"
+    cp "$SKILL_SRC/SKILL.md" "$SKILL_DEST/SKILL.md"
+    echo "  Installed skill to $SKILL_DEST"
+fi
+
 echo ""
-echo "Done! Nex hooks are configured for Claude Code."
+echo "Done! Nex hooks and skills are configured for Claude Code."
 echo "Restart any running Claude Code sessions to pick up the new hooks."
