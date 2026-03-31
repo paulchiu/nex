@@ -22,6 +22,7 @@
 		3B60C0FC48A2AAF6282CAB40 /* WorkspaceListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7F9C43CA9B19E7281082913 /* WorkspaceListView.swift */; };
 		3DF88C2A2966C7B0209E22FE /* RepoPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0689D085597FF9C7F4D87401 /* RepoPickerView.swift */; };
 		40D01E98BD9BE2397CFC1080 /* RepoRegistryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90FF9C2E7F0BC50E51C47DE /* RepoRegistryView.swift */; };
+		435EB1E003D333911AF3BEB9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B6CC74E2D5AA179FFCE3B825 /* Assets.xcassets */; };
 		4985E51407DE646EB856C28A /* NewWorkspaceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F0D3AB3067CDBF5A490F532 /* NewWorkspaceSheet.swift */; };
 		4A2AC027454C7CBDF4B312C9 /* CoreText.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1F71D541343DA67CDCADA821 /* CoreText.framework */; };
 		4AF9CB9A4E7CE871FBE1A6F2 /* WorkspaceColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B4B95F852C737F18989F8FA /* WorkspaceColor.swift */; };
@@ -132,6 +133,7 @@
 		AC84F1EBC8A83D60127093E9 /* SocketParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketParsingTests.swift; sourceTree = "<group>"; };
 		ADD43112159981D690331BA5 /* SettingsFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFeatureTests.swift; sourceTree = "<group>"; };
 		B02A888F436610636F5A4D55 /* MarkdownPaneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownPaneView.swift; sourceTree = "<group>"; };
+		B6CC74E2D5AA179FFCE3B825 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB94DA665D3B322A44251454 /* PaneHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneHeaderView.swift; sourceTree = "<group>"; };
 		BEA20CEA0FEF28F3972BCE7D /* NexCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexCommands.swift; sourceTree = "<group>"; };
 		BECB2222837AC350E94222BB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -263,6 +265,7 @@
 			isa = PBXGroup;
 			children = (
 				D9335AE3C92A37DD50A5715A /* AppReducer.swift */,
+				B6CC74E2D5AA179FFCE3B825 /* Assets.xcassets */,
 				1A198A2F5EA992907A3031ED /* ContentView.swift */,
 				BECB2222837AC350E94222BB /* Info.plist */,
 				F1A8D5B3446F6056F443CDB8 /* Nex.entitlements */,
@@ -399,6 +402,7 @@
 			buildPhases = (
 				3705E235ADEEAED46F84090D /* Sources */,
 				3E76F9CB9E967B5724C9973E /* Bundle nex CLI and install script */,
+				B05CD1EB95FE4459301F2289 /* Resources */,
 				6E91527DFFE7D937CC95545F /* Frameworks */,
 			);
 			buildRules = (
@@ -459,6 +463,17 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		B05CD1EB95FE4459301F2289 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				435EB1E003D333911AF3BEB9 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXShellScriptBuildPhase section */
 		3E76F9CB9E967B5724C9973E /* Bundle nex CLI and install script */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -476,7 +491,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers\"\nswiftc -O -target arm64-apple-macos14.0 -o \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers/nex\" \"${SRCROOT}/Tools/nex-cli/nex.swift\"\ncodesign --force --sign \"Developer ID Application: BENJAMIN RYAN FRIEBE (4ASXCG2599)\" --timestamp \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers/nex\"\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts\"\ncp \"${SRCROOT}/scripts/install-hooks.sh\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\nchmod +x \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\ncodesign --force --sign \"Developer ID Application: BENJAMIN RYAN FRIEBE (4ASXCG2599)\" --timestamp \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\n";
+			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers\"\nswiftc -O -target arm64-apple-macos14.0 -o \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers/nex\" \"${SRCROOT}/Tools/nex-cli/nex.swift\"\ncodesign --force --sign \"Developer ID Application: BENJAMIN RYAN FRIEBE (4ASXCG2599)\" --timestamp \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers/nex\"\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts\"\ncp \"${SRCROOT}/scripts/install-hooks.sh\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\nchmod +x \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\ncodesign --force --sign \"Developer ID Application: BENJAMIN RYAN FRIEBE (4ASXCG2599)\" --timestamp \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/skills/nex-agentic\"\ncp \"${SRCROOT}/Resources/skills/nex-agentic/SKILL.md\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/skills/nex-agentic/SKILL.md\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

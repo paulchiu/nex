@@ -53,6 +53,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.benfriebe.nex
         PRODUCT_NAME: Nex
         INFOPLIST_FILE: Nex/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: Nex/Nex.entitlements
         SWIFT_OBJC_BRIDGING_HEADER: Nex/Ghostty/Ghostty-Bridging-Header.h
         OTHER_LDFLAGS:
