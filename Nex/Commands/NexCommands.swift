@@ -44,6 +44,20 @@ struct NexCommands: Commands {
     }
 }
 
+/// Help menu command that opens the Help window.
+struct HelpCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .help) {
+            Button("Nex Help") {
+                openWindow(id: "help")
+            }
+            .keyboardShortcut("?", modifiers: [.command])
+        }
+    }
+}
+
 /// NSEvent monitor for shortcuts that need focused-pane context.
 /// These can't go through SwiftUI Commands because they need to know
 /// which pane is focused.
@@ -71,6 +85,12 @@ final class PaneShortcutMonitor {
     }
 
     func handleKeyEvent(_ event: NSEvent) -> Bool {
+        // Don't consume shortcuts when a secondary window (Help, Settings) is key.
+        if let keyWindow = NSApp.keyWindow,
+           keyWindow != NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }) {
+            return false
+        }
+
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
         guard let activeID = store.activeWorkspaceID else { return false }

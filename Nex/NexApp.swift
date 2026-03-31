@@ -92,10 +92,17 @@ struct NexApp: App {
                 CheckForUpdatesView(updaterViewModel: updaterViewModel)
             }
             NexCommands(store: store)
+            HelpCommands()
         }
 
         Settings {
             SettingsView(store: store)
         }
+
+        Window("Nex Help", id: "help") {
+            HelpView()
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
     }
 }
