@@ -28,12 +28,11 @@ if [ ! -f "$BINARY_SRC" ]; then
     exit 1
 fi
 
-# Install nex to /usr/local/bin
+# Install nex to /usr/local/bin (symlink so --version can find Info.plist)
 echo "Installing $BINARY to $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
-cp "$BINARY_SRC" "$INSTALL_DIR/$BINARY"
-chmod 755 "$INSTALL_DIR/$BINARY"
-echo "  Installed $INSTALL_DIR/$BINARY"
+ln -sf "$BINARY_SRC" "$INSTALL_DIR/$BINARY"
+echo "  Installed $INSTALL_DIR/$BINARY -> $BINARY_SRC"
 
 # Configure Claude Code hooks
 echo "Configuring Claude Code hooks..."

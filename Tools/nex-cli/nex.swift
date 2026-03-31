@@ -3,6 +3,7 @@
 // nex — CLI for communicating with the Nex app over a Unix socket.
 //
 // Usage:
+//   nex --version
 //   nex event stop|start|error|notification|session-start [--message ...] [--title ...] [--body ...]
 //   nex pane split [--direction horizontal|vertical] [--path /dir] [--name <label>] [--target <name-or-uuid>]
 //   nex pane create [--path /dir] [--name <label>] [--target <name-or-uuid>]
@@ -22,11 +23,28 @@ import Foundation
 
 let socketPath = "/tmp/nex.sock"
 
+let nexVersion: String = {
+    var pathBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+    var size = UInt32(MAXPATHLEN)
+    guard _NSGetExecutablePath(&pathBuffer, &size) == 0 else { return "dev" }
+    let execURL = URL(fileURLWithPath: String(cString: pathBuffer)).resolvingSymlinksInPath()
+    let infoPlistURL = execURL
+        .deletingLastPathComponent() // Helpers/
+        .deletingLastPathComponent() // Contents/
+        .appendingPathComponent("Info.plist")
+    if let dict = NSDictionary(contentsOf: infoPlistURL),
+       let version = dict["CFBundleShortVersionString"] as? String {
+        return version
+    }
+    return "dev"
+}()
+
 // MARK: - Helpers
 
 func printUsage() {
     fputs("""
     Usage:
+      nex --version
       nex event stop|start|error|notification|session-start [--message ...] [--title ...] [--body ...]
       nex pane split [--direction horizontal|vertical] [--path /dir] [--name <label>]
       nex pane create [--path /dir] [--name <label>]
@@ -295,6 +313,11 @@ var args = CommandLine.arguments.dropFirst()
 guard let subcommand = args.popFirst() else {
     printUsage()
     exit(1)
+}
+
+if subcommand == "--version" || subcommand == "version" {
+    print("nex \(nexVersion)")
+    exit(0)
 }
 
 switch subcommand {
