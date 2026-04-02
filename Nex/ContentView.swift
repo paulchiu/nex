@@ -161,7 +161,11 @@ struct ContentView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: GhosttyApp.openFileNotification)) { notification in
                 guard let path = notification.userInfo?["path"] as? String else { return }
-                store.send(.openFileAtPath(path))
+                let paneID: UUID? = {
+                    guard let surface = notification.userInfo?["surface"] as? ghostty_surface_t else { return nil }
+                    return surfaceManager.paneID(for: surface)
+                }()
+                store.send(.openFileAtPath(path, fromPaneID: paneID))
             }
             .onReceive(NotificationCenter.default.publisher(for: GhosttyApp.searchStartNotification)) { notification in
                 guard let surface = notification.userInfo?["surface"] as? ghostty_surface_t,
@@ -200,7 +204,7 @@ struct ContentView: View {
                 _ = provider.loadObject(ofClass: URL.self) { url, _ in
                     guard let url, url.pathExtension.lowercased() == "md" else { return }
                     Task { @MainActor in
-                        store.send(.openFileAtPath(url.path))
+                        store.send(.openFileAtPath(url.path, fromPaneID: nil))
                     }
                 }
                 return true

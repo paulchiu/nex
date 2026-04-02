@@ -69,7 +69,7 @@ struct AppReducer {
 
         // File Opening
         case openFile
-        case openFileAtPath(String)
+        case openFileAtPath(String, fromPaneID: UUID?)
 
         // Inspector + Git Status
         case toggleInspector
@@ -354,15 +354,32 @@ struct AppReducer {
                         return nil
                     }
                     if let path {
-                        await send(.openFileAtPath(path))
+                        await send(.openFileAtPath(path, fromPaneID: nil))
                     }
                 }
 
-            case .openFileAtPath(let path):
+            case .openFileAtPath(let path, let fromPaneID):
                 guard let activeID = state.activeWorkspaceID else { return .none }
+                var resolvedPath = path
+                if !path.hasPrefix("/") {
+                    let workspace = state.workspaces[id: activeID]
+                    let cwd: String? = {
+                        if let fromPaneID, let pane = workspace?.panes.first(where: { $0.id == fromPaneID }) {
+                            return pane.workingDirectory
+                        }
+                        if let focusedID = workspace?.focusedPaneID,
+                           let pane = workspace?.panes.first(where: { $0.id == focusedID }) {
+                            return pane.workingDirectory
+                        }
+                        return nil
+                    }()
+                    if let cwd, !cwd.isEmpty {
+                        resolvedPath = (cwd as NSString).appendingPathComponent(path)
+                    }
+                }
                 return .send(.workspaces(.element(
                     id: activeID,
-                    action: .openMarkdownFile(filePath: path)
+                    action: .openMarkdownFile(filePath: resolvedPath)
                 )))
 
             // MARK: - Socket Messages
