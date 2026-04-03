@@ -104,4 +104,14 @@ struct ConfigParserTests {
         let result = ConfigParser.parseKeybindings(from: config)
         #expect(result.count == 1)
     }
+
+    @Test func parseThemeSetting() {
+        let result = ConfigParser.parseGeneralSettings(from: "theme = Dracula")
+        #expect(result.theme == "Dracula")
+    }
+
+    @Test func parseThemePreservesCase() {
+        let result = ConfigParser.parseGeneralSettings(from: "theme = Catppuccin Mocha")
+        #expect(result.theme == "Catppuccin Mocha")
+    }
 }

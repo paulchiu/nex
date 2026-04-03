@@ -11,6 +11,7 @@ enum ConfigParser {
     struct GeneralSettings {
         var focusFollowsMouse: Bool = false
         var focusFollowsMouseDelay: Int = 100
+        var theme: String?
     }
 
     /// Parse general (non-keybind) settings from a config file.
@@ -30,9 +31,9 @@ enum ConfigParser {
             if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
             guard let eqIndex = trimmed.firstIndex(of: "=") else { continue }
             let key = trimmed[..<eqIndex].trimmingCharacters(in: .whitespaces)
-            let value = trimmed[trimmed.index(after: eqIndex)...]
+            let rawValue = trimmed[trimmed.index(after: eqIndex)...]
                 .trimmingCharacters(in: .whitespaces)
-                .lowercased()
+            let value = rawValue.lowercased()
 
             switch key {
             case "focus-follows-mouse":
@@ -41,6 +42,9 @@ enum ConfigParser {
                 if let ms = Int(value) {
                     settings.focusFollowsMouseDelay = max(0, ms)
                 }
+            case "theme":
+                // Preserve original case — ghostty theme filenames are case-sensitive.
+                settings.theme = rawValue
             default:
                 break
             }

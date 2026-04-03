@@ -27,7 +27,7 @@ struct SettingsView: View {
                         Label("Keybindings", systemImage: "command")
                     }
             }
-            .frame(width: 500, height: 400)
+            .frame(width: 500, height: 440)
         }
     }
 }
@@ -90,6 +90,21 @@ private struct AppearanceSettingsView: View {
     var body: some View {
         Form {
             Section("Appearance") {
+                Picker("Theme", selection: themeBinding) {
+                    Text("None (Custom)").tag(NexTheme?.none)
+                    ForEach(NexTheme.builtIn) { theme in
+                        Text(theme.displayName).tag(Optional(theme))
+                    }
+                }
+
+                if store.selectedTheme == nil {
+                    ColorPicker(
+                        "Background Color",
+                        selection: backgroundColorBinding,
+                        supportsOpacity: false
+                    )
+                }
+
                 HStack {
                     Text("Background Opacity")
                     Slider(
@@ -101,15 +116,16 @@ private struct AppearanceSettingsView: View {
                         .monospacedDigit()
                         .frame(width: 40, alignment: .trailing)
                 }
-
-                ColorPicker(
-                    "Background Color",
-                    selection: backgroundColorBinding,
-                    supportsOpacity: false
-                )
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var themeBinding: Binding<NexTheme?> {
+        Binding(
+            get: { store.selectedTheme },
+            set: { store.send(.selectTheme($0)) }
+        )
     }
 
     private var backgroundColorBinding: Binding<Color> {

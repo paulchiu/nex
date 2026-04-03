@@ -13,6 +13,7 @@ struct SettingsFeature {
         var backgroundColorG: Double = 0.0
         var backgroundColorB: Double = 0.0
         var worktreeBasePath: String = SettingsFeature.defaultWorktreeBasePath
+        var selectedTheme: NexTheme?
 
         /// The resolved absolute worktree base path (expands ~).
         var resolvedWorktreeBasePath: String {
@@ -25,7 +26,8 @@ struct SettingsFeature {
         case setBackgroundOpacity(Double)
         case setBackgroundColor(r: Double, g: Double, b: Double)
         case setWorktreeBasePath(String)
-        case applyAppearance(opacity: Double, r: Double, g: Double, b: Double)
+        case selectTheme(NexTheme?)
+        case applyAppearance(opacity: Double, r: Double, g: Double, b: Double, theme: NexTheme?)
     }
 
     private enum AppearanceDebounceID: Hashable { case debounce }
@@ -36,6 +38,7 @@ struct SettingsFeature {
     static let defaultsKeyColorB = "settings.backgroundColorB"
     static let defaultsKeyHasCustomColor = "settings.hasCustomColor"
     static let defaultsKeyWorktreeBasePath = "settings.worktreeBasePath"
+    static let defaultsKeySelectedTheme = "settings.selectedTheme"
 
     @Dependency(\.surfaceManager) var surfaceManager
     @Dependency(\.userDefaults) var userDefaults
@@ -62,11 +65,17 @@ struct SettingsFeature {
                     state.backgroundColorB = Double(color.blueComponent)
                 }
 
+                if let name = userDefaults.stringForKey(Self.defaultsKeySelectedTheme),
+                   let theme = NexTheme.named(name) {
+                    state.selectedTheme = theme
+                }
+
                 return .send(.applyAppearance(
                     opacity: state.backgroundOpacity,
                     r: state.backgroundColorR,
                     g: state.backgroundColorG,
-                    b: state.backgroundColorB
+                    b: state.backgroundColorB,
+                    theme: state.selectedTheme
                 ))
 
             case .setBackgroundOpacity(let opacity):
@@ -75,7 +84,8 @@ struct SettingsFeature {
                     opacity: opacity,
                     r: state.backgroundColorR,
                     g: state.backgroundColorG,
-                    b: state.backgroundColorB
+                    b: state.backgroundColorB,
+                    theme: state.selectedTheme
                 ))
                 .debounce(id: AppearanceDebounceID.debounce, for: .milliseconds(100), scheduler: DispatchQueue.main)
 
@@ -83,9 +93,12 @@ struct SettingsFeature {
                 state.backgroundColorR = r
                 state.backgroundColorG = g
                 state.backgroundColorB = b
+                state.selectedTheme = nil
+                userDefaults.setString("", Self.defaultsKeySelectedTheme)
                 return .send(.applyAppearance(
                     opacity: state.backgroundOpacity,
-                    r: r, g: g, b: b
+                    r: r, g: g, b: b,
+                    theme: nil
                 ))
                 .debounce(id: AppearanceDebounceID.debounce, for: .milliseconds(100), scheduler: DispatchQueue.main)
 
@@ -94,31 +107,45 @@ struct SettingsFeature {
                 userDefaults.setString(path, Self.defaultsKeyWorktreeBasePath)
                 return .none
 
-            case .applyAppearance(let opacity, let r, let g, let b):
-                // Persist to UserDefaults
-                userDefaults.setDouble(opacity, Self.defaultsKeyOpacity)
-                userDefaults.setDouble(r, Self.defaultsKeyColorR)
-                userDefaults.setDouble(g, Self.defaultsKeyColorG)
-                userDefaults.setDouble(b, Self.defaultsKeyColorB)
-                userDefaults.setBool(true, Self.defaultsKeyHasCustomColor)
+            case .selectTheme(let theme):
+                state.selectedTheme = theme
+                userDefaults.setString(theme?.id ?? "", Self.defaultsKeySelectedTheme)
+                return .send(.applyAppearance(
+                    opacity: state.backgroundOpacity,
+                    r: state.backgroundColorR,
+                    g: state.backgroundColorG,
+                    b: state.backgroundColorB,
+                    theme: theme
+                ))
 
-                // Update shared config client
-                GhosttyConfigClient.liveValue.backgroundOpacity = opacity
-                GhosttyConfigClient.liveValue.backgroundColor = NSColor(
-                    red: CGFloat(r), green: CGFloat(g), blue: CGFloat(b), alpha: 1.0
-                )
+            case .applyAppearance(let opacity, let r, let g, let b, let theme):
+                // Persist opacity always; only persist custom color when not using a theme.
+                userDefaults.setDouble(opacity, Self.defaultsKeyOpacity)
+                if theme == nil {
+                    userDefaults.setDouble(r, Self.defaultsKeyColorR)
+                    userDefaults.setDouble(g, Self.defaultsKeyColorG)
+                    userDefaults.setDouble(b, Self.defaultsKeyColorB)
+                    userDefaults.setBool(true, Self.defaultsKeyHasCustomColor)
+                }
 
                 return .run { [surfaceManager] _ in
                     await MainActor.run {
-                        // Write override file with both opacity and color
-                        let hexR = String(format: "%02x", Int(r * 255))
-                        let hexG = String(format: "%02x", Int(g * 255))
-                        let hexB = String(format: "%02x", Int(b * 255))
-
-                        let overrideContent = """
-                        background = #\(hexR)\(hexG)\(hexB)
-                        background-opacity = \(opacity)
-                        """
+                        // Build override file: use theme name when active, else explicit color.
+                        let overrideContent: String
+                        if let theme {
+                            overrideContent = """
+                            theme = \(theme.id)
+                            background-opacity = \(opacity)
+                            """
+                        } else {
+                            let hexR = String(format: "%02x", Int(r * 255))
+                            let hexG = String(format: "%02x", Int(g * 255))
+                            let hexB = String(format: "%02x", Int(b * 255))
+                            overrideContent = """
+                            background = #\(hexR)\(hexG)\(hexB)
+                            background-opacity = \(opacity)
+                            """
+                        }
 
                         let overridePath = NSTemporaryDirectory() + "nex-config-override"
                         try? overrideContent.write(
@@ -138,6 +165,10 @@ struct SettingsFeature {
 
                         ghostty_app_update_config(GhosttyApp.shared.app!, newConfig.rawConfig)
                         GhosttyApp.shared.config = newConfig
+
+                        // Read resolved background from ghostty (correct for both theme and custom).
+                        GhosttyConfigClient.liveValue.backgroundOpacity = opacity
+                        GhosttyConfigClient.liveValue.backgroundColor = newConfig.backgroundColor
 
                         // Update window compositing
                         if let window = NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }) {

@@ -86,6 +86,7 @@
 		ED79F70009D8C2A4A1A742F8 /* ResizeDimensionsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F6F950849E47A0BCC6DEAB5 /* ResizeDimensionsOverlay.swift */; };
 		EDD3C2388FB932FCF46F3444 /* HelpDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA085FC1EE7D90E88FEF33CB /* HelpDataTests.swift */; };
 		F1139F84E35AF1181F136C9D /* KeyBinding.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBF3FB912BD029F17AF0AA25 /* KeyBinding.swift */; };
+		F408865A1C0FC2282DD6F271 /* NexTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BB526BDDE50E6C7948EE832 /* NexTheme.swift */; };
 		F6B537768D81B028C1B484B2 /* PaneShortcutMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAA7FF54B539D06E39903C41 /* PaneShortcutMonitorTests.swift */; };
 		FF162EE0EAF672FFFCFDF0BE /* PersistenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBEA23E4C37CB5B7A6F4963C /* PersistenceService.swift */; };
 /* End PBXBuildFile section */
@@ -135,6 +136,7 @@
 		5F60DBD29A7E964E6F18A28F /* KeyBindingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyBindingTests.swift; sourceTree = "<group>"; };
 		61D6AE6635332105A3C18A03 /* VibrancyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VibrancyView.swift; sourceTree = "<group>"; };
 		6B4B95F852C737F18989F8FA /* WorkspaceColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceColor.swift; sourceTree = "<group>"; };
+		6BB526BDDE50E6C7948EE832 /* NexTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexTheme.swift; sourceTree = "<group>"; };
 		6FD9BCE4ABC267C7E34EAF09 /* PaneFocusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneFocusView.swift; sourceTree = "<group>"; };
 		75DCD589969583F84BFCE38B /* NexTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NexTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7DED98594372C8E34542A5C2 /* SplitDividerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitDividerView.swift; sourceTree = "<group>"; };
@@ -231,6 +233,7 @@
 			children = (
 				EB94C2B6250E68349B287AF7 /* GitStatus.swift */,
 				CBF3FB912BD029F17AF0AA25 /* KeyBinding.swift */,
+				6BB526BDDE50E6C7948EE832 /* NexTheme.swift */,
 				9D96CD47FF756C95404DF4F6 /* Pane.swift */,
 				30D306AA2907696B7A28F9DA /* PaneLayout.swift */,
 				377C07C6C4B00D0699682EA3 /* PaneType.swift */,
@@ -538,7 +541,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers\"\nswiftc -O -target arm64-apple-macos14.0 -o \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers/nex\" \"${SRCROOT}/Tools/nex-cli/nex.swift\"\ncodesign --force --sign \"Developer ID Application: BENJAMIN RYAN FRIEBE (4ASXCG2599)\" --timestamp \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers/nex\"\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts\"\ncp \"${SRCROOT}/scripts/install-hooks.sh\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\nchmod +x \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\ncodesign --force --sign \"Developer ID Application: BENJAMIN RYAN FRIEBE (4ASXCG2599)\" --timestamp \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/skills/nex-agentic\"\ncp \"${SRCROOT}/Resources/skills/nex-agentic/SKILL.md\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/skills/nex-agentic/SKILL.md\"\n# Bundle ghostty shell-integration and terminfo so libghostty can\n# auto-detect resources and enable shell integration (OSC 7 pwd\n# reporting, prompt marking, etc.)\nGHOSTTY_SHARE=\"${SRCROOT}/ghostty/zig-out/share\"\nRESOURCES=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources\"\nif [ -d \"${GHOSTTY_SHARE}/ghostty/shell-integration\" ]; then\n  rm -rf \"${RESOURCES}/ghostty/shell-integration\" \"${RESOURCES}/terminfo\"\n  mkdir -p \"${RESOURCES}/ghostty\"\n  cp -R \"${GHOSTTY_SHARE}/ghostty/shell-integration\" \"${RESOURCES}/ghostty/shell-integration\"\n  if [ -d \"${GHOSTTY_SHARE}/terminfo\" ]; then\n    cp -R \"${GHOSTTY_SHARE}/terminfo\" \"${RESOURCES}/terminfo\"\n  fi\nfi\n";
+			shellScript = "mkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers\"\nswiftc -O -target arm64-apple-macos14.0 -o \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers/nex\" \"${SRCROOT}/Tools/nex-cli/nex.swift\"\ncodesign --force --sign \"Developer ID Application: BENJAMIN RYAN FRIEBE (4ASXCG2599)\" --timestamp \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Helpers/nex\"\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts\"\ncp \"${SRCROOT}/scripts/install-hooks.sh\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\nchmod +x \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\ncodesign --force --sign \"Developer ID Application: BENJAMIN RYAN FRIEBE (4ASXCG2599)\" --timestamp \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/scripts/install-hooks.sh\"\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/skills/nex-agentic\"\ncp \"${SRCROOT}/Resources/skills/nex-agentic/SKILL.md\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/skills/nex-agentic/SKILL.md\"\n# Bundle ghostty shell-integration and terminfo so libghostty can\n# auto-detect resources and enable shell integration (OSC 7 pwd\n# reporting, prompt marking, etc.)\nGHOSTTY_SHARE=\"${SRCROOT}/ghostty/zig-out/share\"\nRESOURCES=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources\"\nif [ -d \"${GHOSTTY_SHARE}/ghostty/shell-integration\" ]; then\n  rm -rf \"${RESOURCES}/ghostty/shell-integration\" \"${RESOURCES}/terminfo\"\n  mkdir -p \"${RESOURCES}/ghostty\"\n  cp -R \"${GHOSTTY_SHARE}/ghostty/shell-integration\" \"${RESOURCES}/ghostty/shell-integration\"\n  if [ -d \"${GHOSTTY_SHARE}/terminfo\" ]; then\n    cp -R \"${GHOSTTY_SHARE}/terminfo\" \"${RESOURCES}/terminfo\"\n  fi\nfi\n# Bundle popular themes so ghostty's theme = <name> config key works\nTHEMES_SRC=\"${GHOSTTY_SHARE}/ghostty/themes\"\nTHEMES_DST=\"${RESOURCES}/ghostty/themes\"\nif [ -d \"${THEMES_SRC}\" ]; then\n  mkdir -p \"${THEMES_DST}\"\n  for THEME in \"Dracula\" \"Catppuccin Mocha\" \"Catppuccin Latte\" \\\n               \"Catppuccin Macchiato\" \"Catppuccin Frappe\" \"Nord\" \\\n               \"Gruvbox Dark\" \"Gruvbox Light\" \\\n               \"iTerm2 Solarized Dark\" \"iTerm2 Solarized Light\"; do\n    cp \"${THEMES_SRC}/${THEME}\" \"${THEMES_DST}/${THEME}\"\n  done\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -591,6 +594,7 @@
 				4985E51407DE646EB856C28A /* NewWorkspaceSheet.swift in Sources */,
 				C276E6F9F7B46ED43FF491D5 /* NexApp.swift in Sources */,
 				8132EF9FB6ACF51F7AEB57CE /* NexCommands.swift in Sources */,
+				F408865A1C0FC2282DD6F271 /* NexTheme.swift in Sources */,
 				A0056823B88DEBC5006159A2 /* NotificationService.swift in Sources */,
 				27D6386295651D4FE9A3DF6B /* Pane.swift in Sources */,
 				DA4AC555E9C3FC84061F2FB9 /* PaneFocusView.swift in Sources */,

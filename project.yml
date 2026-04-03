@@ -103,6 +103,18 @@ targets:
               cp -R "${GHOSTTY_SHARE}/terminfo" "${RESOURCES}/terminfo"
             fi
           fi
+          # Bundle popular themes so ghostty's theme = <name> config key works
+          THEMES_SRC="${GHOSTTY_SHARE}/ghostty/themes"
+          THEMES_DST="${RESOURCES}/ghostty/themes"
+          if [ -d "${THEMES_SRC}" ]; then
+            mkdir -p "${THEMES_DST}"
+            for THEME in "Dracula" "Catppuccin Mocha" "Catppuccin Latte" \
+                         "Catppuccin Macchiato" "Catppuccin Frappe" "Nord" \
+                         "Gruvbox Dark" "Gruvbox Light" \
+                         "iTerm2 Solarized Dark" "iTerm2 Solarized Light"; do
+              cp "${THEMES_SRC}/${THEME}" "${THEMES_DST}/${THEME}"
+            done
+          fi
         name: Bundle nex CLI and install script
 
   NexTests:

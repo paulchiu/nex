@@ -97,7 +97,7 @@ struct AppReducer {
         case resetKeybindings
 
         // General config
-        case configLoaded(focusFollowsMouse: Bool, focusFollowsMouseDelay: Int)
+        case configLoaded(focusFollowsMouse: Bool, focusFollowsMouseDelay: Int, theme: String?)
         case setFocusFollowsMouse(Bool)
         case setFocusFollowsMouseDelay(Int)
     }
@@ -138,7 +138,8 @@ struct AppReducer {
                         )
                         await send(.configLoaded(
                             focusFollowsMouse: config.focusFollowsMouse,
-                            focusFollowsMouseDelay: config.focusFollowsMouseDelay
+                            focusFollowsMouseDelay: config.focusFollowsMouseDelay,
+                            theme: config.theme
                         ))
                     }
                 )
@@ -405,9 +406,12 @@ struct AppReducer {
 
             // MARK: - General Config
 
-            case .configLoaded(let focusFollowsMouse, let focusFollowsMouseDelay):
+            case .configLoaded(let focusFollowsMouse, let focusFollowsMouseDelay, let themeID):
                 state.focusFollowsMouse = focusFollowsMouse
                 state.focusFollowsMouseDelay = focusFollowsMouseDelay
+                if let themeID, let theme = NexTheme.named(themeID) {
+                    return .send(.settings(.selectTheme(theme)))
+                }
                 return .none
 
             case .setFocusFollowsMouse(let enabled):
