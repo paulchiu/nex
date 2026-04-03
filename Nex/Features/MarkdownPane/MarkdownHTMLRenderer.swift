@@ -164,7 +164,7 @@ enum MarkdownRenderer {
         backgroundColor: NSColor = .windowBackgroundColor,
         backgroundOpacity: Double = 1.0
     ) -> String {
-        let document = Document(parsing: markdown, options: [.parseBlockDirectives])
+        let document = Document(parsing: markdown)
         var visitor = MarkdownHTMLRenderer()
         let bodyHTML = visitor.visit(document)
         let bgCSS = cssBackground(color: backgroundColor, opacity: backgroundOpacity)
