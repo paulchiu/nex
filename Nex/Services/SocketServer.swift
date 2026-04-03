@@ -16,6 +16,7 @@ enum SocketMessage: Equatable {
     case paneName(paneID: UUID, name: String)
     case paneSend(paneID: UUID, target: String, text: String)
     case paneMove(paneID: UUID, direction: PaneLayout.Direction)
+    case paneMoveToWorkspace(paneID: UUID, toWorkspace: String, create: Bool)
     /// Workspace commands
     case workspaceCreate(name: String?, path: String?, color: WorkspaceColor?)
     /// File commands
@@ -264,6 +265,10 @@ final class SocketServer: Sendable {
             guard let dirString = wire.direction,
                   let dir = PaneLayout.Direction(rawValue: dirString) else { return nil }
             socketMessage = .paneMove(paneID: paneID, direction: dir)
+        case "pane-move-to-workspace":
+            guard let toWorkspace = wire.name, !toWorkspace.isEmpty else { return nil }
+            let create = wire.text == "true"
+            socketMessage = .paneMoveToWorkspace(paneID: paneID, toWorkspace: toWorkspace, create: create)
         case "layout-cycle":
             socketMessage = .layoutCycle(paneID: paneID)
         case "layout-select":

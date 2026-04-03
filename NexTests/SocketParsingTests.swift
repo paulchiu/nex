@@ -378,6 +378,42 @@ struct SocketParsingTests {
         #expect(result == nil)
     }
 
+    // MARK: - Pane move-to-workspace commands
+
+    @Test func parsePaneMoveToWorkspace() {
+        let data = jsonData("""
+        {"command":"pane-move-to-workspace","pane_id":"\(Self.paneIDString)","name":"logs"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result != nil)
+        #expect(result?.0 == .paneMoveToWorkspace(paneID: Self.paneUUID, toWorkspace: "logs", create: false))
+    }
+
+    @Test func parsePaneMoveToWorkspaceWithCreate() {
+        let data = jsonData("""
+        {"command":"pane-move-to-workspace","pane_id":"\(Self.paneIDString)","name":"staging","text":"true"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result != nil)
+        #expect(result?.0 == .paneMoveToWorkspace(paneID: Self.paneUUID, toWorkspace: "staging", create: true))
+    }
+
+    @Test func parsePaneMoveToWorkspaceMissingNameReturnsNil() {
+        let data = jsonData("""
+        {"command":"pane-move-to-workspace","pane_id":"\(Self.paneIDString)"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result == nil)
+    }
+
+    @Test func parsePaneMoveToWorkspaceEmptyNameReturnsNil() {
+        let data = jsonData("""
+        {"command":"pane-move-to-workspace","pane_id":"\(Self.paneIDString)","name":""}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result == nil)
+    }
+
     // MARK: - Layout commands
 
     @Test func parseLayoutCycleCommand() {

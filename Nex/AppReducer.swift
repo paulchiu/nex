@@ -650,6 +650,76 @@ struct AppReducer {
                         id: workspace.id, action: .movePaneInDirection(direction)
                     )))
 
+                case .paneMoveToWorkspace(let paneID, let toWorkspace, let create):
+                    // Find source workspace
+                    guard let sourceWS = state.workspaces.first(where: { $0.panes[id: paneID] != nil })
+                    else { return .none }
+
+                    // Resolve target workspace
+                    var targetWSID = Self.resolveWorkspace(toWorkspace, state: state)
+
+                    // Auto-create if requested
+                    if targetWSID == nil, create {
+                        let newID = uuid()
+                        let newWS = WorkspaceFeature.State(
+                            id: newID, name: toWorkspace,
+                            slug: WorkspaceFeature.State.makeSlug(from: toWorkspace, id: newID),
+                            color: .random(), panes: [], layout: .empty,
+                            focusedPaneID: nil, createdAt: Date(), lastAccessedAt: Date()
+                        )
+                        state.workspaces.append(newWS)
+                        targetWSID = newID
+                    }
+
+                    guard let targetWSID, targetWSID != sourceWS.id else { return .none }
+                    guard let pane = sourceWS.panes[id: paneID] else { return .none }
+
+                    let sourceWSID = sourceWS.id
+
+                    // Remove from source
+                    state.workspaces[id: sourceWSID]?.panes.remove(id: paneID)
+                    let newSourceLayout = state.workspaces[id: sourceWSID]!.layout.removing(paneID: paneID)
+                    state.workspaces[id: sourceWSID]?.layout = newSourceLayout
+                    state.workspaces[id: sourceWSID]?.currentLayoutIndex = nil
+
+                    if state.workspaces[id: sourceWSID]?.focusedPaneID == paneID {
+                        state.workspaces[id: sourceWSID]?.focusedPaneID = newSourceLayout.allPaneIDs.first
+                    }
+                    if state.workspaces[id: sourceWSID]?.searchingPaneID == paneID {
+                        state.workspaces[id: sourceWSID]?.searchingPaneID = nil
+                        state.workspaces[id: sourceWSID]?.searchNeedle = ""
+                    }
+                    if state.workspaces[id: sourceWSID]?.zoomedPaneID == paneID {
+                        if let saved = state.workspaces[id: sourceWSID]?.savedLayout {
+                            state.workspaces[id: sourceWSID]?.layout = saved.removing(paneID: paneID)
+                        }
+                        state.workspaces[id: sourceWSID]?.zoomedPaneID = nil
+                        state.workspaces[id: sourceWSID]?.savedLayout = nil
+                    }
+
+                    // Add to target
+                    state.workspaces[id: targetWSID]?.panes.append(pane)
+
+                    let targetLayout = state.workspaces[id: targetWSID]?.layout ?? .empty
+                    if targetLayout.isEmpty {
+                        state.workspaces[id: targetWSID]?.layout = .leaf(paneID)
+                    } else {
+                        let anchorID = state.workspaces[id: targetWSID]?.focusedPaneID
+                            ?? targetLayout.allPaneIDs.first
+                        if let anchorID {
+                            let newLayout = targetLayout.splitting(
+                                paneID: anchorID, direction: .horizontal, newPaneID: paneID
+                            ).layout
+                            state.workspaces[id: targetWSID]?.layout = newLayout
+                        }
+                    }
+
+                    state.workspaces[id: targetWSID]?.focusedPaneID = paneID
+                    state.workspaces[id: targetWSID]?.currentLayoutIndex = nil
+                    state.activeWorkspaceID = targetWSID
+
+                    return .send(.persistState)
+
                 // MARK: Workspace commands
 
                 case .workspaceCreate(let name, let path, let color):
@@ -977,6 +1047,25 @@ struct AppReducer {
         Scope(state: \.settings, action: \.settings) {
             SettingsFeature()
         }
+    }
+
+    /// Resolve a workspace target string (UUID, name, or slug) to a workspace UUID.
+    private static func resolveWorkspace(
+        _ target: String,
+        state: State
+    ) -> UUID? {
+        if let uuid = UUID(uuidString: target), state.workspaces[id: uuid] != nil {
+            return uuid
+        }
+        if let ws = state.workspaces.first(where: {
+            $0.name.localizedCaseInsensitiveCompare(target) == .orderedSame
+        }) {
+            return ws.id
+        }
+        if let ws = state.workspaces.first(where: { $0.slug == target }) {
+            return ws.id
+        }
+        return nil
     }
 
     /// Resolve a target string (UUID or pane label) to a pane UUID.

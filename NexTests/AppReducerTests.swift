@@ -312,6 +312,111 @@ struct AppReducerTests {
         }
     }
 
+    // MARK: - paneMoveToWorkspace
+
+    @Test func movePaneToWorkspaceByName() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "Source", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "Target", paneID: Self.paneID2)
+
+        let store = makeStore(workspaces: [ws1, ws2], activeWorkspaceID: Self.wsID1)
+
+        await store.send(.socketMessage(.paneMoveToWorkspace(
+            paneID: Self.paneID1, toWorkspace: "Target", create: false
+        ))) { state in
+            // Source workspace has no panes
+            #expect(state.workspaces[id: Self.wsID1]?.panes.count == 0)
+            #expect(state.workspaces[id: Self.wsID1]?.layout.isEmpty == true)
+            #expect(state.workspaces[id: Self.wsID1]?.focusedPaneID == nil)
+
+            // Target workspace has both panes
+            #expect(state.workspaces[id: Self.wsID2]?.panes.count == 2)
+            #expect(state.workspaces[id: Self.wsID2]?.panes[id: Self.paneID1] != nil)
+            #expect(state.workspaces[id: Self.wsID2]?.focusedPaneID == Self.paneID1)
+
+            // Active workspace switched
+            #expect(state.activeWorkspaceID == Self.wsID2)
+        }
+    }
+
+    @Test func movePaneToWorkspaceWithCreate() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "Source", paneID: Self.paneID1)
+
+        let store = makeStore(workspaces: [ws1], activeWorkspaceID: Self.wsID1)
+
+        await store.send(.socketMessage(.paneMoveToWorkspace(
+            paneID: Self.paneID1, toWorkspace: "NewWS", create: true
+        ))) { state in
+            // New workspace was created
+            #expect(state.workspaces.count == 2)
+            let newWS = state.workspaces.first(where: { $0.name == "NewWS" })
+            #expect(newWS != nil)
+            #expect(newWS?.panes[id: Self.paneID1] != nil)
+            #expect(newWS?.layout == .leaf(Self.paneID1))
+            #expect(newWS?.focusedPaneID == Self.paneID1)
+
+            // Source is empty
+            #expect(state.workspaces[id: Self.wsID1]?.panes.count == 0)
+        }
+    }
+
+    @Test func movePaneToWorkspaceNotFoundWithoutCreate() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "Source", paneID: Self.paneID1)
+
+        let store = makeStore(workspaces: [ws1], activeWorkspaceID: Self.wsID1)
+
+        await store.send(.socketMessage(.paneMoveToWorkspace(
+            paneID: Self.paneID1, toWorkspace: "NonExistent", create: false
+        )))
+        // No state change — pane stays in source
+    }
+
+    @Test func movePaneToSameWorkspaceNoOp() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "Source", paneID: Self.paneID1)
+
+        let store = makeStore(workspaces: [ws1], activeWorkspaceID: Self.wsID1)
+
+        await store.send(.socketMessage(.paneMoveToWorkspace(
+            paneID: Self.paneID1, toWorkspace: "Source", create: false
+        )))
+        // No state change — same workspace
+    }
+
+    @Test func moveLastPaneLeavesSourceEmpty() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "Source", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "Target", paneID: Self.paneID2)
+
+        let store = makeStore(workspaces: [ws1, ws2], activeWorkspaceID: Self.wsID1)
+
+        await store.send(.socketMessage(.paneMoveToWorkspace(
+            paneID: Self.paneID1, toWorkspace: "Target", create: false
+        ))) { state in
+            // Source workspace still exists but is empty
+            #expect(state.workspaces[id: Self.wsID1] != nil)
+            #expect(state.workspaces[id: Self.wsID1]?.panes.isEmpty == true)
+            #expect(state.workspaces[id: Self.wsID1]?.layout.isEmpty == true)
+        }
+    }
+
+    @Test func movePaneToEmptyWorkspace() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "Source", paneID: Self.paneID1)
+        let ws2 = WorkspaceFeature.State(
+            id: Self.wsID2, name: "Empty", slug: "empty", color: .green,
+            panes: [], layout: .empty, focusedPaneID: nil,
+            createdAt: Date(), lastAccessedAt: Date()
+        )
+
+        let store = makeStore(workspaces: [ws1, ws2], activeWorkspaceID: Self.wsID1)
+
+        await store.send(.socketMessage(.paneMoveToWorkspace(
+            paneID: Self.paneID1, toWorkspace: "Empty", create: false
+        ))) { state in
+            // Pane becomes sole leaf in target
+            #expect(state.workspaces[id: Self.wsID2]?.panes.count == 1)
+            #expect(state.workspaces[id: Self.wsID2]?.layout == .leaf(Self.paneID1))
+            #expect(state.workspaces[id: Self.wsID2]?.focusedPaneID == Self.paneID1)
+        }
+    }
+
     // MARK: - refreshGitStatus
 
     @Test func refreshGitStatusQueriesAssociations() async {

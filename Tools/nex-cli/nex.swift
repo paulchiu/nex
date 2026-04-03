@@ -11,6 +11,7 @@
 //   nex pane name <name>
 //   nex pane send --to <name-or-uuid> <command...>
 //   nex pane move [left|right|up|down]
+//   nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]
 //   nex workspace create [--name "..."] [--path /dir] [--color blue]
 //   nex layout cycle
 //   nex layout select <name>
@@ -55,6 +56,7 @@ func printUsage() {
       nex pane name <name>
       nex pane send --to <name-or-uuid> <command...>
       nex pane move [left|right|up|down]
+      nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]
       nex workspace create [--name "..."] [--path /dir] [--color blue]
       nex layout cycle
       nex layout select <name>
@@ -284,9 +286,25 @@ func handlePane(_ args: inout ArraySlice<String>) {
             "direction": direction
         ])
 
+    case "move-to-workspace":
+        guard let toWorkspace = parseFlag("--to-workspace", from: &args) else {
+            fputs("Usage: nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]\n", stderr)
+            exit(1)
+        }
+        var payload: [String: String] = [
+            "command": "pane-move-to-workspace",
+            "pane_id": paneID,
+            "name": toWorkspace
+        ]
+        if let idx = args.firstIndex(of: "--create") {
+            payload["text"] = "true"
+            args.remove(at: idx)
+        }
+        sendJSON(payload)
+
     default:
         fputs("Unknown pane action: \(action)\n", stderr)
-        fputs("Valid actions: split, create, close, name, send, move\n", stderr)
+        fputs("Valid actions: split, create, close, name, send, move, move-to-workspace\n", stderr)
         exit(1)
     }
 }
