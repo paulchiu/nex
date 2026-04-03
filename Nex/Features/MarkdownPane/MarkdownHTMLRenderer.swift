@@ -168,7 +168,14 @@ enum MarkdownRenderer {
         var visitor = MarkdownHTMLRenderer()
         let bodyHTML = visitor.visit(document)
         let bgCSS = cssBackground(color: backgroundColor, opacity: backgroundOpacity)
-        return wrapInHTMLDocument(bodyHTML, backgroundCSS: bgCSS)
+        let isDark = isDarkBackground(color: backgroundColor)
+        return wrapInHTMLDocument(bodyHTML, backgroundCSS: bgCSS, isDark: isDark)
+    }
+
+    private static func isDarkBackground(color: NSColor) -> Bool {
+        let rgb = color.usingColorSpace(.sRGB) ?? color
+        let luminance = 0.299 * rgb.redComponent + 0.587 * rgb.greenComponent + 0.114 * rgb.blueComponent
+        return luminance < 0.5
     }
 
     private static func cssBackground(color: NSColor, opacity: Double) -> String {
@@ -179,10 +186,10 @@ enum MarkdownRenderer {
         return "background-color: rgba(\(r), \(g), \(b), \(opacity));"
     }
 
-    private static func wrapInHTMLDocument(_ body: String, backgroundCSS: String) -> String {
+    private static func wrapInHTMLDocument(_ body: String, backgroundCSS: String, isDark: Bool) -> String {
         """
         <!DOCTYPE html>
-        <html>
+        <html class="\(isDark ? "dark" : "light")">
         <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -203,9 +210,6 @@ enum MarkdownRenderer {
 
     private static func css(backgroundCSS: String) -> String {
         """
-        :root {
-            color-scheme: light dark;
-        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
             font-size: 14px;
@@ -215,11 +219,7 @@ enum MarkdownRenderer {
             color: #1f2328;
             \(backgroundCSS)
         }
-        @media (prefers-color-scheme: dark) {
-            body {
-                color: #e6edf3;
-            }
-        }
+        .dark body { color: #e6edf3; }
         h1, h2, h3, h4, h5, h6 {
             margin-top: 1.5em;
             margin-bottom: 0.5em;
@@ -228,15 +228,11 @@ enum MarkdownRenderer {
         h1 { font-size: 2em; border-bottom: 1px solid #d1d9e0; padding-bottom: 0.3em; }
         h2 { font-size: 1.5em; border-bottom: 1px solid #d1d9e0; padding-bottom: 0.3em; }
         h3 { font-size: 1.25em; }
-        @media (prefers-color-scheme: dark) {
-            h1, h2 { border-bottom-color: #3d444d; }
-        }
+        .dark h1, .dark h2 { border-bottom-color: #3d444d; }
         p { margin: 0.5em 0 1em; }
         a { color: #0969da; text-decoration: none; }
         a:hover { text-decoration: underline; }
-        @media (prefers-color-scheme: dark) {
-            a { color: #58a6ff; }
-        }
+        .dark a { color: #58a6ff; }
         pre {
             background: #f6f8fa;
             padding: 16px;
@@ -245,9 +241,7 @@ enum MarkdownRenderer {
             font-size: 13px;
             line-height: 1.45;
         }
-        @media (prefers-color-scheme: dark) {
-            pre { background: #161b22; }
-        }
+        .dark pre { background: #161b22; }
         code {
             font-family: 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
             font-size: 0.9em;
@@ -257,18 +251,14 @@ enum MarkdownRenderer {
             padding: 2px 6px;
             border-radius: 4px;
         }
-        @media (prefers-color-scheme: dark) {
-            :not(pre) > code { background: #262c36; }
-        }
+        .dark :not(pre) > code { background: #262c36; }
         blockquote {
             border-left: 4px solid #d1d9e0;
             padding: 0 16px;
             color: #656d76;
             margin: 0.5em 0 1em;
         }
-        @media (prefers-color-scheme: dark) {
-            blockquote { border-left-color: #3d444d; color: #9198a1; }
-        }
+        .dark blockquote { border-left-color: #3d444d; color: #9198a1; }
         table {
             border-collapse: collapse;
             width: 100%;
@@ -280,10 +270,8 @@ enum MarkdownRenderer {
             text-align: left;
         }
         th { font-weight: 600; background: #f6f8fa; }
-        @media (prefers-color-scheme: dark) {
-            th, td { border-color: #3d444d; }
-            th { background: #161b22; }
-        }
+        .dark th, .dark td { border-color: #3d444d; }
+        .dark th { background: #161b22; }
         ul, ol { padding-left: 2em; margin: 0.5em 0; }
         li { margin: 0.25em 0; }
         li > input[type="checkbox"] { margin-right: 0.5em; }
@@ -292,14 +280,10 @@ enum MarkdownRenderer {
             border-top: 1px solid #d1d9e0;
             margin: 2em 0;
         }
-        @media (prefers-color-scheme: dark) {
-            hr { border-top-color: #3d444d; }
-        }
+        .dark hr { border-top-color: #3d444d; }
         img { max-width: 100%; border-radius: 4px; }
         del { color: #656d76; }
-        @media (prefers-color-scheme: dark) {
-            del { color: #9198a1; }
-        }
+        .dark del { color: #9198a1; }
         """
     }
 }
