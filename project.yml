@@ -61,6 +61,18 @@ targets:
           - "-lz"
           - "-L$(SRCROOT)/lib"
           - "-lghostty"
+        # Silence "umbrella header does not include header" warnings from
+        # ghostty's module.modulemap: upstream declares ghostty.h as an
+        # umbrella, and the sibling ghostty/vt/*.h headers (libghostty-vt)
+        # aren't referenced from it. Nex uses a bridging header and never
+        # imports the GhosttyKit module, so these warnings are noise. The
+        # flag must go via -Xcc so Swift's clang importer sees it during
+        # bridging-header processing (plain OTHER_CFLAGS doesn't reach it).
+        OTHER_SWIFT_FLAGS:
+          - "-Xcc"
+          - "-Wno-incomplete-umbrella"
+        OTHER_CFLAGS:
+          - "-Wno-incomplete-umbrella"
         HEADER_SEARCH_PATHS:
           - "$(SRCROOT)/ghostty/include"
         GENERATE_INFOPLIST_FILE: false
@@ -131,5 +143,10 @@ targets:
         GENERATE_INFOPLIST_FILE: true
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Nex.app/Contents/MacOS/Nex"
         BUNDLE_LOADER: "$(TEST_HOST)"
+        OTHER_SWIFT_FLAGS:
+          - "-Xcc"
+          - "-Wno-incomplete-umbrella"
+        OTHER_CFLAGS:
+          - "-Wno-incomplete-umbrella"
         HEADER_SEARCH_PATHS:
           - "$(SRCROOT)/ghostty/include"

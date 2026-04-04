@@ -77,16 +77,16 @@ final class GhosttyApp {
         }
 
         runtime.read_clipboard_cb = { userdata, _, request in
-            guard let userdata, let request else { return }
+            guard let userdata, let request else { return false }
             let surfaceView = Unmanaged<SurfaceView>.fromOpaque(userdata).takeUnretainedValue()
-            guard let surface = surfaceView.ghosttySurface?.surface else { return }
+            guard let surface = surfaceView.ghosttySurface?.surface else { return false }
 
             // 1. Try string first (existing behavior — covers text copies and file URLs)
             if let str = NSPasteboard.general.string(forType: .string), !str.isEmpty {
                 str.withCString { ptr in
                     ghostty_surface_complete_clipboard_request(surface, ptr, request, true)
                 }
-                return
+                return true
             }
 
             // 2. Try image data — save to temp PNG and paste the shell-escaped path
@@ -95,13 +95,12 @@ final class GhosttyApp {
                 escaped.withCString { ptr in
                     ghostty_surface_complete_clipboard_request(surface, ptr, request, true)
                 }
-                return
+                return true
             }
 
-            // 3. Nothing usable — complete with empty string (ghostty requires a response)
-            "".withCString { ptr in
-                ghostty_surface_complete_clipboard_request(surface, ptr, request, true)
-            }
+            // 3. Nothing usable — return false so performable paste bindings can
+            // pass through to the terminal instead of being consumed.
+            return false
         }
 
         runtime.confirm_read_clipboard_cb = { userdata, data, request, _ in

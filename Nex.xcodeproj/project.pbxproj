@@ -656,11 +656,18 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				OTHER_CFLAGS = (
+					"-Wno-incomplete-umbrella",
+				);
 				OTHER_LDFLAGS = (
 					"-lc++",
 					"-lz",
 					"-L$(SRCROOT)/lib",
 					"-lghostty",
+				);
+				OTHER_SWIFT_FLAGS = (
+					"-Xcc",
+					"-Wno-incomplete-umbrella",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.benfriebe.nex;
 				PRODUCT_NAME = Nex;
@@ -810,6 +817,13 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
+				OTHER_CFLAGS = (
+					"-Wno-incomplete-umbrella",
+				);
+				OTHER_SWIFT_FLAGS = (
+					"-Xcc",
+					"-Wno-incomplete-umbrella",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.benfriebe.nex.tests;
 				SDKROOT = macosx;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Nex.app/Contents/MacOS/Nex";
@@ -829,6 +843,13 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
+				);
+				OTHER_CFLAGS = (
+					"-Wno-incomplete-umbrella",
+				);
+				OTHER_SWIFT_FLAGS = (
+					"-Xcc",
+					"-Wno-incomplete-umbrella",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.benfriebe.nex.tests;
 				SDKROOT = macosx;
@@ -851,11 +872,18 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				OTHER_CFLAGS = (
+					"-Wno-incomplete-umbrella",
+				);
 				OTHER_LDFLAGS = (
 					"-lc++",
 					"-lz",
 					"-L$(SRCROOT)/lib",
 					"-lghostty",
+				);
+				OTHER_SWIFT_FLAGS = (
+					"-Xcc",
+					"-Wno-incomplete-umbrella",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.benfriebe.nex;
 				PRODUCT_NAME = Nex;
