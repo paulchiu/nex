@@ -193,7 +193,9 @@ struct AppReducer {
                 state.workspaces.remove(id: id)
 
                 if state.activeWorkspaceID == id {
-                    state.activeWorkspaceID = state.workspaces.first?.id
+                    state.activeWorkspaceID = state.workspaces
+                        .max(by: { $0.lastAccessedAt < $1.lastAccessedAt })?
+                        .id
                 }
 
                 return .merge(

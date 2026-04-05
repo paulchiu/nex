@@ -41,13 +41,14 @@ struct AppReducerTests {
         id: UUID,
         name: String,
         color: WorkspaceColor = .blue,
-        paneID: UUID? = nil
+        paneID: UUID? = nil,
+        lastAccessedAt: Date = Date(timeIntervalSince1970: 1000)
     ) -> WorkspaceFeature.State {
         let pid = paneID ?? UUID()
         return WorkspaceFeature.State(
             id: id, name: name, slug: name.lowercased(), color: color,
             panes: [Pane(id: pid)], layout: .leaf(pid),
-            focusedPaneID: pid, createdAt: Date(), lastAccessedAt: Date()
+            focusedPaneID: pid, createdAt: Date(), lastAccessedAt: lastAccessedAt
         )
     }
 
@@ -101,9 +102,15 @@ struct AppReducerTests {
 
     // MARK: - deleteWorkspace
 
-    @Test func deleteWorkspaceRemovesAndSelectsNext() async {
-        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
-        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2)
+    @Test func deleteActiveWorkspaceFocusesMostRecentlyUsed() async {
+        let ws1 = Self.makeWorkspace(
+            id: Self.wsID1, name: "WS1", paneID: Self.paneID1,
+            lastAccessedAt: Date(timeIntervalSince1970: 2000)
+        )
+        let ws2 = Self.makeWorkspace(
+            id: Self.wsID2, name: "WS2", paneID: Self.paneID2,
+            lastAccessedAt: Date(timeIntervalSince1970: 1000)
+        )
 
         let store = makeStore(
             workspaces: [ws1, ws2],
@@ -113,6 +120,34 @@ struct AppReducerTests {
         await store.send(.deleteWorkspace(Self.wsID1)) { state in
             #expect(state.workspaces.count == 1)
             #expect(state.workspaces[id: Self.wsID1] == nil)
+            #expect(state.activeWorkspaceID == Self.wsID2)
+        }
+    }
+
+    @Test func deleteActiveWorkspacePrefersMiddleIfMostRecent() async {
+        let wsID3 = UUID(uuidString: "10000000-0000-0000-0000-000000000003")!
+        // Order in list: ws1, ws2, ws3. But ws2 was the most recently focused
+        // non-active workspace — history should pick it over ws1 or ws3.
+        let ws1 = Self.makeWorkspace(
+            id: Self.wsID1, name: "WS1", paneID: Self.paneID1,
+            lastAccessedAt: Date(timeIntervalSince1970: 1000)
+        )
+        let ws2 = Self.makeWorkspace(
+            id: Self.wsID2, name: "WS2", paneID: Self.paneID2,
+            lastAccessedAt: Date(timeIntervalSince1970: 3000)
+        )
+        let ws3 = Self.makeWorkspace(
+            id: wsID3, name: "WS3", paneID: UUID(),
+            lastAccessedAt: Date(timeIntervalSince1970: 5000)
+        )
+
+        let store = makeStore(
+            workspaces: [ws1, ws2, ws3],
+            activeWorkspaceID: wsID3
+        )
+
+        await store.send(.deleteWorkspace(wsID3)) { state in
+            #expect(state.workspaces.count == 2)
             #expect(state.activeWorkspaceID == Self.wsID2)
         }
     }
