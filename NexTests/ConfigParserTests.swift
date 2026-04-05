@@ -114,4 +114,12 @@ struct ConfigParserTests {
         let result = ConfigParser.parseGeneralSettings(from: "theme = Catppuccin Mocha")
         #expect(result.theme == "Catppuccin Mocha")
     }
+
+    @Test func parseRenameWorkspace() {
+        let config = "keybind = super+shift+r=rename_workspace"
+        let result = ConfigParser.parseKeybindings(from: config)
+        #expect(result.count == 1)
+        #expect(result[0].0 == KeyTrigger(keyCode: 15, modifiers: [.command, .shift]))
+        #expect(result[0].1 == .renameWorkspace)
+    }
 }

@@ -266,4 +266,18 @@ struct KeyBindingMapTests {
         let cmdShiftSpace = KeyTrigger(keyCode: 49, modifiers: [.command, .shift])
         #expect(map.action(for: cmdShiftSpace) == .cycleLayout)
     }
+
+    @Test func renameWorkspaceMetadata() {
+        #expect(NexAction(rawValue: "rename_workspace") == .renameWorkspace)
+        #expect(NexAction.renameWorkspace.category == "Workspaces")
+        #expect(NexAction.renameWorkspace.isMenuBarAction == false)
+        #expect(NexAction.renameWorkspace.displayName == "Rename Workspace")
+        #expect(NexAction.bindableActions.contains(.renameWorkspace))
+    }
+
+    @Test func defaultsContainRenameWorkspace() {
+        let map = KeyBindingMap.defaults
+        let cmdShiftR = KeyTrigger(keyCode: 15, modifiers: [.command, .shift])
+        #expect(map.action(for: cmdShiftR) == .renameWorkspace)
+    }
 }

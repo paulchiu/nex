@@ -10,6 +10,7 @@ struct AppReducer {
         var activeWorkspaceID: UUID?
         var isSidebarVisible: Bool = true
         var isNewWorkspaceSheetPresented: Bool = false
+        var renamingWorkspaceID: UUID?
         var settings = SettingsFeature.State()
         var repoRegistry: IdentifiedArrayOf<Repo> = []
         var gitStatuses: [UUID: RepoGitStatus] = [:]
@@ -36,6 +37,8 @@ struct AppReducer {
         case toggleSidebar
         case showNewWorkspaceSheet
         case dismissNewWorkspaceSheet
+        case beginRenameActiveWorkspace
+        case setRenamingWorkspaceID(UUID?)
         case persistState
         case stateLoaded(
             IdentifiedArrayOf<WorkspaceFeature.State>,
@@ -198,6 +201,10 @@ struct AppReducer {
                         .id
                 }
 
+                if state.renamingWorkspaceID == id {
+                    state.renamingWorkspaceID = nil
+                }
+
                 return .merge(
                     .run { _ in
                         for paneID in paneIDs {
@@ -254,6 +261,14 @@ struct AppReducer {
 
             case .dismissNewWorkspaceSheet:
                 state.isNewWorkspaceSheetPresented = false
+                return .none
+
+            case .beginRenameActiveWorkspace:
+                state.renamingWorkspaceID = state.activeWorkspaceID
+                return .none
+
+            case .setRenamingWorkspaceID(let id):
+                state.renamingWorkspaceID = id
                 return .none
 
             case .persistState:

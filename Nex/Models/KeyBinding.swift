@@ -229,6 +229,7 @@ enum NexAction: String, CaseIterable {
     case focusPreviousPane = "focus_previous_pane"
     case nextWorkspace = "next_workspace"
     case previousWorkspace = "previous_workspace"
+    case renameWorkspace = "rename_workspace"
     case toggleMarkdownEdit = "toggle_markdown_edit"
     case toggleZoom = "toggle_zoom"
     case reopenClosedPane = "reopen_closed_pane"
@@ -279,6 +280,7 @@ enum NexAction: String, CaseIterable {
         case .focusPreviousPane: "Focus Previous Pane"
         case .nextWorkspace: "Next Workspace"
         case .previousWorkspace: "Previous Workspace"
+        case .renameWorkspace: "Rename Workspace"
         case .toggleMarkdownEdit: "Toggle Markdown Edit"
         case .toggleZoom: "Toggle Zoom"
         case .reopenClosedPane: "Reopen Closed Pane"
@@ -301,7 +303,7 @@ enum NexAction: String, CaseIterable {
             "Pane Management"
         case .focusNextPane, .focusPreviousPane:
             "Navigation"
-        case .newWorkspace, .nextWorkspace, .previousWorkspace,
+        case .newWorkspace, .nextWorkspace, .previousWorkspace, .renameWorkspace,
              .switchToWorkspace1, .switchToWorkspace2, .switchToWorkspace3,
              .switchToWorkspace4, .switchToWorkspace5, .switchToWorkspace6,
              .switchToWorkspace7, .switchToWorkspace8, .switchToWorkspace9:
@@ -422,6 +424,7 @@ struct KeyBindingMap: Equatable {
         bindings[KeyTrigger(keyCode: 123, modifiers: [.command, .option])] = .focusPreviousPane // ⌘⌥←
         bindings[KeyTrigger(keyCode: 125, modifiers: [.command, .option])] = .nextWorkspace // ⌘⌥↓
         bindings[KeyTrigger(keyCode: 126, modifiers: [.command, .option])] = .previousWorkspace // ⌘⌥↑
+        bindings[KeyTrigger(keyCode: 15, modifiers: [.command, .shift])] = .renameWorkspace // ⌘⇧R
         bindings[KeyTrigger(keyCode: 14, modifiers: .command)] = .toggleMarkdownEdit // ⌘E
         bindings[KeyTrigger(keyCode: 36, modifiers: [.command, .shift])] = .toggleZoom // ⌘⇧Return
         bindings[KeyTrigger(keyCode: 17, modifiers: [.command, .shift])] = .reopenClosedPane // ⌘⇧T

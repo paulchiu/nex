@@ -290,6 +290,95 @@ struct AppReducerTests {
         }
     }
 
+    // MARK: - beginRenameActiveWorkspace / setRenamingWorkspaceID
+
+    @Test func beginRenameActiveWorkspaceSetsID() async {
+        let ws = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
+        let store = makeStore(workspaces: [ws], activeWorkspaceID: Self.wsID1)
+
+        await store.send(.beginRenameActiveWorkspace) { state in
+            state.renamingWorkspaceID = Self.wsID1
+        }
+    }
+
+    @Test func beginRenameActiveWorkspaceWithNoActiveIsNoOp() async {
+        let store = makeStore()
+
+        await store.send(.beginRenameActiveWorkspace) { state in
+            #expect(state.renamingWorkspaceID == nil)
+        }
+    }
+
+    @Test func deleteWorkspaceClearsPendingRename() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2)
+        var appState = AppReducer.State()
+        appState.workspaces = [ws1, ws2]
+        appState.activeWorkspaceID = Self.wsID1
+        appState.renamingWorkspaceID = Self.wsID1
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.deleteWorkspace(Self.wsID1)) { state in
+            #expect(state.renamingWorkspaceID == nil)
+        }
+    }
+
+    @Test func deleteOtherWorkspacePreservesPendingRename() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2)
+        var appState = AppReducer.State()
+        appState.workspaces = [ws1, ws2]
+        appState.activeWorkspaceID = Self.wsID1
+        appState.renamingWorkspaceID = Self.wsID1
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.deleteWorkspace(Self.wsID2)) { state in
+            #expect(state.renamingWorkspaceID == Self.wsID1)
+        }
+    }
+
+    @Test func setRenamingWorkspaceIDClears() async {
+        var appState = AppReducer.State()
+        appState.renamingWorkspaceID = Self.wsID1
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.setRenamingWorkspaceID(nil)) { state in
+            state.renamingWorkspaceID = nil
+        }
+    }
+
     // MARK: - toggleInspector
 
     @Test func toggleInspectorFlips() async {

@@ -10,6 +10,7 @@
 		0053A91856EF3EB22FEB03B7 /* PaneGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 005B56542A2F5FD5D3BC588C /* PaneGridView.swift */; };
 		066D1D15DCA5E39EC770E77C /* StatusBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09102B6ADEAB463454E7F15E /* StatusBarController.swift */; };
 		089AA30B37857F3539BF81C3 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D4EC6AC4CDFB5377057239 /* HelpView.swift */; };
+		0EAFF0FDB683293F95D8AB47 /* RenameWorkspaceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67E67BC5275DEF2EED8D21D2 /* RenameWorkspaceSheet.swift */; };
 		14C1E964B19A8C277D5EA5E4 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE56BB11F5C7C34821411297 /* QuartzCore.framework */; };
 		1569F35B72EC7C133643190E /* PaneType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 377C07C6C4B00D0699682EA3 /* PaneType.swift */; };
 		1E6354C9BBDF122BF0FB255F /* WorktreeOperationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11CBC99B6D8094F73CDFBD80 /* WorktreeOperationTests.swift */; };
@@ -139,6 +140,7 @@
 		57C59BDCBA03302FC7FDE16B /* WorkspaceInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceInspectorView.swift; sourceTree = "<group>"; };
 		5F60DBD29A7E964E6F18A28F /* KeyBindingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyBindingTests.swift; sourceTree = "<group>"; };
 		61D6AE6635332105A3C18A03 /* VibrancyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VibrancyView.swift; sourceTree = "<group>"; };
+		67E67BC5275DEF2EED8D21D2 /* RenameWorkspaceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenameWorkspaceSheet.swift; sourceTree = "<group>"; };
 		6B4B95F852C737F18989F8FA /* WorkspaceColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceColor.swift; sourceTree = "<group>"; };
 		6BB526BDDE50E6C7948EE832 /* NexTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexTheme.swift; sourceTree = "<group>"; };
 		6FD9BCE4ABC267C7E34EAF09 /* PaneFocusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneFocusView.swift; sourceTree = "<group>"; };
@@ -375,6 +377,7 @@
 			isa = PBXGroup;
 			children = (
 				4F0D3AB3067CDBF5A490F532 /* NewWorkspaceSheet.swift */,
+				67E67BC5275DEF2EED8D21D2 /* RenameWorkspaceSheet.swift */,
 				1BA6AA9E98405375983902BD /* WorkspaceFeature.swift */,
 				57C59BDCBA03302FC7FDE16B /* WorkspaceInspectorView.swift */,
 				F7F9C43CA9B19E7281082913 /* WorkspaceListView.swift */,
@@ -617,6 +620,7 @@
 				5883FFD10BE73F44EA8F4A5C /* PaneSearchOverlay.swift in Sources */,
 				1569F35B72EC7C133643190E /* PaneType.swift in Sources */,
 				FF162EE0EAF672FFFCFDF0BE /* PersistenceService.swift in Sources */,
+				0EAFF0FDB683293F95D8AB47 /* RenameWorkspaceSheet.swift in Sources */,
 				550563B9BEDE841D3B7CE6B8 /* Repo.swift in Sources */,
 				6ACFF31A3875EBE87E78C587 /* RepoAssociation.swift in Sources */,
 				3DF88C2A2966C7B0209E22FE /* RepoPickerView.swift in Sources */,

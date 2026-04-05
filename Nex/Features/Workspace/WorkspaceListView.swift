@@ -4,8 +4,6 @@ import SwiftUI
 /// Sidebar list of all workspaces with selection and context menus.
 struct WorkspaceListView: View {
     let store: StoreOf<AppReducer>
-    @State private var renamingWorkspaceID: UUID?
-    @State private var renameText: String = ""
     @State private var draggedWorkspaceID: UUID?
     @State private var dragCurrentY: CGFloat = 0
     @State private var dragGrabOffset: CGFloat = 0
@@ -32,21 +30,6 @@ struct WorkspaceListView: View {
                 }
                 .buttonStyle(.borderless)
                 .padding(12)
-            }
-            .alert("Rename Workspace", isPresented: Binding(
-                get: { renamingWorkspaceID != nil },
-                set: { if !$0 { renamingWorkspaceID = nil } }
-            )) {
-                TextField("Name", text: $renameText)
-                Button("Rename") {
-                    if let id = renamingWorkspaceID, !renameText.isEmpty {
-                        store.send(.workspaces(.element(id: id, action: .rename(renameText))))
-                    }
-                    renamingWorkspaceID = nil
-                }
-                Button("Cancel", role: .cancel) {
-                    renamingWorkspaceID = nil
-                }
             }
         }
     }
@@ -112,8 +95,7 @@ struct WorkspaceListView: View {
             }
             .contextMenu {
                 Button("Rename...") {
-                    renameText = workspaceStore.name
-                    renamingWorkspaceID = workspaceID
+                    store.send(.setRenamingWorkspaceID(workspaceID))
                 }
                 Menu("Color") {
                     ForEach(WorkspaceColor.allCases) { color in

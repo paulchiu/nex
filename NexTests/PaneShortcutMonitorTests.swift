@@ -391,6 +391,22 @@ struct PaneShortcutMonitorTests {
         #expect(mdStore.workspaces[id: Self.wsID]?.panes[id: Self.paneID1]?.isEditing == true)
     }
 
+    // MARK: - Rename workspace
+
+    @Test func cmdShiftRBeginsRenameOfActiveWorkspace() {
+        let ws = Self.makeWorkspace()
+        let (store, monitor) = makeStoreAndMonitor(
+            workspaces: [ws],
+            activeWorkspaceID: Self.wsID
+        )
+
+        let event = keyEvent(keyCode: 15, modifierFlags: [.command, .shift])
+        let handled = monitor.handleKeyEvent(event)
+
+        #expect(handled == true)
+        #expect(store.renamingWorkspaceID == Self.wsID)
+    }
+
     @Test func menuBarActionNotConsumedByMonitor() {
         let ws = Self.makeWorkspace()
         let (_, monitor) = makeStoreAndMonitor(

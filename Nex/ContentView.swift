@@ -121,6 +121,24 @@ struct ContentView: View {
             )) {
                 NewWorkspaceSheet(store: store)
             }
+            .sheet(isPresented: Binding(
+                get: { store.renamingWorkspaceID != nil },
+                set: { if !$0 { store.send(.setRenamingWorkspaceID(nil)) } }
+            )) {
+                if let id = store.renamingWorkspaceID,
+                   let ws = store.workspaces[id: id] {
+                    RenameWorkspaceSheet(
+                        currentName: ws.name,
+                        onRename: { newName in
+                            store.send(.workspaces(.element(id: id, action: .rename(newName))))
+                            store.send(.setRenamingWorkspaceID(nil))
+                        },
+                        onDismiss: {
+                            store.send(.setRenamingWorkspaceID(nil))
+                        }
+                    )
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: SurfaceView.paneFocusedNotification)) { notification in
                 guard let paneID = notification.userInfo?["paneID"] as? UUID,
                       let activeID = store.activeWorkspaceID,
