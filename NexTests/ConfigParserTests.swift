@@ -122,4 +122,31 @@ struct ConfigParserTests {
         #expect(result[0].0 == KeyTrigger(keyCode: 15, modifiers: [.command, .shift]))
         #expect(result[0].1 == .renameWorkspace)
     }
+
+    // MARK: - TCP Port
+
+    @Test func parseTCPPort() {
+        let result = ConfigParser.parseGeneralSettings(from: "tcp-port = 19400")
+        #expect(result.tcpPort == 19400)
+    }
+
+    @Test func parseTCPPortZeroMeansDisabled() {
+        let result = ConfigParser.parseGeneralSettings(from: "tcp-port = 0")
+        #expect(result.tcpPort == 0)
+    }
+
+    @Test func parseTCPPortAbsentDefaultsToZero() {
+        let result = ConfigParser.parseGeneralSettings(from: "focus-follows-mouse = true")
+        #expect(result.tcpPort == 0)
+    }
+
+    @Test func parseTCPPortInvalidIgnored() {
+        let result = ConfigParser.parseGeneralSettings(from: "tcp-port = banana")
+        #expect(result.tcpPort == 0)
+    }
+
+    @Test func parseTCPPortOutOfRangeIgnored() {
+        let result = ConfigParser.parseGeneralSettings(from: "tcp-port = 99999")
+        #expect(result.tcpPort == 0)
+    }
 }

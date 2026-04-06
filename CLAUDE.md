@@ -67,18 +67,20 @@ make check
 - DB location: `~/Library/Application Support/Nex/nex.db`
 
 ### Agent monitoring & CLI
-- `SocketServer` — Unix domain socket at `/tmp/nex.sock`. Receives newline-delimited JSON from the `nex` CLI. Messages use `"command"` key. Commands: `start`, `stop`, `error`, `notification`, `session-start`, `pane-split`, `pane-create`, `pane-close`, `pane-name`, `pane-send`, `workspace-create`, `layout-cycle`, `layout-select`.
+- `SocketServer` — Unix domain socket at `/tmp/nex.sock` + optional TCP listener on `127.0.0.1:<port>`. Receives newline-delimited JSON from the `nex` CLI. Messages use `"command"` key. Commands: `start`, `stop`, `error`, `notification`, `session-start`, `pane-split`, `pane-create`, `pane-close`, `pane-name`, `pane-send`, `workspace-create`, `layout-cycle`, `layout-select`.
+- **TCP transport**: enabled via `tcp-port = <port>` in `~/.config/nex/config`. Binds to `127.0.0.1` only (no auth needed — SSH tunnels handle remote security). Use cases: dev containers connect via `host.docker.internal:<port>`, remote agents connect via SSH reverse tunnel (`ssh -R <port>:localhost:<port> remote`).
 - `SocketMessage` — enum representing all wire messages (agent lifecycle + pane commands + workspace commands).
 - `nex` CLI — standalone Swift CLI in `Tools/nex-cli/`. Compiled as a post-build script and bundled into `Contents/Helpers/`. Subcommand structure:
   - `nex event stop|start|error|notification|session-start [--message ...] [--title ...] [--body ...]`
   - `nex pane split|create|close|name|send [options]`
   - `nex workspace create [--name ...] [--path ...] [--color ...]`
   - `nex layout cycle|select <name>`
+- **CLI transport selection**: `NEX_SOCKET` env var selects transport. Absent = Unix socket (`/tmp/nex.sock`). `tcp:<host>:<port>` = TCP (e.g., `NEX_SOCKET=tcp:host.docker.internal:19400`).
 - `StatusBarController` — menu bar icon + popover showing running/waiting agents across workspaces.
 - `NotificationService` — desktop notifications with "Open"/"Dismiss" actions.
 
 ### Keybindings
-- **Config file**: `~/.config/nex/config` — Ghostty-style `keybind = super+d=split_right` syntax. Parsed by `ConfigParser`, loaded by `KeybindingService`.
+- **Config file**: `~/.config/nex/config` — Ghostty-style `key = value` syntax. General settings: `focus-follows-mouse`, `focus-follows-mouse-delay`, `theme`, `tcp-port`. Keybindings: `keybind = super+d=split_right`. Parsed by `ConfigParser`, loaded by `KeybindingService`.
 - **Data model** (`KeyBinding.swift`): `KeyTrigger` (keyCode + modifiers), `NexAction` (26 bindable actions), `KeyBindingMap` (trigger → action dictionary with sorted lookups).
 - **Two dispatch layers**: SwiftUI `Commands` (`NexCommands`) handles menu bar shortcuts; `PaneShortcutMonitor` (NSEvent local monitor) handles pane-context shortcuts. Both read from `AppReducer.State.keybindings`.
 - **Settings UI** (`KeybindingsSettingsView`): table grouped by category with key recorder sheet, per-action reset, and reset-all. Changes are persisted to the config file.

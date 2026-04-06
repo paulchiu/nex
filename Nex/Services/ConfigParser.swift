@@ -12,6 +12,7 @@ enum ConfigParser {
         var focusFollowsMouse: Bool = false
         var focusFollowsMouseDelay: Int = 100
         var theme: String?
+        var tcpPort: Int = 0
     }
 
     /// Parse general (non-keybind) settings from a config file.
@@ -45,6 +46,10 @@ enum ConfigParser {
             case "theme":
                 // Preserve original case — ghostty theme filenames are case-sensitive.
                 settings.theme = rawValue
+            case "tcp-port":
+                if let port = Int(value), (1 ... 65535).contains(port) {
+                    settings.tcpPort = port
+                }
             default:
                 break
             }

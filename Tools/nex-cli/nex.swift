@@ -18,6 +18,9 @@
 //   nex open <filepath>
 //
 // Reads NEX_PANE_ID from the environment (injected by Nex when the PTY was created).
+// Reads NEX_SOCKET from the environment to select transport:
+//   - Absent or empty: connects via Unix socket at /tmp/nex.sock
+//   - "tcp:<host>:<port>": connects via TCP (e.g., tcp:host.docker.internal:19400)
 // Falls back silently if the socket doesn't exist or NEX_PANE_ID is not set.
 //
 // Claude Code hook config (~/.claude/settings.json):
@@ -26,6 +29,22 @@
 import Foundation
 
 let socketPath = "/tmp/nex.sock"
+
+enum Transport {
+    case unix(path: String)
+    case tcp(host: String, port: UInt16)
+}
+
+let transport: Transport = {
+    if let env = ProcessInfo.processInfo.environment["NEX_SOCKET"],
+       env.hasPrefix("tcp:") {
+        let parts = env.dropFirst(4).split(separator: ":", maxSplits: 1)
+        if parts.count == 2, let port = UInt16(parts[1]) {
+            return .tcp(host: String(parts[0]), port: port)
+        }
+    }
+    return .unix(path: socketPath)
+}()
 
 let nexVersion: String = {
     var pathBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
@@ -84,6 +103,15 @@ func requirePaneID() -> String {
 }
 
 func sendJSON(_ payload: [String: String]) {
+    switch transport {
+    case .unix(let path):
+        sendViaUnix(path: path, payload: payload)
+    case .tcp(let host, let port):
+        sendViaTCP(host: host, port: port, payload: payload)
+    }
+}
+
+func sendViaUnix(path: String, payload: [String: String]) {
     guard let jsonData = try? JSONSerialization.data(withJSONObject: payload),
           var jsonString = String(data: jsonData, encoding: .utf8)
     else {
@@ -93,14 +121,14 @@ func sendJSON(_ payload: [String: String]) {
     jsonString += "\n"
 
     let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-    guard fd >= 0 else { exit(0) } // Silent fail — Nex not running
+    guard fd >= 0 else { exit(0) }
 
     var addr = sockaddr_un()
     addr.sun_family = sa_family_t(AF_UNIX)
-    socketPath.withCString { path in
+    path.withCString { cpath in
         withUnsafeMutableBytes(of: &addr.sun_path) { sunPath in
             let ptr = sunPath.baseAddress!.assumingMemoryBound(to: CChar.self)
-            strncpy(ptr, path, sunPath.count - 1)
+            strncpy(ptr, cpath, sunPath.count - 1)
         }
     }
 
@@ -112,7 +140,43 @@ func sendJSON(_ payload: [String: String]) {
 
     guard connectResult == 0 else {
         close(fd)
-        exit(0) // Silent fail — socket not available
+        exit(0)
+    }
+
+    jsonString.withCString { ptr in
+        let len = strlen(ptr)
+        _ = send(fd, ptr, len, 0)
+    }
+
+    close(fd)
+}
+
+func sendViaTCP(host: String, port: UInt16, payload: [String: String]) {
+    guard let jsonData = try? JSONSerialization.data(withJSONObject: payload),
+          var jsonString = String(data: jsonData, encoding: .utf8)
+    else {
+        exit(1)
+    }
+
+    jsonString += "\n"
+
+    // Resolve hostname (supports both names like host.docker.internal and IP literals)
+    var hints = addrinfo()
+    hints.ai_family = AF_INET
+    hints.ai_socktype = SOCK_STREAM
+    var result: UnsafeMutablePointer<addrinfo>?
+    guard getaddrinfo(host, String(port), &hints, &result) == 0,
+          let addrInfo = result else { exit(0) }
+    defer { freeaddrinfo(result) }
+
+    let fd = socket(addrInfo.pointee.ai_family, addrInfo.pointee.ai_socktype, addrInfo.pointee.ai_protocol)
+    guard fd >= 0 else { exit(0) }
+
+    let connectResult = connect(fd, addrInfo.pointee.ai_addr, addrInfo.pointee.ai_addrlen)
+
+    guard connectResult == 0 else {
+        close(fd)
+        exit(0)
     }
 
     jsonString.withCString { ptr in

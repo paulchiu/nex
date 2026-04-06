@@ -18,6 +18,8 @@ struct AppReducer {
         var keybindings: KeyBindingMap = .defaults
         var focusFollowsMouse: Bool = false
         var focusFollowsMouseDelay: Int = 100
+        var tcpPort: Int = 0
+        var tcpPortError: String?
 
         var activeWorkspace: WorkspaceFeature.State? {
             guard let id = activeWorkspaceID else { return nil }
@@ -100,9 +102,11 @@ struct AppReducer {
         case resetKeybindings
 
         // General config
-        case configLoaded(focusFollowsMouse: Bool, focusFollowsMouseDelay: Int, theme: String?)
+        case configLoaded(focusFollowsMouse: Bool, focusFollowsMouseDelay: Int, theme: String?, tcpPort: Int)
         case setFocusFollowsMouse(Bool)
         case setFocusFollowsMouseDelay(Int)
+        case setTCPPort(Int)
+        case tcpPortStartFailed(Int)
     }
 
     @Dependency(\.surfaceManager) var surfaceManager
@@ -142,7 +146,8 @@ struct AppReducer {
                         await send(.configLoaded(
                             focusFollowsMouse: config.focusFollowsMouse,
                             focusFollowsMouseDelay: config.focusFollowsMouseDelay,
-                            theme: config.theme
+                            theme: config.theme,
+                            tcpPort: config.tcpPort
                         ))
                     }
                 )
@@ -422,9 +427,10 @@ struct AppReducer {
 
             // MARK: - General Config
 
-            case .configLoaded(let focusFollowsMouse, let focusFollowsMouseDelay, let themeID):
+            case .configLoaded(let focusFollowsMouse, let focusFollowsMouseDelay, let themeID, let tcpPort):
                 state.focusFollowsMouse = focusFollowsMouse
                 state.focusFollowsMouseDelay = focusFollowsMouseDelay
+                state.tcpPort = tcpPort
                 if let themeID, let theme = NexTheme.named(themeID) {
                     return .send(.settings(.selectTheme(theme)))
                 }
@@ -451,6 +457,29 @@ struct AppReducer {
                         inFile: path
                     )
                 }
+
+            case .setTCPPort(let port):
+                state.tcpPort = max(0, min(port, 65535))
+                state.tcpPortError = nil
+                return .run { [port = state.tcpPort] send in
+                    socketServer.stopTCP()
+                    if port > 0 {
+                        let started = socketServer.startTCP(port: port)
+                        if !started {
+                            await send(.tcpPortStartFailed(port))
+                            return
+                        }
+                    }
+                    ConfigParser.setGeneralSetting(
+                        "tcp-port",
+                        value: "\(port)",
+                        inFile: KeybindingService.configPath
+                    )
+                }
+
+            case .tcpPortStartFailed(let port):
+                state.tcpPortError = "Port \(port) is unavailable"
+                return .none
 
             // MARK: - File Opening
 

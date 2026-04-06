@@ -577,4 +577,120 @@ struct AppReducerTests {
             #expect(state.gitStatuses[assocID] == .clean)
         }
     }
+
+    // MARK: - configLoaded (TCP port)
+
+    @Test func configLoadedSetsTCPPort() async {
+        let store = makeStore()
+
+        await store.send(.configLoaded(
+            focusFollowsMouse: false, focusFollowsMouseDelay: 100, theme: nil, tcpPort: 19400
+        )) { state in
+            #expect(state.tcpPort == 19400)
+        }
+    }
+
+    @Test func configLoadedZeroTCPPortMeansDisabled() async {
+        let store = makeStore()
+
+        await store.send(.configLoaded(
+            focusFollowsMouse: true, focusFollowsMouseDelay: 200, theme: nil, tcpPort: 0
+        )) { state in
+            #expect(state.tcpPort == 0)
+            #expect(state.focusFollowsMouse == true)
+            #expect(state.focusFollowsMouseDelay == 200)
+        }
+    }
+
+    // MARK: - setTCPPort
+
+    @Test func setTCPPortUpdatesState() async {
+        let store = makeStore()
+
+        await store.send(.setTCPPort(19400)) { state in
+            #expect(state.tcpPort == 19400)
+        }
+    }
+
+    @Test func setTCPPortClampsToValidRange() async {
+        let store = makeStore()
+
+        await store.send(.setTCPPort(99999)) { state in
+            #expect(state.tcpPort == 65535)
+        }
+    }
+
+    @Test func setTCPPortNegativeClampsToZero() async {
+        let store = makeStore()
+
+        await store.send(.setTCPPort(-1)) { state in
+            #expect(state.tcpPort == 0)
+        }
+    }
+
+    @Test func setTCPPortClearsError() async {
+        var appState = AppReducer.State()
+        appState.tcpPortError = "Port 19400 is unavailable"
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.setTCPPort(19401)) { state in
+            #expect(state.tcpPortError == nil)
+            #expect(state.tcpPort == 19401)
+        }
+    }
+
+    @Test func setTCPPortToZeroDisables() async {
+        var appState = AppReducer.State()
+        appState.tcpPort = 19400
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.setTCPPort(0)) { state in
+            #expect(state.tcpPort == 0)
+        }
+    }
+
+    // MARK: - tcpPortStartFailed
+
+    @Test func tcpPortStartFailedSetsError() async {
+        let store = makeStore()
+
+        await store.send(.setTCPPort(19400)) { state in
+            state.tcpPort = 19400
+        }
+
+        await store.send(.tcpPortStartFailed(19400)) { state in
+            #expect(state.tcpPortError == "Port 19400 is unavailable")
+        }
+    }
+
+    @Test func tcpPortStartFailedPreservesPort() async {
+        let store = makeStore()
+
+        await store.send(.setTCPPort(8080)) { state in
+            state.tcpPort = 8080
+        }
+
+        await store.send(.tcpPortStartFailed(8080)) { state in
+            #expect(state.tcpPortError == "Port 8080 is unavailable")
+            #expect(state.tcpPort == 8080)
+        }
+    }
 }

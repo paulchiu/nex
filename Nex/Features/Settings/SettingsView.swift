@@ -35,6 +35,7 @@ struct SettingsView: View {
 /// General settings tab.
 private struct GeneralSettingsView: View {
     let appStore: StoreOf<AppReducer>
+    @State private var tcpPortText: String = ""
 
     var body: some View {
         WithPerceptionTracking {
@@ -75,6 +76,49 @@ private struct GeneralSettingsView: View {
                                 .monospacedDigit()
                                 .frame(width: 55, alignment: .trailing)
                         }
+                    }
+                }
+
+                Section("Network") {
+                    Toggle("TCP listener", isOn: Binding(
+                        get: { appStore.tcpPort > 0 },
+                        set: { enabled in
+                            if enabled {
+                                tcpPortText = "19400"
+                                appStore.send(.setTCPPort(19400))
+                            } else {
+                                appStore.send(.setTCPPort(0))
+                            }
+                        }
+                    ))
+                    Text("Listen on 127.0.0.1 for dev containers and SSH tunnels.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if appStore.tcpPort > 0 {
+                        HStack {
+                            Text("Port")
+                            TextField("", text: $tcpPortText)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 80)
+                                .multilineTextAlignment(.trailing)
+                            if Int(tcpPortText) != appStore.tcpPort {
+                                Button("Apply") {
+                                    appStore.send(.setTCPPort(Int(tcpPortText) ?? 19400))
+                                }
+                            }
+                        }
+                    }
+
+                    if let error = appStore.tcpPortError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+                .onAppear {
+                    if appStore.tcpPort > 0 {
+                        tcpPortText = "\(appStore.tcpPort)"
                     }
                 }
             }

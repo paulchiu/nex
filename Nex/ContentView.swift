@@ -230,6 +230,14 @@ struct ContentView: View {
                     }
                 }
                 socketServer.start()
+
+                // Start TCP listener if configured (for dev containers / SSH tunnels)
+                let config = ConfigParser.parseGeneralSettings(
+                    fromFile: KeybindingService.configPath
+                )
+                if config.tcpPort > 0 {
+                    socketServer.startTCP(port: config.tcpPort)
+                }
             }
             .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
                 guard let provider = providers.first else { return false }

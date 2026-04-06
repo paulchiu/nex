@@ -46,6 +46,8 @@ final class SocketServer: Sendable {
     private nonisolated(unsafe) var socketFD: Int32 = -1
     private nonisolated(unsafe) var isRunning = false
     private nonisolated(unsafe) var acceptSource: DispatchSourceRead?
+    private nonisolated(unsafe) var tcpFD: Int32 = -1
+    private nonisolated(unsafe) var tcpAcceptSource: DispatchSourceRead?
     private nonisolated(unsafe) var clientSources: [Int32: DispatchSourceRead] = [:]
 
     /// Called on the main queue when a valid message arrives.
@@ -109,19 +111,92 @@ final class SocketServer: Sendable {
         source.resume()
     }
 
+    /// Start a TCP listener on 127.0.0.1 for dev containers and SSH tunnels.
+    /// Returns `true` if the listener started successfully.
+    @discardableResult
+    func startTCP(port: Int) -> Bool {
+        stopTCP()
+
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        guard fd >= 0 else {
+            print("SocketServer: TCP socket() failed — \(errno)")
+            return false
+        }
+
+        var reuse: Int32 = 1
+        setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, socklen_t(MemoryLayout<Int32>.size))
+
+        var addr = sockaddr_in()
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = in_port_t(port).bigEndian
+        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
+
+        let bindResult = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                bind(fd, sockPtr, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard bindResult == 0 else {
+            print("SocketServer: TCP bind() failed on port \(port) — \(errno)")
+            close(fd)
+            return false
+        }
+
+        guard listen(fd, 5) == 0 else {
+            print("SocketServer: TCP listen() failed — \(errno)")
+            close(fd)
+            return false
+        }
+
+        lock.withLock { tcpFD = fd }
+
+        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: .global(qos: .utility))
+        source.setEventHandler { [weak self] in
+            self?.acceptConnection(serverFD: fd)
+        }
+        // FD lifecycle managed by stopTCP/stop — no close in cancel handler
+        // to avoid double-close when FD numbers are reused.
+        lock.withLock { tcpAcceptSource = source }
+        source.resume()
+        return true
+    }
+
+    /// Stop only the TCP listener, leaving the Unix socket running.
+    func stopTCP() {
+        let (source, fd) = lock.withLock {
+            let s = tcpAcceptSource
+            let f = tcpFD
+            tcpAcceptSource = nil
+            tcpFD = -1
+            return (s, f)
+        }
+        source?.cancel()
+        if fd >= 0 {
+            close(fd)
+        }
+    }
+
     func stop() {
-        let (source, clients, wasRunning) = lock.withLock {
+        let (source, tcpSource, tcpFileDesc, clients, wasRunning) = lock.withLock {
             let s = acceptSource
+            let ts = tcpAcceptSource
+            let tf = tcpFD
             let c = clientSources
             let running = isRunning
             acceptSource = nil
+            tcpAcceptSource = nil
             clientSources = [:]
             socketFD = -1
+            tcpFD = -1
             isRunning = false
-            return (s, c, running)
+            return (s, ts, tf, c, running)
         }
 
         source?.cancel()
+        tcpSource?.cancel()
+        if tcpFileDesc >= 0 {
+            close(tcpFileDesc)
+        }
         for (_, clientSource) in clients {
             clientSource.cancel()
         }
@@ -134,8 +209,8 @@ final class SocketServer: Sendable {
     }
 
     private func acceptConnection(serverFD: Int32) {
-        var clientAddr = sockaddr_un()
-        var clientLen = socklen_t(MemoryLayout<sockaddr_un>.size)
+        var clientAddr = sockaddr_storage()
+        var clientLen = socklen_t(MemoryLayout<sockaddr_storage>.size)
 
         let clientFD = withUnsafeMutablePointer(to: &clientAddr) { ptr in
             ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
