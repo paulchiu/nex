@@ -157,6 +157,7 @@ struct PaneGridView: View {
                             backgroundColor: ghosttyConfig.backgroundColor,
                             backgroundOpacity: ghosttyConfig.backgroundOpacity
                         )
+                        .clipped()
                     }
                 } else {
                     MarkdownPaneView(

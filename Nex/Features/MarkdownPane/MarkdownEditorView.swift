@@ -41,8 +41,14 @@ struct MarkdownEditorView: NSViewRepresentable {
         scrollView.drawsBackground = true
         scrollView.backgroundColor = backgroundColor.withAlphaComponent(backgroundOpacity)
 
+        // Line number gutter
+        scrollView.rulersVisible = true
+        let rulerView = LineNumberRulerView(textView: textView)
+        scrollView.verticalRulerView = rulerView
+
         context.coordinator.textView = textView
         context.coordinator.scrollView = scrollView
+        context.coordinator.rulerView = rulerView
         context.coordinator.paneID = paneID
         context.coordinator.filePath = filePath
         context.coordinator.loadFile()
@@ -75,6 +81,7 @@ struct MarkdownEditorView: NSViewRepresentable {
     final class Coordinator: NSObject, NSTextViewDelegate {
         var textView: NSTextView?
         var scrollView: NSScrollView?
+        var rulerView: LineNumberRulerView?
         var paneID: UUID?
         var filePath: String = ""
         private var saveTask: Task<Void, Never>?
@@ -87,6 +94,7 @@ struct MarkdownEditorView: NSViewRepresentable {
             } catch {
                 textView?.string = "// Failed to load: \(error.localizedDescription)"
             }
+            rulerView?.invalidateLineCount()
         }
 
         func restoreScrollFraction() {
@@ -108,6 +116,7 @@ struct MarkdownEditorView: NSViewRepresentable {
         }
 
         @objc func scrollViewDidScroll(_: Notification) {
+            rulerView?.needsDisplay = true
             guard let paneID, let scrollView, let documentView = scrollView.documentView else { return }
             let maxScroll = documentView.frame.height - scrollView.contentSize.height
             guard maxScroll > 0 else { return }
@@ -117,6 +126,7 @@ struct MarkdownEditorView: NSViewRepresentable {
 
         @preconcurrency
         func textDidChange(_: Notification) {
+            rulerView?.invalidateLineCount()
             saveTask?.cancel()
             saveTask = Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(500))
