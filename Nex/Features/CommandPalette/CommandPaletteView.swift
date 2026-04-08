@@ -5,6 +5,7 @@ struct CommandPaletteView: View {
     let items: [CommandPaletteItem]
     let selectedIndex: Int
     let onQueryChanged: (String) -> Void
+    let onSelectIndex: (Int) -> Void
     let onSelectNext: () -> Void
     let onSelectPrevious: () -> Void
     let onConfirm: () -> Void
@@ -12,6 +13,7 @@ struct CommandPaletteView: View {
 
     @FocusState private var isFieldFocused: Bool
     @State private var localQuery: String = ""
+    @State private var scrollToSelection = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,9 +50,13 @@ struct CommandPaletteView: View {
                                 )
                                 .id(item.id)
                                 .onTapGesture {
-                                    onQueryChanged(query)
-                                    // Select and confirm in one gesture
+                                    onSelectIndex(index)
                                     onConfirm()
+                                }
+                                .onHover { hovering in
+                                    if hovering {
+                                        onSelectIndex(index)
+                                    }
                                 }
                             }
                         }
@@ -58,11 +64,12 @@ struct CommandPaletteView: View {
                     }
                     .frame(maxHeight: 300)
                     .onChange(of: selectedIndex) { _, newIndex in
-                        if newIndex < items.count {
+                        if scrollToSelection, newIndex < items.count {
                             withAnimation(.easeOut(duration: 0.1)) {
                                 proxy.scrollTo(items[newIndex].id, anchor: .center)
                             }
                         }
+                        scrollToSelection = false
                     }
                 }
             } else if !query.isEmpty {
@@ -83,10 +90,12 @@ struct CommandPaletteView: View {
             isFieldFocused = true
         }
         .onKeyPress(.upArrow) {
+            scrollToSelection = true
             onSelectPrevious()
             return .handled
         }
         .onKeyPress(.downArrow) {
+            scrollToSelection = true
             onSelectNext()
             return .handled
         }
@@ -134,6 +143,14 @@ private struct CommandPaletteRow: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(Color.primary.opacity(0.05))
+                    .cornerRadius(4)
+            } else {
+                Text(item.workspaceName)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(item.workspaceColor.color.opacity(0.7))
                     .cornerRadius(4)
             }
         }

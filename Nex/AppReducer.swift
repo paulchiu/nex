@@ -42,6 +42,7 @@ struct AppReducer {
                     title: workspace.name,
                     subtitle: "\(workspace.panes.count) pane\(workspace.panes.count == 1 ? "" : "s")",
                     workspaceID: workspace.id,
+                    workspaceName: workspace.name,
                     paneID: nil,
                     workspaceColor: workspace.color
                 ))
@@ -51,11 +52,15 @@ struct AppReducer {
                     guard let pane = workspace.panes[id: paneID] else { continue }
                     let title = pane.label ?? pane.title ?? pane.workingDirectory
                         .replacingOccurrences(of: home, with: "~")
-                    let subtitle: String = if pane.label != nil {
-                        pane.workingDirectory
-                            .replacingOccurrences(of: home, with: "~")
+                    let path = pane.workingDirectory
+                        .replacingOccurrences(of: home, with: "~")
+                    let subtitle: String
+                    if let label = pane.label, let paneTitle = pane.title, label != paneTitle {
+                        subtitle = paneTitle
+                    } else if pane.label != nil {
+                        subtitle = path
                     } else {
-                        workspace.name
+                        subtitle = ""
                     }
                     let icon = switch pane.type {
                     case .shell: "terminal"
@@ -68,6 +73,7 @@ struct AppReducer {
                         title: title,
                         subtitle: subtitle,
                         workspaceID: workspace.id,
+                        workspaceName: workspace.name,
                         paneID: paneID,
                         workspaceColor: workspace.color
                     ))
@@ -75,9 +81,13 @@ struct AppReducer {
             }
 
             if commandPaletteQuery.isEmpty { return items }
-            let query = commandPaletteQuery.lowercased()
-            return items.filter {
-                $0.title.lowercased().contains(query) || $0.subtitle.lowercased().contains(query)
+            let terms = commandPaletteQuery.lowercased()
+                .split(separator: " ")
+                .filter { !$0.isEmpty }
+            guard !terms.isEmpty else { return items }
+            return items.filter { item in
+                let searchable = (item.title + " " + item.subtitle + " " + item.workspaceName).lowercased()
+                return terms.allSatisfy { searchable.contains($0) }
             }
         }
     }
@@ -160,6 +170,7 @@ struct AppReducer {
         case toggleCommandPalette
         case dismissCommandPalette
         case commandPaletteQueryChanged(String)
+        case commandPaletteSelectIndex(Int)
         case commandPaletteSelectNext
         case commandPaletteSelectPrevious
         case commandPaletteConfirm
@@ -469,6 +480,13 @@ struct AppReducer {
             case .commandPaletteQueryChanged(let query):
                 state.commandPaletteQuery = query
                 state.commandPaletteSelectedIndex = 0
+                return .none
+
+            case .commandPaletteSelectIndex(let index):
+                let count = state.commandPaletteItems.count
+                if count > 0 {
+                    state.commandPaletteSelectedIndex = min(max(index, 0), count - 1)
+                }
                 return .none
 
             case .commandPaletteSelectNext:

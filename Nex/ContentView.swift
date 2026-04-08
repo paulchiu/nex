@@ -119,19 +119,27 @@ struct ContentView: View {
                     WorkspaceInspectorView(store: store)
                 }
             }
-            .overlay(alignment: .top) {
+            .overlay {
                 if store.isCommandPaletteVisible {
-                    CommandPaletteView(
-                        query: store.commandPaletteQuery,
-                        items: store.commandPaletteItems,
-                        selectedIndex: store.commandPaletteSelectedIndex,
-                        onQueryChanged: { store.send(.commandPaletteQueryChanged($0)) },
-                        onSelectNext: { store.send(.commandPaletteSelectNext) },
-                        onSelectPrevious: { store.send(.commandPaletteSelectPrevious) },
-                        onConfirm: { store.send(.commandPaletteConfirm) },
-                        onDismiss: { store.send(.dismissCommandPalette) }
-                    )
-                    .padding(.top, 40)
+                    Color.black.opacity(0.001)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            store.send(.dismissCommandPalette)
+                        }
+                        .overlay(alignment: .top) {
+                            CommandPaletteView(
+                                query: store.commandPaletteQuery,
+                                items: store.commandPaletteItems,
+                                selectedIndex: store.commandPaletteSelectedIndex,
+                                onQueryChanged: { store.send(.commandPaletteQueryChanged($0)) },
+                                onSelectIndex: { store.send(.commandPaletteSelectIndex($0)) },
+                                onSelectNext: { store.send(.commandPaletteSelectNext) },
+                                onSelectPrevious: { store.send(.commandPaletteSelectPrevious) },
+                                onConfirm: { store.send(.commandPaletteConfirm) },
+                                onDismiss: { store.send(.dismissCommandPalette) }
+                            )
+                            .padding(.top, 40)
+                        }
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }

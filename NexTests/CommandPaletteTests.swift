@@ -164,6 +164,56 @@ struct CommandPaletteTests {
         #expect(items[0].paneID == Self.paneID1)
     }
 
+    @Test func queryWithMultipleTermsMatchesAll() {
+        let pane1 = Pane(id: Self.paneID1, label: "pane-for-me", workingDirectory: "/tmp")
+        let pane2 = Pane(id: Self.paneID2, label: "pane-for-you", workingDirectory: "/tmp")
+        let ws = Self.makeWorkspace(
+            id: Self.wsID1, name: "MyProject",
+            panes: [pane1, pane2],
+            layout: .split(.horizontal, ratio: 0.5,
+                           first: .leaf(Self.paneID1), second: .leaf(Self.paneID2))
+        )
+
+        var state = AppReducer.State()
+        state.workspaces = [ws]
+
+        // Single term matches both panes + workspace (subtitle "2 panes" contains "pane")
+        state.commandPaletteQuery = "pane-for"
+        #expect(state.commandPaletteItems.count == 2)
+
+        // Two terms narrows to one
+        state.commandPaletteQuery = "pane me"
+        let items = state.commandPaletteItems
+        #expect(items.count == 1)
+        #expect(items[0].paneID == Self.paneID1)
+    }
+
+    @Test func queryMatchesAcrossTitleAndSubtitle() {
+        let pane1 = Pane(id: Self.paneID1, label: "server", workingDirectory: "/tmp")
+        let pane2 = Pane(id: Self.paneID2, label: "server", workingDirectory: "/tmp")
+        let ws1 = Self.makeWorkspace(
+            id: Self.wsID1, name: "Alpha",
+            panes: [pane1], layout: .leaf(Self.paneID1)
+        )
+        let ws2 = Self.makeWorkspace(
+            id: Self.wsID2, name: "Beta",
+            panes: [pane2], layout: .leaf(Self.paneID2)
+        )
+
+        var state = AppReducer.State()
+        state.workspaces = [ws1, ws2]
+
+        // "server" matches both panes
+        state.commandPaletteQuery = "server"
+        #expect(state.commandPaletteItems.count == 2)
+
+        // "server alpha" narrows to the pane in workspace Alpha
+        state.commandPaletteQuery = "server alpha"
+        let items = state.commandPaletteItems
+        #expect(items.count == 1)
+        #expect(items[0].workspaceID == Self.wsID1)
+    }
+
     @Test func emptyQueryReturnsAll() {
         let pane = Pane(id: Self.paneID1)
         let ws = Self.makeWorkspace(
@@ -201,6 +251,95 @@ struct CommandPaletteTests {
 
         await store.send(.commandPaletteSelectPrevious)
         #expect(store.state.commandPaletteSelectedIndex == 0)
+    }
+
+    @Test func selectIndexClampsToValidRange() async {
+        let pane = Pane(id: Self.paneID1)
+        let ws = Self.makeWorkspace(
+            id: Self.wsID1, name: "WS",
+            panes: [pane], layout: .leaf(Self.paneID1)
+        )
+        let store = makeStore(workspaces: [ws], activeWorkspaceID: Self.wsID1)
+
+        // 2 items (workspace + pane)
+        await store.send(.commandPaletteSelectIndex(1)) { state in
+            state.commandPaletteSelectedIndex = 1
+        }
+        // Out of range clamps to last
+        await store.send(.commandPaletteSelectIndex(99)) { state in
+            state.commandPaletteSelectedIndex = 1
+        }
+        // Negative clamps to 0
+        await store.send(.commandPaletteSelectIndex(-1)) { state in
+            state.commandPaletteSelectedIndex = 0
+        }
+    }
+
+    // MARK: - Item Content
+
+    @Test func paneWithLabelAndTitleShowsBoth() {
+        let pane = Pane(id: Self.paneID1, label: "api", title: "vim main.go", workingDirectory: "/tmp")
+        let ws = Self.makeWorkspace(
+            id: Self.wsID1, name: "Dev",
+            panes: [pane], layout: .leaf(Self.paneID1)
+        )
+
+        var state = AppReducer.State()
+        state.workspaces = [ws]
+        let paneItem = state.commandPaletteItems[1]
+        #expect(paneItem.title == "api")
+        #expect(paneItem.subtitle == "vim main.go")
+    }
+
+    @Test func paneWithLabelOnlyShowsPath() {
+        let pane = Pane(id: Self.paneID1, label: "api", workingDirectory: "/tmp/project")
+        let ws = Self.makeWorkspace(
+            id: Self.wsID1, name: "Dev",
+            panes: [pane], layout: .leaf(Self.paneID1)
+        )
+
+        var state = AppReducer.State()
+        state.workspaces = [ws]
+        let paneItem = state.commandPaletteItems[1]
+        #expect(paneItem.title == "api")
+        #expect(paneItem.subtitle == "/tmp/project")
+    }
+
+    @Test func paneItemsHaveWorkspaceName() {
+        let pane = Pane(id: Self.paneID1, workingDirectory: "/tmp")
+        let ws = Self.makeWorkspace(
+            id: Self.wsID1, name: "MyProject",
+            panes: [pane], layout: .leaf(Self.paneID1)
+        )
+
+        var state = AppReducer.State()
+        state.workspaces = [ws]
+        let paneItem = state.commandPaletteItems[1]
+        #expect(paneItem.workspaceName == "MyProject")
+    }
+
+    @Test func labeledPaneSearchableByPath() {
+        let pane1 = Pane(id: Self.paneID1, label: "api", workingDirectory: "/code/frontend")
+        let pane2 = Pane(id: Self.paneID2, label: "api", workingDirectory: "/code/backend")
+        let ws = Self.makeWorkspace(
+            id: Self.wsID1, name: "Dev",
+            panes: [pane1, pane2],
+            layout: .split(.horizontal, ratio: 0.5,
+                           first: .leaf(Self.paneID1), second: .leaf(Self.paneID2))
+        )
+
+        var state = AppReducer.State()
+        state.workspaces = [ws]
+
+        // Both match by label
+        state.commandPaletteQuery = "api"
+        #expect(state.commandPaletteItems.count == 2)
+
+        // Narrow by path
+        state.commandPaletteQuery = "api backend"
+        let items = state.commandPaletteItems
+        #expect(items.count == 1)
+        #expect(items[0].paneID == Self.paneID2)
     }
 
     // MARK: - Confirm
