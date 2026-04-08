@@ -16,6 +16,10 @@ struct NexCommands: Commands {
                 store.send(.openFile)
             }
 
+            menuButton("Command Palette", action: .commandPalette) {
+                store.send(.toggleCommandPalette)
+            }
+
             Divider()
 
             // Switch by number: ⌘1–⌘9
@@ -116,6 +120,11 @@ final class PaneShortcutMonitor {
         // Don't consume shortcuts when a secondary window (Help, Settings) is key.
         if let keyWindow = NSApp.keyWindow,
            keyWindow != NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }) {
+            return false
+        }
+
+        // While command palette is visible, suppress pane shortcuts so typing works.
+        if store.isCommandPaletteVisible {
             return false
         }
 

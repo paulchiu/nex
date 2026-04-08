@@ -163,7 +163,7 @@ struct NexActionTests {
             .switchToWorkspace1, .switchToWorkspace2, .switchToWorkspace3,
             .switchToWorkspace4, .switchToWorkspace5, .switchToWorkspace6,
             .switchToWorkspace7, .switchToWorkspace8, .switchToWorkspace9,
-            .toggleSidebar, .toggleInspector
+            .toggleSidebar, .toggleInspector, .commandPalette
         ]
         for action in menuActions {
             #expect(action.isMenuBarAction, "Expected \(action.rawValue) to be a menu bar action")
@@ -293,5 +293,19 @@ struct KeyBindingMapTests {
         let map = KeyBindingMap.defaults
         let cmdShiftN = KeyTrigger(keyCode: 45, modifiers: [.command, .shift])
         #expect(map.action(for: cmdShiftN) == .createScratchpad)
+    }
+
+    @Test func commandPaletteMetadata() {
+        #expect(NexAction(rawValue: "command_palette") == .commandPalette)
+        #expect(NexAction.commandPalette.category == "Navigation")
+        #expect(NexAction.commandPalette.isMenuBarAction == true)
+        #expect(NexAction.commandPalette.displayName == "Command Palette")
+        #expect(NexAction.bindableActions.contains(.commandPalette))
+    }
+
+    @Test func defaultsContainCommandPalette() {
+        let map = KeyBindingMap.defaults
+        let cmdP = KeyTrigger(keyCode: 35, modifiers: .command)
+        #expect(map.action(for: cmdP) == .commandPalette)
     }
 }

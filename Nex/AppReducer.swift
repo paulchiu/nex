@@ -21,9 +21,64 @@ struct AppReducer {
         var tcpPort: Int = 0
         var tcpPortError: String?
 
+        // Command Palette
+        var isCommandPaletteVisible: Bool = false
+        var commandPaletteQuery: String = ""
+        var commandPaletteSelectedIndex: Int = 0
+
         var activeWorkspace: WorkspaceFeature.State? {
             guard let id = activeWorkspaceID else { return nil }
             return workspaces[id: id]
+        }
+
+        var commandPaletteItems: [CommandPaletteItem] {
+            var items: [CommandPaletteItem] = []
+            let home = NSHomeDirectory()
+
+            for workspace in workspaces {
+                items.append(CommandPaletteItem(
+                    id: "ws:\(workspace.id)",
+                    icon: "rectangle.stack",
+                    title: workspace.name,
+                    subtitle: "\(workspace.panes.count) pane\(workspace.panes.count == 1 ? "" : "s")",
+                    workspaceID: workspace.id,
+                    paneID: nil,
+                    workspaceColor: workspace.color
+                ))
+
+                let paneIDs = workspace.layout.allPaneIDs
+                for paneID in paneIDs {
+                    guard let pane = workspace.panes[id: paneID] else { continue }
+                    let title = pane.label ?? pane.title ?? pane.workingDirectory
+                        .replacingOccurrences(of: home, with: "~")
+                    let subtitle: String = if pane.label != nil {
+                        pane.workingDirectory
+                            .replacingOccurrences(of: home, with: "~")
+                    } else {
+                        workspace.name
+                    }
+                    let icon = switch pane.type {
+                    case .shell: "terminal"
+                    case .markdown: "doc.text"
+                    case .scratchpad: "note.text"
+                    }
+                    items.append(CommandPaletteItem(
+                        id: "pane:\(paneID)",
+                        icon: icon,
+                        title: title,
+                        subtitle: subtitle,
+                        workspaceID: workspace.id,
+                        paneID: paneID,
+                        workspaceColor: workspace.color
+                    ))
+                }
+            }
+
+            if commandPaletteQuery.isEmpty { return items }
+            let query = commandPaletteQuery.lowercased()
+            return items.filter {
+                $0.title.lowercased().contains(query) || $0.subtitle.lowercased().contains(query)
+            }
         }
     }
 
@@ -100,6 +155,14 @@ struct AppReducer {
         case removeKeybinding(KeyTrigger)
         case resetBindingsForAction(NexAction)
         case resetKeybindings
+
+        // Command Palette
+        case toggleCommandPalette
+        case dismissCommandPalette
+        case commandPaletteQueryChanged(String)
+        case commandPaletteSelectNext
+        case commandPaletteSelectPrevious
+        case commandPaletteConfirm
 
         // General config
         case configLoaded(focusFollowsMouse: Bool, focusFollowsMouseDelay: Int, theme: String?, tcpPort: Int)
@@ -387,6 +450,66 @@ struct AppReducer {
 
             case .settings:
                 return .none
+
+            // MARK: - Command Palette
+
+            case .toggleCommandPalette:
+                state.isCommandPaletteVisible.toggle()
+                if state.isCommandPaletteVisible {
+                    state.commandPaletteQuery = ""
+                    state.commandPaletteSelectedIndex = 0
+                }
+                return .none
+
+            case .dismissCommandPalette:
+                state.isCommandPaletteVisible = false
+                state.commandPaletteQuery = ""
+                return .none
+
+            case .commandPaletteQueryChanged(let query):
+                state.commandPaletteQuery = query
+                state.commandPaletteSelectedIndex = 0
+                return .none
+
+            case .commandPaletteSelectNext:
+                let count = state.commandPaletteItems.count
+                if count > 0 {
+                    state.commandPaletteSelectedIndex = min(
+                        state.commandPaletteSelectedIndex + 1, count - 1
+                    )
+                }
+                return .none
+
+            case .commandPaletteSelectPrevious:
+                state.commandPaletteSelectedIndex = max(
+                    state.commandPaletteSelectedIndex - 1, 0
+                )
+                return .none
+
+            case .commandPaletteConfirm:
+                let items = state.commandPaletteItems
+                guard state.commandPaletteSelectedIndex < items.count else {
+                    state.isCommandPaletteVisible = false
+                    return .none
+                }
+                let item = items[state.commandPaletteSelectedIndex]
+                state.isCommandPaletteVisible = false
+                state.commandPaletteQuery = ""
+
+                // Set workspace directly to avoid effect indirection
+                state.activeWorkspaceID = item.workspaceID
+                state.workspaces[id: item.workspaceID]?.lastAccessedAt = Date()
+
+                var effects: [Effect<Action>] = [
+                    .send(.persistState),
+                    .send(.refreshGitStatus)
+                ]
+                if let paneID = item.paneID {
+                    effects.append(.send(.workspaces(.element(
+                        id: item.workspaceID, action: .focusPane(paneID)
+                    ))))
+                }
+                return .merge(effects)
 
             // MARK: - Keybindings
 

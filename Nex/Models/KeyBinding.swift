@@ -241,6 +241,7 @@ enum NexAction: String, CaseIterable {
     case movePaneUp = "move_pane_up"
     case movePaneDown = "move_pane_down"
     case createScratchpad = "create_scratchpad"
+    case commandPalette = "command_palette"
     case unbind
 
     /// Actions handled by SwiftUI Commands (menu bar items).
@@ -251,7 +252,7 @@ enum NexAction: String, CaseIterable {
              .switchToWorkspace1, .switchToWorkspace2, .switchToWorkspace3,
              .switchToWorkspace4, .switchToWorkspace5, .switchToWorkspace6,
              .switchToWorkspace7, .switchToWorkspace8, .switchToWorkspace9,
-             .toggleSidebar, .toggleInspector:
+             .toggleSidebar, .toggleInspector, .commandPalette:
             true
         default:
             false
@@ -293,6 +294,7 @@ enum NexAction: String, CaseIterable {
         case .movePaneUp: "Move Pane Up"
         case .movePaneDown: "Move Pane Down"
         case .createScratchpad: "New Scratchpad"
+        case .commandPalette: "Command Palette"
         case .unbind: "Unbind"
         }
     }
@@ -303,7 +305,7 @@ enum NexAction: String, CaseIterable {
         case .splitRight, .splitDown, .closePane, .reopenClosedPane, .toggleZoom, .cycleLayout,
              .movePaneLeft, .movePaneRight, .movePaneUp, .movePaneDown, .createScratchpad:
             "Pane Management"
-        case .focusNextPane, .focusPreviousPane:
+        case .focusNextPane, .focusPreviousPane, .commandPalette:
             "Navigation"
         case .newWorkspace, .nextWorkspace, .previousWorkspace, .renameWorkspace,
              .switchToWorkspace1, .switchToWorkspace2, .switchToWorkspace3,
@@ -433,6 +435,9 @@ struct KeyBindingMap: Equatable {
         bindings[KeyTrigger(keyCode: 3, modifiers: .command)] = .toggleSearch // ⌘F
         bindings[KeyTrigger(keyCode: 53)] = .closeSearch // Escape
         bindings[KeyTrigger(keyCode: 49, modifiers: [.command, .shift])] = .cycleLayout // ⌘⇧Space
+
+        // Command Palette
+        bindings[KeyTrigger(keyCode: 35, modifiers: .command)] = .commandPalette // ⌘P
 
         // Scratchpad
         bindings[KeyTrigger(keyCode: 45, modifiers: [.command, .shift])] = .createScratchpad // ⌘⇧N

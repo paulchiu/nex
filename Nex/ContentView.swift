@@ -119,6 +119,23 @@ struct ContentView: View {
                     WorkspaceInspectorView(store: store)
                 }
             }
+            .overlay(alignment: .top) {
+                if store.isCommandPaletteVisible {
+                    CommandPaletteView(
+                        query: store.commandPaletteQuery,
+                        items: store.commandPaletteItems,
+                        selectedIndex: store.commandPaletteSelectedIndex,
+                        onQueryChanged: { store.send(.commandPaletteQueryChanged($0)) },
+                        onSelectNext: { store.send(.commandPaletteSelectNext) },
+                        onSelectPrevious: { store.send(.commandPaletteSelectPrevious) },
+                        onConfirm: { store.send(.commandPaletteConfirm) },
+                        onDismiss: { store.send(.dismissCommandPalette) }
+                    )
+                    .padding(.top, 40)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.easeOut(duration: 0.15), value: store.isCommandPaletteVisible)
             .animation(.default, value: store.isSidebarVisible)
             .animation(.default, value: store.isInspectorVisible)
             .sheet(isPresented: Binding(
