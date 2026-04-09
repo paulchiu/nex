@@ -1,3 +1,4 @@
+import AppKit
 import ComposableArchitecture
 import SwiftUI
 
@@ -27,7 +28,30 @@ struct SettingsView: View {
                         Label("Keybindings", systemImage: "command")
                     }
             }
-            .frame(width: 500, height: 440)
+            .frame(
+                minWidth: 500, idealWidth: 600, maxWidth: .infinity,
+                minHeight: 440, idealHeight: 520, maxHeight: .infinity
+            )
+            .background(WindowResizabilityModifier())
+        }
+    }
+}
+
+/// Finds the hosting NSWindow and adds the resizable style mask.
+private struct WindowResizabilityModifier: NSViewRepresentable {
+    func makeNSView(context _: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            if let window = view.window {
+                window.styleMask.insert(.resizable)
+            }
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context _: Context) {
+        if let window = nsView.window {
+            window.styleMask.insert(.resizable)
         }
     }
 }

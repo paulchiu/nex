@@ -62,7 +62,7 @@ struct KeybindingsSettingsView: View {
             if triggers.isEmpty {
                 Text("—")
                     .foregroundStyle(.tertiary)
-                    .frame(width: 120, alignment: .trailing)
+                    .frame(minWidth: 120, alignment: .trailing)
             } else {
                 HStack(spacing: 4) {
                     ForEach(triggers, id: \.self) { trigger in
@@ -87,7 +87,7 @@ struct KeybindingsSettingsView: View {
                         }
                     }
                 }
-                .frame(width: 120, alignment: .trailing)
+                .frame(minWidth: 120, alignment: .trailing)
             }
 
             Button("Record") {
