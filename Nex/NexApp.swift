@@ -32,6 +32,13 @@ struct NexApp: App {
                 .onAppear {
                     guard !Self.isTestMode else { return }
 
+                    // Keep the global /usr/local/bin/nex symlink and installed
+                    // nex-agentic skill in sync with the running bundle after
+                    // Sparkle auto-updates (see issue #39).
+                    Task.detached(priority: .utility) {
+                        CLIInstallService.healIfNeeded()
+                    }
+
                     // Warm the editor resolver cache on a background queue
                     // so the first ⌘E press on a markdown pane doesn't stall
                     // the reducer while we shell out to read $EDITOR.
