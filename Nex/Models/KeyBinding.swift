@@ -263,7 +263,7 @@ enum NexAction: String, CaseIterable {
     var displayName: String {
         switch self {
         case .newWorkspace: "New Workspace"
-        case .openFile: "Open File"
+        case .openFile: "Preview Markdown"
         case .switchToWorkspace1: "Switch to Workspace 1"
         case .switchToWorkspace2: "Switch to Workspace 2"
         case .switchToWorkspace3: "Switch to Workspace 3"

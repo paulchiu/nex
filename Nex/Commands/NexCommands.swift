@@ -12,7 +12,7 @@ struct NexCommands: Commands {
                 store.send(.showNewWorkspaceSheet)
             }
 
-            menuButton("Open File...", action: .openFile) {
+            menuButton("Preview Markdown...", action: .openFile) {
                 store.send(.openFile)
             }
 
