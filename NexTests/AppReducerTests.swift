@@ -693,4 +693,217 @@ struct AppReducerTests {
             #expect(state.tcpPort == 8080)
         }
     }
+
+    // MARK: - Multi-select workspaces
+
+    @Test func toggleWorkspaceSelectionAddsAndRemoves() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2)
+        let store = makeStore(workspaces: [ws1, ws2], activeWorkspaceID: Self.wsID1)
+
+        await store.send(.toggleWorkspaceSelection(Self.wsID1)) { state in
+            #expect(state.selectedWorkspaceIDs == [Self.wsID1])
+            #expect(state.lastSelectionAnchor == Self.wsID1)
+        }
+        await store.send(.toggleWorkspaceSelection(Self.wsID2)) { state in
+            #expect(state.selectedWorkspaceIDs == [Self.wsID1, Self.wsID2])
+            #expect(state.lastSelectionAnchor == Self.wsID2)
+        }
+        await store.send(.toggleWorkspaceSelection(Self.wsID1)) { state in
+            #expect(state.selectedWorkspaceIDs == [Self.wsID2])
+        }
+    }
+
+    @Test func rangeSelectWorkspaceSelectsInclusiveRange() async {
+        let wsID3 = UUID(uuidString: "10000000-0000-0000-0000-000000000003")!
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2)
+        let ws3 = Self.makeWorkspace(id: wsID3, name: "WS3", paneID: UUID())
+
+        let store = makeStore(workspaces: [ws1, ws2, ws3], activeWorkspaceID: Self.wsID1)
+
+        // Anchor at ws1 (active), shift-click ws3 picks all three
+        await store.send(.rangeSelectWorkspace(wsID3)) { state in
+            #expect(state.selectedWorkspaceIDs == [Self.wsID1, Self.wsID2, wsID3])
+            #expect(state.lastSelectionAnchor == wsID3)
+        }
+    }
+
+    @Test func clearWorkspaceSelectionEmptiesSet() async {
+        var appState = AppReducer.State()
+        appState.selectedWorkspaceIDs = [Self.wsID1, Self.wsID2]
+        appState.lastSelectionAnchor = Self.wsID2
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.clearWorkspaceSelection) { state in
+            #expect(state.selectedWorkspaceIDs.isEmpty)
+            #expect(state.lastSelectionAnchor == nil)
+        }
+    }
+
+    @Test func setBulkColorAppliesToAllSelected() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", color: .red, paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", color: .blue, paneID: Self.paneID2)
+        var appState = AppReducer.State()
+        appState.workspaces = [ws1, ws2]
+        appState.activeWorkspaceID = Self.wsID1
+        appState.selectedWorkspaceIDs = [Self.wsID1, Self.wsID2]
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.setBulkColor(.green)) { state in
+            #expect(state.workspaces[id: Self.wsID1]?.color == .green)
+            #expect(state.workspaces[id: Self.wsID2]?.color == .green)
+        }
+    }
+
+    @Test func requestBulkDeletePresentsConfirmation() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2)
+        var appState = AppReducer.State()
+        appState.workspaces = [ws1, ws2]
+        appState.activeWorkspaceID = Self.wsID1
+        appState.selectedWorkspaceIDs = [Self.wsID1]
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.requestBulkDelete) { state in
+            #expect(state.bulkDeleteConfirmationIDs == [Self.wsID1])
+        }
+    }
+
+    @Test func requestBulkDeleteBlockedWhenSelectionCoversAll() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2)
+        var appState = AppReducer.State()
+        appState.workspaces = [ws1, ws2]
+        appState.activeWorkspaceID = Self.wsID1
+        appState.selectedWorkspaceIDs = [Self.wsID1, Self.wsID2]
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.requestBulkDelete) { state in
+            #expect(state.bulkDeleteConfirmationIDs == nil)
+        }
+    }
+
+    @Test func confirmBulkDeleteRemovesWorkspaces() async {
+        let wsID3 = UUID(uuidString: "10000000-0000-0000-0000-000000000003")!
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1,
+                                     lastAccessedAt: Date(timeIntervalSince1970: 1000))
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2,
+                                     lastAccessedAt: Date(timeIntervalSince1970: 2000))
+        let ws3 = Self.makeWorkspace(id: wsID3, name: "WS3", paneID: UUID(),
+                                     lastAccessedAt: Date(timeIntervalSince1970: 3000))
+        var appState = AppReducer.State()
+        appState.workspaces = [ws1, ws2, ws3]
+        appState.activeWorkspaceID = Self.wsID1
+        appState.selectedWorkspaceIDs = [Self.wsID1, wsID3]
+        appState.lastSelectionAnchor = wsID3
+        appState.bulkDeleteConfirmationIDs = [Self.wsID1, wsID3]
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.confirmBulkDelete) { state in
+            #expect(state.workspaces.count == 1)
+            #expect(state.workspaces[id: Self.wsID2] != nil)
+            #expect(state.activeWorkspaceID == Self.wsID2)
+            #expect(state.bulkDeleteConfirmationIDs == nil)
+            #expect(state.selectedWorkspaceIDs.isEmpty)
+            #expect(state.lastSelectionAnchor == nil)
+        }
+    }
+
+    @Test func confirmBulkDeleteGuardsAgainstDeletingAll() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2)
+        var appState = AppReducer.State()
+        appState.workspaces = [ws1, ws2]
+        appState.activeWorkspaceID = Self.wsID1
+        appState.bulkDeleteConfirmationIDs = [Self.wsID1, Self.wsID2]
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.confirmBulkDelete) { state in
+            #expect(state.workspaces.count == 2)
+            #expect(state.bulkDeleteConfirmationIDs == nil)
+        }
+    }
+
+    @Test func deleteWorkspaceClearsSelectionEntry() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2)
+        var appState = AppReducer.State()
+        appState.workspaces = [ws1, ws2]
+        appState.activeWorkspaceID = Self.wsID1
+        appState.selectedWorkspaceIDs = [Self.wsID1, Self.wsID2]
+        appState.lastSelectionAnchor = Self.wsID1
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.deleteWorkspace(Self.wsID1)) { state in
+            #expect(state.selectedWorkspaceIDs == [Self.wsID2])
+            #expect(state.lastSelectionAnchor == nil)
+        }
+    }
 }

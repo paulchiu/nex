@@ -31,7 +31,64 @@ struct WorkspaceListView: View {
                 .buttonStyle(.borderless)
                 .padding(12)
             }
+            .confirmationDialog(
+                bulkDeleteTitle,
+                isPresented: Binding(
+                    get: { store.bulkDeleteConfirmationIDs != nil },
+                    set: { if !$0 { store.send(.cancelBulkDelete) } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) { store.send(.confirmBulkDelete) }
+                Button("Cancel", role: .cancel) { store.send(.cancelBulkDelete) }
+            } message: {
+                Text("This cannot be undone. Panes and surfaces in these workspaces will be closed.")
+            }
         }
+    }
+
+    private var bulkDeleteTitle: String {
+        let count = store.bulkDeleteConfirmationIDs?.count ?? 0
+        return "Delete \(count) workspace\(count == 1 ? "" : "s")?"
+    }
+
+    @ViewBuilder
+    private func contextMenuContents(
+        workspaceID: UUID,
+        workspaceStore: StoreOf<WorkspaceFeature>
+    ) -> some View {
+        let selection = store.selectedWorkspaceIDs
+        let isBulkTarget = selection.contains(workspaceID) && selection.count > 1
+        if isBulkTarget {
+            Text("\(selection.count) workspaces selected")
+            Menu("Color All Selected") {
+                ForEach(WorkspaceColor.allCases) { color in
+                    Button(color.displayName) {
+                        store.send(.setBulkColor(color))
+                    }
+                }
+            }
+            Button("Delete \(selection.count) Workspaces...", role: .destructive) {
+                store.send(.requestBulkDelete)
+            }
+            .disabled(selection.count >= store.workspaces.count)
+            Divider()
+        }
+        Button("Rename...") {
+            store.send(.setRenamingWorkspaceID(workspaceID))
+        }
+        Menu("Color") {
+            ForEach(WorkspaceColor.allCases) { color in
+                Button(color.displayName) {
+                    workspaceStore.send(.setColor(color))
+                }
+            }
+        }
+        Divider()
+        Button("Delete", role: .destructive) {
+            store.send(.deleteWorkspace(workspaceID))
+        }
+        .disabled(store.workspaces.count <= 1)
     }
 
     private func workspaceRow(workspaceStore: StoreOf<WorkspaceFeature>) -> some View {
@@ -51,7 +108,8 @@ struct WorkspaceListView: View {
                 isActive: workspaceID == store.activeWorkspaceID,
                 index: index,
                 waitingPaneCount: workspaceStore.panes.count(where: { $0.status == .waitingForInput }),
-                hasRunningPanes: workspaceStore.panes.contains { $0.status == .running }
+                hasRunningPanes: workspaceStore.panes.contains { $0.status == .running },
+                isSelected: store.selectedWorkspaceIDs.contains(workspaceID)
             )
             .padding(.horizontal, 8)
             .background(
@@ -91,24 +149,18 @@ struct WorkspaceListView: View {
                     }
             )
             .onTapGesture {
-                store.send(.setActiveWorkspace(workspaceID))
+                let flags = NSEvent.modifierFlags
+                if flags.contains(.command) {
+                    store.send(.toggleWorkspaceSelection(workspaceID))
+                } else if flags.contains(.shift) {
+                    store.send(.rangeSelectWorkspace(workspaceID))
+                } else {
+                    store.send(.clearWorkspaceSelection)
+                    store.send(.setActiveWorkspace(workspaceID))
+                }
             }
             .contextMenu {
-                Button("Rename...") {
-                    store.send(.setRenamingWorkspaceID(workspaceID))
-                }
-                Menu("Color") {
-                    ForEach(WorkspaceColor.allCases) { color in
-                        Button(color.displayName) {
-                            workspaceStore.send(.setColor(color))
-                        }
-                    }
-                }
-                Divider()
-                Button("Delete", role: .destructive) {
-                    store.send(.deleteWorkspace(workspaceID))
-                }
-                .disabled(store.workspaces.count <= 1)
+                contextMenuContents(workspaceID: workspaceID, workspaceStore: workspaceStore)
             }
         }
     }

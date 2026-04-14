@@ -11,6 +11,7 @@ struct WorkspaceRowView: View {
     let index: Int
     var waitingPaneCount: Int = 0
     var hasRunningPanes: Bool = false
+    var isSelected: Bool = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -56,9 +57,17 @@ struct WorkspaceRowView: View {
         .padding(.vertical, 8)
         .padding(.horizontal, 8)
         .background(
-            isActive
-                ? RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1))
-                : nil
+            ZStack {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.accentColor.opacity(0.18))
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.accentColor.opacity(0.6), lineWidth: 1)
+                }
+                if isActive {
+                    RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.1))
+                }
+            }
         )
         .contentShape(Rectangle())
     }

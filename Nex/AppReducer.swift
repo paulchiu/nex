@@ -11,6 +11,9 @@ struct AppReducer {
         var isSidebarVisible: Bool = true
         var isNewWorkspaceSheetPresented: Bool = false
         var renamingWorkspaceID: UUID?
+        var selectedWorkspaceIDs: Set<UUID> = []
+        var lastSelectionAnchor: UUID?
+        var bulkDeleteConfirmationIDs: [UUID]?
         var settings = SettingsFeature.State()
         var repoRegistry: IdentifiedArrayOf<Repo> = []
         var gitStatuses: [UUID: RepoGitStatus] = [:]
@@ -105,6 +108,13 @@ struct AppReducer {
         case dismissNewWorkspaceSheet
         case beginRenameActiveWorkspace
         case setRenamingWorkspaceID(UUID?)
+        case toggleWorkspaceSelection(UUID)
+        case rangeSelectWorkspace(UUID)
+        case clearWorkspaceSelection
+        case setBulkColor(WorkspaceColor)
+        case requestBulkDelete
+        case confirmBulkDelete
+        case cancelBulkDelete
         case persistState
         case stateLoaded(
             IdentifiedArrayOf<WorkspaceFeature.State>,
@@ -326,6 +336,11 @@ struct AppReducer {
                     state.renamingWorkspaceID = nil
                 }
 
+                state.selectedWorkspaceIDs.remove(id)
+                if state.lastSelectionAnchor == id {
+                    state.lastSelectionAnchor = nil
+                }
+
                 return .merge(
                     .run { _ in
                         for paneID in paneIDs {
@@ -391,6 +406,84 @@ struct AppReducer {
             case .setRenamingWorkspaceID(let id):
                 state.renamingWorkspaceID = id
                 return .none
+
+            case .toggleWorkspaceSelection(let id):
+                guard state.workspaces[id: id] != nil else { return .none }
+                if state.selectedWorkspaceIDs.contains(id) {
+                    state.selectedWorkspaceIDs.remove(id)
+                } else {
+                    state.selectedWorkspaceIDs.insert(id)
+                }
+                state.lastSelectionAnchor = id
+                return .none
+
+            case .rangeSelectWorkspace(let id):
+                guard let targetIdx = state.workspaces.index(id: id) else { return .none }
+                let anchorID = state.lastSelectionAnchor
+                    ?? state.selectedWorkspaceIDs.first
+                    ?? state.activeWorkspaceID
+                    ?? id
+                let anchorIdx = state.workspaces.index(id: anchorID) ?? targetIdx
+                let lo = min(anchorIdx, targetIdx)
+                let hi = max(anchorIdx, targetIdx)
+                let rangeIDs = state.workspaces[lo ... hi].map(\.id)
+                state.selectedWorkspaceIDs.formUnion(rangeIDs)
+                state.lastSelectionAnchor = id
+                return .none
+
+            case .clearWorkspaceSelection:
+                state.selectedWorkspaceIDs.removeAll()
+                state.lastSelectionAnchor = nil
+                return .none
+
+            case .setBulkColor(let color):
+                for id in state.selectedWorkspaceIDs {
+                    state.workspaces[id: id]?.color = color
+                }
+                return .send(.persistState)
+
+            case .requestBulkDelete:
+                let ids = Array(state.selectedWorkspaceIDs)
+                guard !ids.isEmpty, ids.count < state.workspaces.count else { return .none }
+                state.bulkDeleteConfirmationIDs = ids
+                return .none
+
+            case .cancelBulkDelete:
+                state.bulkDeleteConfirmationIDs = nil
+                return .none
+
+            case .confirmBulkDelete:
+                guard let ids = state.bulkDeleteConfirmationIDs else { return .none }
+                state.bulkDeleteConfirmationIDs = nil
+                guard ids.count < state.workspaces.count else { return .none }
+
+                var panesToDestroy: [UUID] = []
+                for id in ids {
+                    guard let workspace = state.workspaces[id: id] else { continue }
+                    panesToDestroy.append(contentsOf: workspace.layout.allPaneIDs)
+                    state.workspaces.remove(id: id)
+                }
+
+                if let activeID = state.activeWorkspaceID, ids.contains(activeID) {
+                    state.activeWorkspaceID = state.workspaces
+                        .max(by: { $0.lastAccessedAt < $1.lastAccessedAt })?
+                        .id
+                }
+                if let renamingID = state.renamingWorkspaceID, ids.contains(renamingID) {
+                    state.renamingWorkspaceID = nil
+                }
+                state.selectedWorkspaceIDs.subtract(ids)
+                state.lastSelectionAnchor = nil
+
+                let paneIDs = panesToDestroy
+                return .merge(
+                    .run { _ in
+                        for paneID in paneIDs {
+                            await surfaceManager.destroySurface(paneID: paneID)
+                        }
+                    },
+                    .send(.persistState)
+                )
 
             case .persistState:
                 let snapshot = PersistenceSnapshot(state: state)
