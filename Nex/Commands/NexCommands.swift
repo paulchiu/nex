@@ -31,6 +31,18 @@ struct NexCommands: Commands {
                     store.send(.switchToWorkspaceByIndex(index))
                 }
             }
+
+            Divider()
+
+            Button("Select All Workspaces") {
+                store.send(.selectAllWorkspaces)
+            }
+            .keyboardShortcut("a", modifiers: [.command, .shift])
+
+            Button("Deselect All Workspaces") {
+                store.send(.clearWorkspaceSelection)
+            }
+            .disabled(store.selectedWorkspaceIDs.isEmpty)
         }
 
         // View

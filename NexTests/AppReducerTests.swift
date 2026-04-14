@@ -729,6 +729,19 @@ struct AppReducerTests {
         }
     }
 
+    @Test func selectAllWorkspacesFillsSelection() async {
+        let wsID3 = UUID(uuidString: "10000000-0000-0000-0000-000000000003")!
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "WS1", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "WS2", paneID: Self.paneID2)
+        let ws3 = Self.makeWorkspace(id: wsID3, name: "WS3", paneID: UUID())
+        let store = makeStore(workspaces: [ws1, ws2, ws3], activeWorkspaceID: Self.wsID1)
+
+        await store.send(.selectAllWorkspaces) { state in
+            #expect(state.selectedWorkspaceIDs == [Self.wsID1, Self.wsID2, wsID3])
+            #expect(state.lastSelectionAnchor == wsID3)
+        }
+    }
+
     @Test func clearWorkspaceSelectionEmptiesSet() async {
         var appState = AppReducer.State()
         appState.selectedWorkspaceIDs = [Self.wsID1, Self.wsID2]

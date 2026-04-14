@@ -111,6 +111,7 @@ struct AppReducer {
         case toggleWorkspaceSelection(UUID)
         case rangeSelectWorkspace(UUID)
         case clearWorkspaceSelection
+        case selectAllWorkspaces
         case setBulkColor(WorkspaceColor)
         case requestBulkDelete
         case confirmBulkDelete
@@ -434,6 +435,11 @@ struct AppReducer {
             case .clearWorkspaceSelection:
                 state.selectedWorkspaceIDs.removeAll()
                 state.lastSelectionAnchor = nil
+                return .none
+
+            case .selectAllWorkspaces:
+                state.selectedWorkspaceIDs = Set(state.workspaces.ids)
+                state.lastSelectionAnchor = state.workspaces.last?.id
                 return .none
 
             case .setBulkColor(let color):

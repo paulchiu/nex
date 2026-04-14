@@ -23,6 +23,9 @@ struct WorkspaceListView: View {
             .onPreferenceChange(RowHeightKey.self) { height in
                 if height > 0 { measuredRowHeight = height }
             }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                selectionHeader
+            }
             .safeAreaInset(edge: .bottom) {
                 Button(action: { store.send(.showNewWorkspaceSheet) }) {
                     Label("New Workspace", systemImage: "plus")
@@ -44,6 +47,30 @@ struct WorkspaceListView: View {
             } message: {
                 Text("This cannot be undone. Panes and surfaces in these workspaces will be closed.")
             }
+        }
+    }
+
+    @ViewBuilder
+    private var selectionHeader: some View {
+        let count = store.selectedWorkspaceIDs.count
+        if count > 0 {
+            HStack(spacing: 8) {
+                Text("\(count) selected")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if count < store.workspaces.count {
+                    Button("Select All") { store.send(.selectAllWorkspaces) }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 11))
+                }
+                Button("Clear") { store.send(.clearWorkspaceSelection) }
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 11))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.accentColor.opacity(0.12))
         }
     }
 
@@ -83,6 +110,12 @@ struct WorkspaceListView: View {
                     workspaceStore.send(.setColor(color))
                 }
             }
+        }
+        Divider()
+        Button("Select All Workspaces") { store.send(.selectAllWorkspaces) }
+            .disabled(store.selectedWorkspaceIDs.count >= store.workspaces.count)
+        if !store.selectedWorkspaceIDs.isEmpty {
+            Button("Deselect All") { store.send(.clearWorkspaceSelection) }
         }
         Divider()
         Button("Delete", role: .destructive) {
