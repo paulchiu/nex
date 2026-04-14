@@ -139,6 +139,12 @@ final class PaneShortcutMonitor {
             return false
         }
 
+        // Escape clears an active workspace multi-selection.
+        if event.keyCode == 53, !store.selectedWorkspaceIDs.isEmpty {
+            store.send(.clearWorkspaceSelection)
+            return true
+        }
+
         guard let activeID = store.activeWorkspaceID else { return false }
 
         let trigger = KeyTrigger(event: event)
