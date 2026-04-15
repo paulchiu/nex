@@ -209,9 +209,11 @@ struct WorkspaceInspectorView: View {
             Spacer()
 
             Button(action: {
+                let direction: PaneLayout.SplitDirection =
+                    NSEvent.modifierFlags.contains(.shift) ? .vertical : .horizontal
                 store.send(.workspaces(.element(
                     id: activeID,
-                    action: .splitPaneAtPath(assoc.worktreePath)
+                    action: .splitPaneAtPath(assoc.worktreePath, direction: direction)
                 )))
             }) {
                 Image(systemName: "terminal")
@@ -219,7 +221,7 @@ struct WorkspaceInspectorView: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            .help("Open terminal at this path")
+            .help("Open terminal at this path (Shift: split vertical)")
         }
         .contentShape(Rectangle())
         .contextMenu {

@@ -94,7 +94,7 @@ struct WorkspaceFeature {
         case rename(String)
         case setColor(WorkspaceColor)
         case createPane
-        case splitPaneAtPath(String, label: String? = nil)
+        case splitPaneAtPath(String, label: String? = nil, direction: PaneLayout.SplitDirection = .horizontal)
         case splitPane(direction: PaneLayout.SplitDirection, sourcePaneID: UUID?, label: String? = nil)
         case closePane(UUID)
         case focusPane(UUID)
@@ -169,7 +169,7 @@ struct WorkspaceFeature {
                     )
                 }
 
-            case .splitPaneAtPath(let path, let label):
+            case .splitPaneAtPath(let path, let label, let direction):
                 if let saved = state.savedLayout {
                     state.layout = saved
                     state.zoomedPaneID = nil
@@ -182,7 +182,7 @@ struct WorkspaceFeature {
 
                 let (newLayout, _) = state.layout.splitting(
                     paneID: sourceID,
-                    direction: .horizontal,
+                    direction: direction,
                     newPaneID: newPaneID
                 )
                 state.layout = newLayout

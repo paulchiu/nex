@@ -942,7 +942,8 @@ struct AppReducer {
                     state.workspaces[id: workspace.id]?.focusedPaneID = sourcePaneID
                     if let path {
                         return .send(.workspaces(.element(
-                            id: workspace.id, action: .splitPaneAtPath(path, label: name)
+                            id: workspace.id,
+                            action: .splitPaneAtPath(path, label: name, direction: direction ?? .horizontal)
                         )))
                     }
                     return .send(.workspaces(.element(

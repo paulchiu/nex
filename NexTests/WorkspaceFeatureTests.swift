@@ -36,6 +36,60 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    @Test func splitPaneAtPathDefaultsHorizontal() async {
+        let workspace = WorkspaceFeature.State(name: "Test")
+        let originalPaneID = workspace.panes.first!.id
+        let newPaneID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+
+        let store = TestStore(initialState: workspace) {
+            WorkspaceFeature()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.uuid = .constant(newPaneID)
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.splitPaneAtPath("/tmp/foo")) { state in
+            #expect(state.panes.count == 2)
+            #expect(state.panes[id: newPaneID]?.workingDirectory == "/tmp/foo")
+            if case .split(let dir, _, .leaf(let first), .leaf(let second)) = state.layout {
+                #expect(dir == .horizontal)
+                #expect(first == originalPaneID)
+                #expect(second == newPaneID)
+            } else {
+                Issue.record("Expected horizontal split layout")
+            }
+        }
+    }
+
+    @Test func splitPaneAtPathRespectsVerticalDirection() async {
+        let workspace = WorkspaceFeature.State(name: "Test")
+        let originalPaneID = workspace.panes.first!.id
+        let newPaneID = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+
+        let store = TestStore(initialState: workspace) {
+            WorkspaceFeature()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.uuid = .constant(newPaneID)
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.splitPaneAtPath("/tmp/bar", direction: .vertical)) { state in
+            #expect(state.panes.count == 2)
+            #expect(state.panes[id: newPaneID]?.workingDirectory == "/tmp/bar")
+            if case .split(let dir, _, .leaf(let first), .leaf(let second)) = state.layout {
+                #expect(dir == .vertical)
+                #expect(first == originalPaneID)
+                #expect(second == newPaneID)
+            } else {
+                Issue.record("Expected vertical split layout")
+            }
+        }
+    }
+
     @Test func closePaneRemovesAndPromotesSibling() async {
         var workspace = WorkspaceFeature.State(name: "Test")
         let firstPaneID = workspace.panes.first!.id
