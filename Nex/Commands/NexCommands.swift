@@ -12,6 +12,13 @@ struct NexCommands: Commands {
                 store.send(.showNewWorkspaceSheet)
             }
 
+            menuButton("New Group", action: .newGroup) {
+                // Immediate creation with a placeholder name; the user
+                // drops straight into inline rename.
+                let placeholder = defaultGroupName(existing: store.groups)
+                store.send(.createGroup(name: placeholder))
+            }
+
             menuButton("Preview Markdown...", action: .openFile) {
                 store.send(.openFile)
             }
@@ -54,6 +61,14 @@ struct NexCommands: Commands {
                 store.send(.toggleInspector)
             }
         }
+
+        #if DEBUG
+            CommandMenu("Debug") {
+                Button("Seed Test Group") {
+                    store.send(.seedTestGroup)
+                }
+            }
+        #endif
     }
 
     /// Build a menu Button with the keyboard shortcut derived from the binding map.
@@ -85,6 +100,19 @@ struct NexCommands: Commands {
         default: .switchToWorkspace1
         }
     }
+}
+
+/// Produce a unique default name for a newly-created group, used when no name
+/// has been supplied yet (e.g., the ⌘⇧G menu shortcut).
+func defaultGroupName(existing: IdentifiedArrayOf<WorkspaceGroup>) -> String {
+    let base = "New Group"
+    let names = Set(existing.map(\.name))
+    if !names.contains(base) { return base }
+    var suffix = 2
+    while names.contains("\(base) \(suffix)") {
+        suffix += 1
+    }
+    return "\(base) \(suffix)"
 }
 
 /// Help menu command that opens the Help window.

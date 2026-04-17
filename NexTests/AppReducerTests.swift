@@ -409,18 +409,27 @@ struct AppReducerTests {
 
         let store = makeStore()
 
-        await store.send(.stateLoaded([ws1, ws2], activeWorkspaceID: Self.wsID2, repoRegistry: [repo])) { state in
+        await store.send(.stateLoaded(
+            [ws1, ws2],
+            groups: [],
+            topLevelOrder: [],
+            activeWorkspaceID: Self.wsID2,
+            repoRegistry: [repo]
+        )) { state in
             #expect(state.workspaces.count == 2)
             #expect(state.activeWorkspaceID == Self.wsID2)
             #expect(state.repoRegistry.count == 1)
             #expect(state.repoRegistry.first?.path == "/tmp/repo")
+            // Empty topLevelOrder is backfilled from the flat workspaces list
+            #expect(state.topLevelOrder == [.workspace(Self.wsID1), .workspace(Self.wsID2)])
+            #expect(state.groups.isEmpty)
         }
     }
 
     @Test func stateLoadedEmptyCreatesDefault() async {
         let store = makeStore()
 
-        await store.send(.stateLoaded([], activeWorkspaceID: nil, repoRegistry: []))
+        await store.send(.stateLoaded([], groups: [], topLevelOrder: [], activeWorkspaceID: nil, repoRegistry: []))
 
         // Should fire createWorkspace with "Default" and a random color
         await store.receive(\.createWorkspace) { state in
@@ -436,9 +445,44 @@ struct AppReducerTests {
 
         let store = makeStore()
 
-        await store.send(.stateLoaded([ws], activeWorkspaceID: Self.wsID1, repoRegistry: [])) { state in
+        await store.send(.stateLoaded(
+            [ws],
+            groups: [],
+            topLevelOrder: [],
+            activeWorkspaceID: Self.wsID1,
+            repoRegistry: []
+        )) { state in
             #expect(state.workspaces[id: Self.wsID1]?.panes[id: Self.paneID1]?.claudeSessionID == nil)
             #expect(state.workspaces[id: Self.wsID1]?.panes[id: Self.paneID1]?.status == .idle)
+        }
+    }
+
+    @Test func stateLoadedHonoursPersistedTopLevelOrder() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A", paneID: Self.paneID1)
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B", paneID: Self.paneID2)
+        let groupID = UUID(uuidString: "20000000-0000-0000-0000-000000000001")!
+        let group = WorkspaceGroup(
+            id: groupID,
+            name: "Monitors",
+            isCollapsed: false,
+            childOrder: [Self.wsID2]
+        )
+        let order: [SidebarID] = [.workspace(Self.wsID1), .group(groupID)]
+
+        let store = makeStore()
+
+        await store.send(.stateLoaded(
+            [ws1, ws2],
+            groups: [group],
+            topLevelOrder: order,
+            activeWorkspaceID: Self.wsID1,
+            repoRegistry: []
+        )) { state in
+            #expect(state.topLevelOrder == order)
+            #expect(state.groups.count == 1)
+            #expect(state.groups[id: groupID]?.childOrder == [Self.wsID2])
+            #expect(state.groupID(forWorkspace: Self.wsID2) == groupID)
+            #expect(state.groupID(forWorkspace: Self.wsID1) == nil)
         }
     }
 

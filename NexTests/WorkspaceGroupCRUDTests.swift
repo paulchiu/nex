@@ -1,0 +1,481 @@
+import ComposableArchitecture
+import Foundation
+@testable import Nex
+import Testing
+
+@MainActor
+struct WorkspaceGroupCRUDTests {
+    private static let wsID1 = UUID(uuidString: "40000000-0000-0000-0000-000000000001")!
+    private static let wsID2 = UUID(uuidString: "40000000-0000-0000-0000-000000000002")!
+    private static let wsID3 = UUID(uuidString: "40000000-0000-0000-0000-000000000003")!
+    private static let groupA = UUID(uuidString: "40000000-0000-0000-0000-0000000000A1")!
+    private static let groupB = UUID(uuidString: "40000000-0000-0000-0000-0000000000A2")!
+
+    private static func makeWorkspace(id: UUID, name: String) -> WorkspaceFeature.State {
+        let paneID = UUID()
+        return WorkspaceFeature.State(
+            id: id,
+            name: name,
+            slug: name.lowercased(),
+            color: .blue,
+            panes: [Pane(id: paneID)],
+            layout: .leaf(paneID),
+            focusedPaneID: paneID,
+            createdAt: Date(timeIntervalSince1970: 1000),
+            lastAccessedAt: Date(timeIntervalSince1970: 1000)
+        )
+    }
+
+    private func makeStore(
+        workspaces: IdentifiedArrayOf<WorkspaceFeature.State> = [],
+        groups: IdentifiedArrayOf<WorkspaceGroup> = [],
+        topLevelOrder: [SidebarID] = [],
+        activeWorkspaceID: UUID? = nil,
+        selectedWorkspaceIDs: Set<UUID> = []
+    ) -> TestStoreOf<AppReducer> {
+        var appState = AppReducer.State()
+        appState.workspaces = workspaces
+        appState.groups = groups
+        appState.topLevelOrder = topLevelOrder
+        appState.activeWorkspaceID = activeWorkspaceID
+        appState.selectedWorkspaceIDs = selectedWorkspaceIDs
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = UUIDGenerator { Self.groupA }
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+        return store
+    }
+
+    // MARK: - createGroup
+
+    @Test func createGroupAppendsToTopLevelOrder() async {
+        let ws = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let store = makeStore(
+            workspaces: [ws],
+            topLevelOrder: [.workspace(Self.wsID1)]
+        )
+
+        await store.send(.createGroup(name: "Monitors")) { state in
+            #expect(state.groups.count == 1)
+            #expect(state.groups.first?.name == "Monitors")
+            #expect(state.topLevelOrder.last?.groupID != nil)
+        }
+    }
+
+    @Test func createGroupTrimsWhitespaceAndSkipsEmpty() async {
+        let store = makeStore()
+
+        await store.send(.createGroup(name: "   ")) { state in
+            #expect(state.groups.isEmpty)
+        }
+
+        await store.send(.createGroup(name: "  Spaces  ")) { state in
+            #expect(state.groups.count == 1)
+            #expect(state.groups.first?.name == "Spaces")
+        }
+    }
+
+    @Test func createGroupInsertsAfterSpecifiedEntry() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B")
+        let store = makeStore(
+            workspaces: [ws1, ws2],
+            topLevelOrder: [.workspace(Self.wsID1), .workspace(Self.wsID2)]
+        )
+
+        await store.send(.createGroup(
+            name: "Between",
+            color: nil,
+            insertAfter: .workspace(Self.wsID1)
+        )) { state in
+            #expect(state.topLevelOrder.count == 3)
+            if case .workspace(let id) = state.topLevelOrder[0] { #expect(id == Self.wsID1) }
+            if case .group = state.topLevelOrder[1] {} else { Issue.record("expected group at index 1") }
+            if case .workspace(let id) = state.topLevelOrder[2] { #expect(id == Self.wsID2) }
+        }
+    }
+
+    @Test func createGroupMovesInitialWorkspacesFromTopLevel() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B")
+        let ws3 = Self.makeWorkspace(id: Self.wsID3, name: "C")
+        let store = makeStore(
+            workspaces: [ws1, ws2, ws3],
+            topLevelOrder: [
+                .workspace(Self.wsID1),
+                .workspace(Self.wsID2),
+                .workspace(Self.wsID3)
+            ]
+        )
+
+        await store.send(.createGroup(
+            name: "Bundle",
+            color: nil,
+            insertAfter: nil,
+            initialWorkspaceIDs: [Self.wsID1, Self.wsID3]
+        )) { state in
+            #expect(state.groups.count == 1)
+            let group = state.groups.first!
+            #expect(group.childOrder == [Self.wsID1, Self.wsID3])
+            // The two workspaces are no longer top-level; ws2 still is.
+            let remaining: [UUID] = state.topLevelOrder.compactMap(\.workspaceID)
+            #expect(remaining == [Self.wsID2])
+        }
+    }
+
+    // MARK: - renameGroup
+
+    @Test func renameGroupTrimsAndIgnoresEmpty() async {
+        let group = WorkspaceGroup(id: Self.groupA, name: "Old", childOrder: [])
+        let store = makeStore(groups: [group], topLevelOrder: [.group(Self.groupA)])
+
+        await store.send(.renameGroup(id: Self.groupA, name: "   ")) { state in
+            #expect(state.groups[id: Self.groupA]?.name == "Old")
+        }
+        await store.send(.renameGroup(id: Self.groupA, name: "  New  ")) { state in
+            #expect(state.groups[id: Self.groupA]?.name == "New")
+        }
+    }
+
+    @Test func renameGroupClearsRenamingIDWhenMatches() async {
+        let group = WorkspaceGroup(id: Self.groupA, name: "Old", childOrder: [])
+        var appState = AppReducer.State()
+        appState.groups = [group]
+        appState.topLevelOrder = [.group(Self.groupA)]
+        appState.renamingGroupID = Self.groupA
+
+        let store = TestStore(initialState: appState) { AppReducer() } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.renameGroup(id: Self.groupA, name: "New")) { state in
+            #expect(state.renamingGroupID == nil)
+            #expect(state.groups[id: Self.groupA]?.name == "New")
+        }
+    }
+
+    // MARK: - setGroupColor
+
+    @Test func setGroupColorAssignsAndClears() async {
+        let group = WorkspaceGroup(id: Self.groupA, name: "G", color: .blue, childOrder: [])
+        let store = makeStore(groups: [group], topLevelOrder: [.group(Self.groupA)])
+
+        await store.send(.setGroupColor(id: Self.groupA, color: .purple)) { state in
+            #expect(state.groups[id: Self.groupA]?.color == .purple)
+        }
+        await store.send(.setGroupColor(id: Self.groupA, color: nil)) { state in
+            #expect(state.groups[id: Self.groupA]?.color == nil)
+        }
+    }
+
+    // MARK: - deleteGroup (cascade = false)
+
+    @Test func deleteGroupPromotesChildrenToTopLevel() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B")
+        let ws3 = Self.makeWorkspace(id: Self.wsID3, name: "C")
+        let group = WorkspaceGroup(
+            id: Self.groupA,
+            name: "G",
+            isCollapsed: false,
+            childOrder: [Self.wsID2, Self.wsID3]
+        )
+        let store = makeStore(
+            workspaces: [ws1, ws2, ws3],
+            groups: [group],
+            topLevelOrder: [.workspace(Self.wsID1), .group(Self.groupA)]
+        )
+
+        await store.send(.deleteGroup(id: Self.groupA, cascade: false)) { state in
+            #expect(state.groups.isEmpty)
+            #expect(state.workspaces.count == 3)
+            #expect(state.topLevelOrder == [
+                .workspace(Self.wsID1),
+                .workspace(Self.wsID2),
+                .workspace(Self.wsID3)
+            ])
+        }
+    }
+
+    // MARK: - deleteGroup (cascade = true)
+
+    @Test func deleteGroupCascadeRemovesWorkspacesAndSurfaces() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "Keep")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "Doomed")
+        let group = WorkspaceGroup(
+            id: Self.groupA,
+            name: "G",
+            isCollapsed: false,
+            childOrder: [Self.wsID2]
+        )
+        let store = makeStore(
+            workspaces: [ws1, ws2],
+            groups: [group],
+            topLevelOrder: [.workspace(Self.wsID1), .group(Self.groupA)],
+            activeWorkspaceID: Self.wsID2
+        )
+
+        await store.send(.deleteGroup(id: Self.groupA, cascade: true)) { state in
+            #expect(state.groups.isEmpty)
+            #expect(state.workspaces[id: Self.wsID2] == nil)
+            #expect(state.workspaces.count == 1)
+            // Active workspace should fall back to the surviving one
+            #expect(state.activeWorkspaceID == Self.wsID1)
+            #expect(state.topLevelOrder == [.workspace(Self.wsID1)])
+        }
+    }
+
+    // MARK: - moveWorkspaceToGroup
+
+    @Test func moveWorkspaceTopLevelIntoGroup() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B")
+        let group = WorkspaceGroup(
+            id: Self.groupA,
+            name: "G",
+            isCollapsed: false,
+            childOrder: [Self.wsID2]
+        )
+        let store = makeStore(
+            workspaces: [ws1, ws2],
+            groups: [group],
+            topLevelOrder: [.workspace(Self.wsID1), .group(Self.groupA)]
+        )
+
+        await store.send(.moveWorkspaceToGroup(
+            workspaceID: Self.wsID1, groupID: Self.groupA, index: nil
+        )) { state in
+            #expect(state.groups[id: Self.groupA]?.childOrder == [Self.wsID2, Self.wsID1])
+            #expect(state.topLevelOrder == [.group(Self.groupA)])
+        }
+    }
+
+    @Test func moveWorkspaceGroupToTopLevel() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B")
+        let group = WorkspaceGroup(
+            id: Self.groupA,
+            name: "G",
+            isCollapsed: false,
+            childOrder: [Self.wsID2]
+        )
+        let store = makeStore(
+            workspaces: [ws1, ws2],
+            groups: [group],
+            topLevelOrder: [.workspace(Self.wsID1), .group(Self.groupA)]
+        )
+
+        await store.send(.moveWorkspaceToGroup(
+            workspaceID: Self.wsID2, groupID: nil, index: 0
+        )) { state in
+            #expect(state.groups[id: Self.groupA]?.childOrder == [])
+            #expect(state.topLevelOrder == [
+                .workspace(Self.wsID2),
+                .workspace(Self.wsID1),
+                .group(Self.groupA)
+            ])
+        }
+    }
+
+    @Test func moveWorkspaceBetweenGroups() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B")
+        let groupA = WorkspaceGroup(id: Self.groupA, name: "A", childOrder: [Self.wsID1])
+        let groupB = WorkspaceGroup(id: Self.groupB, name: "B", childOrder: [Self.wsID2])
+        let store = makeStore(
+            workspaces: [ws1, ws2],
+            groups: [groupA, groupB],
+            topLevelOrder: [.group(Self.groupA), .group(Self.groupB)]
+        )
+
+        await store.send(.moveWorkspaceToGroup(
+            workspaceID: Self.wsID1, groupID: Self.groupB, index: 0
+        )) { state in
+            #expect(state.groups[id: Self.groupA]?.childOrder == [])
+            #expect(state.groups[id: Self.groupB]?.childOrder == [Self.wsID1, Self.wsID2])
+        }
+    }
+
+    @Test func moveWorkspaceWithinGroupReorders() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B")
+        let ws3 = Self.makeWorkspace(id: Self.wsID3, name: "C")
+        let group = WorkspaceGroup(
+            id: Self.groupA,
+            name: "G",
+            childOrder: [Self.wsID1, Self.wsID2, Self.wsID3]
+        )
+        let store = makeStore(
+            workspaces: [ws1, ws2, ws3],
+            groups: [group],
+            topLevelOrder: [.group(Self.groupA)]
+        )
+
+        await store.send(.moveWorkspaceToGroup(
+            workspaceID: Self.wsID3, groupID: Self.groupA, index: 0
+        )) { state in
+            #expect(state.groups[id: Self.groupA]?.childOrder == [Self.wsID3, Self.wsID1, Self.wsID2])
+        }
+    }
+
+    @Test func moveWorkspaceIntoCollapsedGroupExpandsIt() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let group = WorkspaceGroup(
+            id: Self.groupA,
+            name: "G",
+            isCollapsed: true,
+            childOrder: []
+        )
+        let store = makeStore(
+            workspaces: [ws1],
+            groups: [group],
+            topLevelOrder: [.workspace(Self.wsID1), .group(Self.groupA)]
+        )
+
+        await store.send(.moveWorkspaceToGroup(
+            workspaceID: Self.wsID1, groupID: Self.groupA, index: nil
+        )) { state in
+            #expect(state.groups[id: Self.groupA]?.isCollapsed == false)
+            #expect(state.groups[id: Self.groupA]?.childOrder == [Self.wsID1])
+        }
+    }
+
+    // MARK: - requestGroupDelete
+
+    @Test func requestGroupDeleteCapturesWorkspaceCount() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B")
+        let group = WorkspaceGroup(
+            id: Self.groupA,
+            name: "Monitors",
+            childOrder: [Self.wsID1, Self.wsID2]
+        )
+        let store = makeStore(
+            workspaces: [ws1, ws2],
+            groups: [group],
+            topLevelOrder: [.group(Self.groupA)]
+        )
+
+        await store.send(.requestGroupDelete(Self.groupA)) { state in
+            let confirmation = state.groupDeleteConfirmation
+            #expect(confirmation?.groupID == Self.groupA)
+            #expect(confirmation?.groupName == "Monitors")
+            #expect(confirmation?.workspaceCount == 2)
+        }
+
+        await store.send(.cancelGroupDelete) { state in
+            #expect(state.groupDeleteConfirmation == nil)
+        }
+    }
+
+    // MARK: - Bulk create group from selection
+
+    @Test func requestBulkCreateGroupOrdersSelectionBySidebar() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B")
+        let ws3 = Self.makeWorkspace(id: Self.wsID3, name: "C")
+        // Put ws2 inside a group; select ws3 and ws2. The prompt should
+        // list them in sidebar order (ws3 first if it's above the group).
+        let group = WorkspaceGroup(id: Self.groupA, name: "G", childOrder: [Self.wsID2])
+        let store = makeStore(
+            workspaces: [ws1, ws2, ws3],
+            groups: [group],
+            topLevelOrder: [
+                .workspace(Self.wsID1),
+                .workspace(Self.wsID3),
+                .group(Self.groupA)
+            ],
+            selectedWorkspaceIDs: [Self.wsID2, Self.wsID3]
+        )
+
+        await store.send(.requestBulkCreateGroup) { state in
+            #expect(state.groupBulkCreatePrompt?.workspaceIDs == [Self.wsID3, Self.wsID2])
+        }
+    }
+
+    @Test func confirmBulkCreateGroupBuildsGroup() async {
+        let ws1 = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let ws2 = Self.makeWorkspace(id: Self.wsID2, name: "B")
+        var appState = AppReducer.State()
+        appState.workspaces = [ws1, ws2]
+        appState.topLevelOrder = [.workspace(Self.wsID1), .workspace(Self.wsID2)]
+        appState.selectedWorkspaceIDs = [Self.wsID1, Self.wsID2]
+        appState.groupBulkCreatePrompt = GroupBulkCreatePrompt(
+            workspaceIDs: [Self.wsID1, Self.wsID2]
+        )
+
+        let store = TestStore(initialState: appState) { AppReducer() } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = UUIDGenerator { Self.groupA }
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.confirmBulkCreateGroup(name: "New", color: .green)) { state in
+            #expect(state.groupBulkCreatePrompt == nil)
+            #expect(state.selectedWorkspaceIDs.isEmpty)
+        }
+        await store.receive(\.createGroup) { state in
+            #expect(state.groups.count == 1)
+            let group = state.groups.first!
+            #expect(group.name == "New")
+            #expect(group.color == .green)
+            #expect(group.childOrder == [Self.wsID1, Self.wsID2])
+            #expect(state.topLevelOrder == [.group(group.id)])
+        }
+    }
+
+    @Test func confirmBulkCreateGroupBlocksOnEmptyName() async {
+        var appState = AppReducer.State()
+        appState.groupBulkCreatePrompt = GroupBulkCreatePrompt(workspaceIDs: [Self.wsID1])
+
+        let store = TestStore(initialState: appState) { AppReducer() } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.confirmBulkCreateGroup(name: "   ", color: nil)) { state in
+            #expect(state.groupBulkCreatePrompt == nil)
+            #expect(state.groups.isEmpty)
+        }
+    }
+
+    // MARK: - beginRenameGroup / setRenamingGroupID
+
+    @Test func beginRenameGroupRequiresExistingGroup() async {
+        let group = WorkspaceGroup(id: Self.groupA, name: "X", childOrder: [])
+        let store = makeStore(groups: [group], topLevelOrder: [.group(Self.groupA)])
+
+        await store.send(.beginRenameGroup(Self.groupB)) { state in
+            #expect(state.renamingGroupID == nil)
+        }
+        await store.send(.beginRenameGroup(Self.groupA)) { state in
+            #expect(state.renamingGroupID == Self.groupA)
+        }
+        await store.send(.setRenamingGroupID(nil)) { state in
+            #expect(state.renamingGroupID == nil)
+        }
+    }
+}

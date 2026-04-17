@@ -242,13 +242,14 @@ enum NexAction: String, CaseIterable {
     case movePaneDown = "move_pane_down"
     case createScratchpad = "create_scratchpad"
     case commandPalette = "command_palette"
+    case newGroup = "new_group"
     case unbind
 
     /// Actions handled by SwiftUI Commands (menu bar items).
     /// The NSEvent monitor should not consume events for these.
     var isMenuBarAction: Bool {
         switch self {
-        case .newWorkspace, .openFile,
+        case .newWorkspace, .openFile, .newGroup,
              .switchToWorkspace1, .switchToWorkspace2, .switchToWorkspace3,
              .switchToWorkspace4, .switchToWorkspace5, .switchToWorkspace6,
              .switchToWorkspace7, .switchToWorkspace8, .switchToWorkspace9,
@@ -295,6 +296,7 @@ enum NexAction: String, CaseIterable {
         case .movePaneDown: "Move Pane Down"
         case .createScratchpad: "New Scratchpad"
         case .commandPalette: "Command Palette"
+        case .newGroup: "New Group"
         case .unbind: "Unbind"
         }
     }
@@ -307,7 +309,7 @@ enum NexAction: String, CaseIterable {
             "Pane Management"
         case .focusNextPane, .focusPreviousPane, .commandPalette:
             "Navigation"
-        case .newWorkspace, .nextWorkspace, .previousWorkspace, .renameWorkspace,
+        case .newWorkspace, .nextWorkspace, .previousWorkspace, .renameWorkspace, .newGroup,
              .switchToWorkspace1, .switchToWorkspace2, .switchToWorkspace3,
              .switchToWorkspace4, .switchToWorkspace5, .switchToWorkspace6,
              .switchToWorkspace7, .switchToWorkspace8, .switchToWorkspace9:
@@ -441,6 +443,9 @@ struct KeyBindingMap: Equatable {
 
         // Scratchpad
         bindings[KeyTrigger(keyCode: 45, modifiers: [.command, .shift])] = .createScratchpad // ⌘⇧N
+
+        // Group management
+        bindings[KeyTrigger(keyCode: 5, modifiers: [.command, .shift])] = .newGroup // ⌘⇧G
 
         // Move pane in direction
         bindings[KeyTrigger(keyCode: 123, modifiers: [.control, .shift])] = .movePaneLeft // ⌃⇧←

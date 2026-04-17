@@ -11,6 +11,7 @@ struct SurfaceContainerView: NSViewRepresentable {
     var command: String?
     @Environment(\.surfaceManager) private var surfaceManager
     @Environment(\.ghosttyConfig) private var ghosttyConfig
+    @Environment(\.sidebarTextEditingActive) private var sidebarTextEditingActive
 
     func makeNSView(context _: Context) -> NSView {
         let container = NSView()
@@ -29,9 +30,9 @@ struct SurfaceContainerView: NSViewRepresentable {
         if let surface = surfaceManager.surface(for: paneID) {
             embedSurface(surface, in: container)
 
-            if isFocused {
+            if isFocused, !sidebarTextEditingActive {
                 DispatchQueue.main.async {
-                    surface.window?.makeFirstResponder(surface)
+                    Self.focusSurfaceIfAppropriate(surface)
                 }
             }
         }
@@ -53,12 +54,24 @@ struct SurfaceContainerView: NSViewRepresentable {
             embedSurface(surface, in: container)
         }
 
-        // Handle focus
-        if isFocused {
+        // Handle focus — but skip while the sidebar is editing text (inline
+        // group rename, etc.) so unrelated re-renders don't snatch focus
+        // back from the active TextField.
+        if isFocused, !sidebarTextEditingActive {
             DispatchQueue.main.async {
-                surface.window?.makeFirstResponder(surface)
+                Self.focusSurfaceIfAppropriate(surface)
             }
         }
+    }
+
+    /// Grants first responder to the surface unless a text editor currently
+    /// holds it. Safety net in addition to the `sidebarTextEditingActive`
+    /// environment gate above.
+    private static func focusSurfaceIfAppropriate(_ surface: NSView) {
+        guard let window = surface.window else { return }
+        if window.firstResponder === surface { return }
+        if window.firstResponder is NSText { return }
+        window.makeFirstResponder(surface)
     }
 
     /// Add the surface to the container using Auto Layout constraints.
@@ -78,4 +91,8 @@ struct SurfaceContainerView: NSViewRepresentable {
 
 extension EnvironmentValues {
     @Entry var surfaceManager: SurfaceManager = .init()
+    /// True while the sidebar is presenting an inline text editor (group
+    /// rename, workspace rename, etc.). SurfaceContainerView watches this
+    /// to suppress its focus-grab on state re-renders.
+    @Entry var sidebarTextEditingActive: Bool = false
 }

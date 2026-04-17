@@ -12,9 +12,14 @@ struct WorkspaceRowView: View {
     var waitingPaneCount: Int = 0
     var hasRunningPanes: Bool = false
     var isSelected: Bool = false
+    var leadingInset: CGFloat = 0
 
     var body: some View {
         HStack(spacing: 8) {
+            if leadingInset > 0 {
+                Spacer().frame(width: leadingInset)
+            }
+
             RoundedRectangle(cornerRadius: 3)
                 .fill(color.color)
                 .frame(width: 4, height: 24)

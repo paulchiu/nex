@@ -7,10 +7,15 @@ struct AppReducer {
     @ObservableState
     struct State: Equatable {
         var workspaces: IdentifiedArrayOf<WorkspaceFeature.State> = []
+        var groups: IdentifiedArrayOf<WorkspaceGroup> = []
+        var topLevelOrder: [SidebarID] = []
         var activeWorkspaceID: UUID?
         var isSidebarVisible: Bool = true
         var isNewWorkspaceSheetPresented: Bool = false
         var renamingWorkspaceID: UUID?
+        var renamingGroupID: UUID?
+        var groupDeleteConfirmation: GroupDeleteConfirmation?
+        var groupBulkCreatePrompt: GroupBulkCreatePrompt?
         var selectedWorkspaceIDs: Set<UUID> = []
         var lastSelectionAnchor: UUID?
         var bulkDeleteConfirmationIDs: [UUID]?
@@ -92,6 +97,66 @@ struct AppReducer {
                 return terms.allSatisfy { searchable.contains($0) }
             }
         }
+
+        // MARK: - Workspace group helpers
+
+        /// The top-level slot a workspace currently occupies: its own slot if
+        /// ungrouped, or the parent group's slot when it's a child.
+        func topLevelSlot(forWorkspace workspaceID: UUID) -> SidebarID? {
+            if let groupID = groupID(forWorkspace: workspaceID) {
+                return .group(groupID)
+            }
+            if topLevelOrder.contains(.workspace(workspaceID)) {
+                return .workspace(workspaceID)
+            }
+            return nil
+        }
+
+        func groupID(forWorkspace workspaceID: UUID) -> UUID? {
+            groups.first(where: { $0.childOrder.contains(workspaceID) })?.id
+        }
+
+        func workspaces(inGroup groupID: UUID) -> [WorkspaceFeature.State] {
+            guard let group = groups[id: groupID] else { return [] }
+            return group.childOrder.compactMap { workspaces[id: $0] }
+        }
+
+        /// Phase 1 invariant: with no groups, `topLevelOrder` mirrors the flat
+        /// workspaces list. Call after any mutation that adds, removes, or
+        /// reorders workspaces. Will be replaced with granular updates once
+        /// groups become user-creatable in Phase 3.
+        mutating func syncTopLevelOrderToFlatList() {
+            topLevelOrder = workspaces.map { .workspace($0.id) }
+        }
+
+        /// Flatten `topLevelOrder` into a list the sidebar can render directly.
+        /// Honours per-group collapse state: a collapsed group emits only its
+        /// header; an expanded group emits its header followed by its children
+        /// (or an empty placeholder if the group has none).
+        var renderedEntries: [RenderedEntry] {
+            var entries: [RenderedEntry] = []
+            for item in topLevelOrder {
+                switch item {
+                case .workspace(let wsID):
+                    guard workspaces[id: wsID] != nil else { continue }
+                    entries.append(.workspaceRow(workspaceID: wsID, depth: 0))
+                case .group(let gID):
+                    guard let group = groups[id: gID] else { continue }
+                    entries.append(.groupHeader(groupID: gID))
+                    if !group.isCollapsed {
+                        let children = group.childOrder.filter { workspaces[id: $0] != nil }
+                        if children.isEmpty {
+                            entries.append(.groupEmpty(groupID: gID))
+                        } else {
+                            for childID in children {
+                                entries.append(.workspaceRow(workspaceID: childID, depth: 1))
+                            }
+                        }
+                    }
+                }
+            }
+            return entries
+        }
     }
 
     enum Action: Equatable {
@@ -119,9 +184,27 @@ struct AppReducer {
         case persistState
         case stateLoaded(
             IdentifiedArrayOf<WorkspaceFeature.State>,
+            groups: IdentifiedArrayOf<WorkspaceGroup>,
+            topLevelOrder: [SidebarID],
             activeWorkspaceID: UUID?,
             repoRegistry: IdentifiedArrayOf<Repo>
         )
+
+        // Workspace groups
+        case toggleGroupCollapse(UUID)
+        case createGroup(name: String, color: WorkspaceColor? = nil, insertAfter: SidebarID? = nil, initialWorkspaceIDs: [UUID] = [])
+        case renameGroup(id: UUID, name: String)
+        case setGroupColor(id: UUID, color: WorkspaceColor?)
+        case deleteGroup(id: UUID, cascade: Bool)
+        case moveWorkspaceToGroup(workspaceID: UUID, groupID: UUID?, index: Int? = nil)
+        case beginRenameGroup(UUID)
+        case setRenamingGroupID(UUID?)
+        case requestGroupDelete(UUID)
+        case cancelGroupDelete
+        case requestBulkCreateGroup
+        case cancelBulkCreateGroup
+        case confirmBulkCreateGroup(name: String, color: WorkspaceColor?)
+        case seedTestGroup // DEBUG-only menu hook; safe to dispatch in tests
         case workspaces(IdentifiedActionOf<WorkspaceFeature>)
         case settings(SettingsFeature.Action)
 
@@ -257,6 +340,8 @@ struct AppReducer {
                         let result = await persistenceService.load()
                         await send(.stateLoaded(
                             result.workspaces,
+                            groups: result.groups,
+                            topLevelOrder: result.topLevelOrder,
                             activeWorkspaceID: result.activeWorkspaceID,
                             repoRegistry: result.repoRegistry
                         ))
@@ -308,6 +393,7 @@ struct AppReducer {
                 }
 
                 state.workspaces.append(workspace)
+                state.topLevelOrder.append(.workspace(workspace.id))
                 state.activeWorkspaceID = workspace.id
                 state.isNewWorkspaceSheetPresented = false
 
@@ -326,6 +412,10 @@ struct AppReducer {
                 guard let workspace = state.workspaces[id: id] else { return .none }
                 let paneIDs = workspace.layout.allPaneIDs
                 state.workspaces.remove(id: id)
+                state.topLevelOrder.removeAll { $0 == .workspace(id) }
+                for groupID in state.groups.ids {
+                    state.groups[id: groupID]?.childOrder.removeAll { $0 == id }
+                }
 
                 if state.activeWorkspaceID == id {
                     state.activeWorkspaceID = state.workspaces
@@ -352,18 +442,37 @@ struct AppReducer {
                 )
 
             case .moveWorkspace(let id, let toIndex):
-                guard let fromIndex = state.workspaces.index(id: id),
-                      fromIndex != toIndex,
+                // Reorders `id` within the top-level sidebar order. `toIndex`
+                // is an index into `state.topLevelOrder` (which interleaves
+                // ungrouped workspaces and group headers). Also mirrors the
+                // move into `state.workspaces` so Cmd+N numbering stays
+                // aligned with the visual order.
+                guard let fromTop = state.topLevelOrder.firstIndex(of: .workspace(id)),
+                      fromTop != toIndex,
                       toIndex >= 0,
-                      toIndex < state.workspaces.count
+                      toIndex < state.topLevelOrder.count
                 else { return .none }
-                let workspace = state.workspaces.remove(at: fromIndex)
-                state.workspaces.insert(workspace, at: min(toIndex, state.workspaces.endIndex))
+                let entry = state.topLevelOrder.remove(at: fromTop)
+                state.topLevelOrder.insert(entry, at: min(toIndex, state.topLevelOrder.endIndex))
+
+                if let fromFlat = state.workspaces.index(id: id) {
+                    let workspace = state.workspaces.remove(at: fromFlat)
+                    let flatTarget = min(toIndex, state.workspaces.endIndex)
+                    state.workspaces.insert(workspace, at: flatTarget)
+                }
+
                 return .send(.persistState)
 
             case .setActiveWorkspace(let id):
                 state.activeWorkspaceID = id
                 state.workspaces[id: id]?.lastAccessedAt = Date()
+                // Auto-expand the parent group if the activated workspace is
+                // tucked inside a collapsed group. Otherwise the user just
+                // hit a hidden item and would not see why focus moved.
+                if let groupID = state.groupID(forWorkspace: id),
+                   state.groups[id: groupID]?.isCollapsed == true {
+                    state.groups[id: groupID]?.isCollapsed = false
+                }
                 return .merge(
                     .send(.persistState),
                     .send(.refreshGitStatus)
@@ -469,6 +578,14 @@ struct AppReducer {
                     panesToDestroy.append(contentsOf: workspace.layout.allPaneIDs)
                     state.workspaces.remove(id: id)
                 }
+                let removedSet = Set(ids)
+                state.topLevelOrder.removeAll {
+                    if case .workspace(let wsID) = $0, removedSet.contains(wsID) { return true }
+                    return false
+                }
+                for groupID in state.groups.ids {
+                    state.groups[id: groupID]?.childOrder.removeAll { removedSet.contains($0) }
+                }
 
                 if let activeID = state.activeWorkspaceID, ids.contains(activeID) {
                     state.activeWorkspaceID = state.workspaces
@@ -491,20 +608,295 @@ struct AppReducer {
                     .send(.persistState)
                 )
 
+            case .toggleGroupCollapse(let groupID):
+                guard state.groups[id: groupID] != nil else { return .none }
+                state.groups[id: groupID]?.isCollapsed.toggle()
+                return .send(.persistState)
+
+            case .createGroup(let name, let color, let insertAfter, let initialWorkspaceIDs):
+                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return .none }
+
+                // Preserve request order but drop duplicates and missing IDs.
+                var seen = Set<UUID>()
+                var validInitial: [UUID] = []
+                for id in initialWorkspaceIDs {
+                    guard state.workspaces[id: id] != nil, seen.insert(id).inserted else { continue }
+                    validInitial.append(id)
+                }
+
+                let newGroup = WorkspaceGroup(
+                    id: uuid(),
+                    name: trimmed,
+                    color: color,
+                    isCollapsed: false,
+                    childOrder: validInitial
+                )
+                state.groups.append(newGroup)
+
+                // Detach any initial workspaces from their previous parent
+                // group so they only live in one place.
+                if !validInitial.isEmpty {
+                    let moved = Set(validInitial)
+                    for groupID in state.groups.ids where groupID != newGroup.id {
+                        state.groups[id: groupID]?.childOrder.removeAll { moved.contains($0) }
+                    }
+                    state.topLevelOrder.removeAll { entry in
+                        if case .workspace(let id) = entry { return moved.contains(id) }
+                        return false
+                    }
+                }
+
+                // Insertion position in `topLevelOrder`.
+                let newEntry: SidebarID = .group(newGroup.id)
+                if let insertAfter, let idx = state.topLevelOrder.firstIndex(of: insertAfter) {
+                    state.topLevelOrder.insert(newEntry, at: idx + 1)
+                } else {
+                    state.topLevelOrder.append(newEntry)
+                }
+
+                // Reset any dangling prompt state that triggered this.
+                state.groupBulkCreatePrompt = nil
+                return .send(.persistState)
+
+            case .renameGroup(let id, let name):
+                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty, state.groups[id: id] != nil else { return .none }
+                state.groups[id: id]?.name = trimmed
+                if state.renamingGroupID == id {
+                    state.renamingGroupID = nil
+                }
+                return .send(.persistState)
+
+            case .setGroupColor(let id, let color):
+                guard state.groups[id: id] != nil else { return .none }
+                state.groups[id: id]?.color = color
+                return .send(.persistState)
+
+            case .deleteGroup(let id, let cascade):
+                guard let group = state.groups[id: id] else { return .none }
+                let childIDs = group.childOrder
+                let insertionIndex = state.topLevelOrder.firstIndex(of: .group(id))
+                state.topLevelOrder.removeAll { $0 == .group(id) }
+                state.groups.remove(id: id)
+
+                if cascade {
+                    // Drop each child workspace. Mirrors `deleteWorkspace` so
+                    // surfaces are destroyed and downstream state stays clean.
+                    var paneIDs: [UUID] = []
+                    for wsID in childIDs {
+                        guard let workspace = state.workspaces[id: wsID] else { continue }
+                        paneIDs.append(contentsOf: workspace.layout.allPaneIDs)
+                        state.workspaces.remove(id: wsID)
+                    }
+                    let removedSet = Set(childIDs)
+                    if let activeID = state.activeWorkspaceID, removedSet.contains(activeID) {
+                        state.activeWorkspaceID = state.workspaces
+                            .max(by: { $0.lastAccessedAt < $1.lastAccessedAt })?
+                            .id
+                    }
+                    if let renamingID = state.renamingWorkspaceID, removedSet.contains(renamingID) {
+                        state.renamingWorkspaceID = nil
+                    }
+                    state.selectedWorkspaceIDs.subtract(removedSet)
+                    if let anchor = state.lastSelectionAnchor, removedSet.contains(anchor) {
+                        state.lastSelectionAnchor = nil
+                    }
+                    state.groupDeleteConfirmation = nil
+
+                    let captured = paneIDs
+                    return .merge(
+                        .run { _ in
+                            for paneID in captured {
+                                await surfaceManager.destroySurface(paneID: paneID)
+                            }
+                        },
+                        .send(.persistState)
+                    )
+                } else {
+                    // Promote children to the top level, in order, at the
+                    // group's former position.
+                    let newEntries: [SidebarID] = childIDs
+                        .filter { state.workspaces[id: $0] != nil }
+                        .map { .workspace($0) }
+                    if let insertionIndex {
+                        state.topLevelOrder.insert(contentsOf: newEntries, at: insertionIndex)
+                    } else {
+                        state.topLevelOrder.append(contentsOf: newEntries)
+                    }
+                    state.groupDeleteConfirmation = nil
+                    return .send(.persistState)
+                }
+
+            case .moveWorkspaceToGroup(let workspaceID, let targetGroupID, let index):
+                guard state.workspaces[id: workspaceID] != nil else { return .none }
+                let currentGroupID = state.groupID(forWorkspace: workspaceID)
+                // Remove from current parent (group or top level).
+                if let currentGroupID {
+                    state.groups[id: currentGroupID]?.childOrder.removeAll { $0 == workspaceID }
+                } else {
+                    state.topLevelOrder.removeAll { $0 == .workspace(workspaceID) }
+                }
+
+                if let targetGroupID {
+                    guard state.groups[id: targetGroupID] != nil else { return .none }
+                    var order = state.groups[id: targetGroupID]?.childOrder ?? []
+                    let insertAt = index.map { max(0, min($0, order.count)) } ?? order.count
+                    order.insert(workspaceID, at: insertAt)
+                    state.groups[id: targetGroupID]?.childOrder = order
+                    // Auto-expand the destination group so the moved workspace
+                    // is visible after the move.
+                    if state.groups[id: targetGroupID]?.isCollapsed == true {
+                        state.groups[id: targetGroupID]?.isCollapsed = false
+                    }
+                } else {
+                    let entry: SidebarID = .workspace(workspaceID)
+                    let insertAt: Int = if let index {
+                        max(0, min(index, state.topLevelOrder.count))
+                    } else {
+                        state.topLevelOrder.count
+                    }
+                    state.topLevelOrder.insert(entry, at: insertAt)
+                }
+
+                return .send(.persistState)
+
+            case .beginRenameGroup(let id):
+                guard state.groups[id: id] != nil else { return .none }
+                state.renamingGroupID = id
+                return .none
+
+            case .setRenamingGroupID(let id):
+                state.renamingGroupID = id
+                return .none
+
+            case .requestGroupDelete(let id):
+                guard let group = state.groups[id: id] else { return .none }
+                let count = group.childOrder.count(where: { state.workspaces[id: $0] != nil })
+                state.groupDeleteConfirmation = GroupDeleteConfirmation(
+                    groupID: id,
+                    groupName: group.name,
+                    workspaceCount: count
+                )
+                return .none
+
+            case .cancelGroupDelete:
+                state.groupDeleteConfirmation = nil
+                return .none
+
+            case .requestBulkCreateGroup:
+                let ids = state.selectedWorkspaceIDs
+                guard !ids.isEmpty else { return .none }
+                // Preserve the order the user sees in the sidebar.
+                var ordered: [UUID] = []
+                for entry in state.topLevelOrder {
+                    switch entry {
+                    case .workspace(let id) where ids.contains(id):
+                        ordered.append(id)
+                    case .group(let gID):
+                        guard let group = state.groups[id: gID] else { continue }
+                        for childID in group.childOrder where ids.contains(childID) {
+                            ordered.append(childID)
+                        }
+                    default:
+                        break
+                    }
+                }
+                guard !ordered.isEmpty else { return .none }
+                state.groupBulkCreatePrompt = GroupBulkCreatePrompt(workspaceIDs: ordered)
+                return .none
+
+            case .cancelBulkCreateGroup:
+                state.groupBulkCreatePrompt = nil
+                return .none
+
+            case .confirmBulkCreateGroup(let name, let color):
+                let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty,
+                      let ids = state.groupBulkCreatePrompt?.workspaceIDs,
+                      !ids.isEmpty
+                else {
+                    state.groupBulkCreatePrompt = nil
+                    return .none
+                }
+                state.groupBulkCreatePrompt = nil
+                // Clear selection so the new group header becomes the visual anchor.
+                state.selectedWorkspaceIDs.removeAll()
+                state.lastSelectionAnchor = nil
+                return .send(.createGroup(
+                    name: trimmed,
+                    color: color,
+                    insertAfter: nil,
+                    initialWorkspaceIDs: ids
+                ))
+
+            case .seedTestGroup:
+                let groupID = uuid()
+                let ws1ID = uuid()
+                let ws2ID = uuid()
+                let ws1 = WorkspaceFeature.State(
+                    id: ws1ID,
+                    name: "Test Monitor 1",
+                    color: .gray
+                )
+                let ws2 = WorkspaceFeature.State(
+                    id: ws2ID,
+                    name: "Test Monitor 2",
+                    color: .gray
+                )
+                state.workspaces.append(ws1)
+                state.workspaces.append(ws2)
+                let group = WorkspaceGroup(
+                    id: groupID,
+                    name: "Test Group",
+                    color: .gray,
+                    isCollapsed: false,
+                    childOrder: [ws1ID, ws2ID]
+                )
+                state.groups.append(group)
+                state.topLevelOrder.append(.group(groupID))
+
+                let opacity = ghosttyConfig.backgroundOpacity
+                let panes: [(id: UUID, cwd: String)] = [
+                    (id: ws1.panes.first!.id, cwd: ws1.panes.first!.workingDirectory),
+                    (id: ws2.panes.first!.id, cwd: ws2.panes.first!.workingDirectory)
+                ]
+                return .merge(
+                    .run { _ in
+                        for pane in panes {
+                            await surfaceManager.createSurface(
+                                paneID: pane.id,
+                                workingDirectory: pane.cwd,
+                                backgroundOpacity: opacity
+                            )
+                        }
+                    },
+                    .send(.persistState)
+                )
+
             case .persistState:
                 let snapshot = PersistenceSnapshot(state: state)
                 return .run { _ in
                     await persistenceService.save(snapshot: snapshot)
                 }
 
-            case .stateLoaded(let workspaces, let activeID, let repoRegistry):
+            case .stateLoaded(let workspaces, let groups, let topLevelOrder, let activeID, let repoRegistry):
                 if workspaces.isEmpty {
                     // First launch — create a default workspace
                     return .send(.createWorkspace(name: "Default"))
                 }
                 state.workspaces = workspaces
+                state.groups = groups
                 state.activeWorkspaceID = activeID ?? workspaces.first?.id
                 state.repoRegistry = repoRegistry
+
+                // Use persisted topLevelOrder if present; otherwise synthesize
+                // from the flat workspaces list (legacy DBs predate groups).
+                if topLevelOrder.isEmpty {
+                    state.syncTopLevelOrderToFlatList()
+                } else {
+                    state.topLevelOrder = topLevelOrder
+                }
 
                 // Collect panes eligible for auto-resume before clearing.
                 // Any pane with a claudeSessionID is resumable — the session
@@ -1015,6 +1407,7 @@ struct AppReducer {
                             focusedPaneID: nil, createdAt: Date(), lastAccessedAt: Date()
                         )
                         state.workspaces.append(newWS)
+                        state.topLevelOrder.append(.workspace(newID))
                         targetWSID = newID
                     }
 

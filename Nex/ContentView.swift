@@ -119,6 +119,10 @@ struct ContentView: View {
                     WorkspaceInspectorView(store: store)
                 }
             }
+            .environment(
+                \.sidebarTextEditingActive,
+                store.renamingGroupID != nil || store.renamingWorkspaceID != nil
+            )
             .overlay {
                 if store.isCommandPaletteVisible {
                     Color.black.opacity(0.001)

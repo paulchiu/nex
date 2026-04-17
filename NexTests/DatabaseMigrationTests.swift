@@ -138,6 +138,49 @@ struct DatabaseMigrationTests {
         #expect(assocCount == 0)
     }
 
+    @Test func v9CreatesWorkspaceGroupTable() throws {
+        let db = try DatabaseService(inMemory: true)
+
+        try db.writer.read { db in
+            let columns = try db.columns(in: "workspace_group")
+            let names = Set(columns.map(\.name))
+            #expect(names.contains("id"))
+            #expect(names.contains("name"))
+            #expect(names.contains("color"))
+            #expect(names.contains("isCollapsed"))
+            #expect(names.contains("childOrderJSON"))
+            #expect(names.contains("createdAt"))
+            #expect(names.contains("sortOrder"))
+        }
+    }
+
+    @Test func workspaceGroupRecordInsertAndFetch() throws {
+        let db = try DatabaseService(inMemory: true)
+
+        try db.writer.write { db in
+            let record = WorkspaceGroupRecord(
+                id: "grp-1",
+                name: "Monitors",
+                color: "gray",
+                isCollapsed: true,
+                childOrderJSON: "[\"abc\"]",
+                createdAt: 1000,
+                sortOrder: 0
+            )
+            try record.insert(db)
+        }
+
+        let fetched = try db.writer.read { db in
+            try WorkspaceGroupRecord.fetchOne(db)
+        }
+
+        #expect(fetched?.id == "grp-1")
+        #expect(fetched?.name == "Monitors")
+        #expect(fetched?.color == "gray")
+        #expect(fetched?.isCollapsed == true)
+        #expect(fetched?.childOrderJSON == "[\"abc\"]")
+    }
+
     @Test func cascadeDeleteRepoRemovesAssociations() throws {
         let db = try DatabaseService(inMemory: true)
 

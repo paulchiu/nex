@@ -25,7 +25,8 @@ actor PersistenceService {
                 wsRecords: snapshot.wsRecords,
                 pnRecords: snapshot.pnRecords,
                 arRecords: snapshot.arRecords,
-                stateRecord: snapshot.stateRecord
+                groupRecords: snapshot.groupRecords,
+                stateRecords: snapshot.stateRecords
             )
         }
     }
@@ -35,7 +36,8 @@ actor PersistenceService {
         wsRecords: [WorkspaceRecord],
         pnRecords: [PaneRecord],
         arRecords: [RepoAssociationRecord],
-        stateRecord: AppStateRecord
+        groupRecords: [WorkspaceGroupRecord],
+        stateRecords: [AppStateRecord]
     ) async {
         do {
             try await db.writer.write { db in
@@ -43,6 +45,7 @@ actor PersistenceService {
                 try PaneRecord.deleteAll(db)
                 try WorkspaceRecord.deleteAll(db)
                 try RepoRecord.deleteAll(db)
+                try WorkspaceGroupRecord.deleteAll(db)
 
                 for record in repoRecords {
                     try record.insert(db)
@@ -56,7 +59,12 @@ actor PersistenceService {
                 for record in arRecords {
                     try record.insert(db)
                 }
-                try stateRecord.save(db)
+                for record in groupRecords {
+                    try record.insert(db)
+                }
+                for record in stateRecords {
+                    try record.save(db)
+                }
             }
         } catch {
             print("PersistenceService: write failed — \(error)")
@@ -67,6 +75,8 @@ actor PersistenceService {
 
     struct LoadResult: @unchecked Sendable {
         var workspaces: IdentifiedArrayOf<WorkspaceFeature.State>
+        var groups: IdentifiedArrayOf<WorkspaceGroup>
+        var topLevelOrder: [SidebarID]
         var activeWorkspaceID: UUID?
         var repoRegistry: IdentifiedArrayOf<Repo>
     }
@@ -178,15 +188,55 @@ actor PersistenceService {
                     .value
                 let activeID = activeIDStr.flatMap(UUID.init)
 
+                // Load workspace groups
+                let groupRecords = try WorkspaceGroupRecord
+                    .order(Column("sortOrder"))
+                    .fetchAll(db)
+                var groups = IdentifiedArrayOf<WorkspaceGroup>()
+                for gr in groupRecords {
+                    guard let groupID = UUID(uuidString: gr.id) else { continue }
+                    let childOrder: [UUID] = (gr.childOrderJSON.data(using: .utf8))
+                        .flatMap { try? JSONDecoder().decode([UUID].self, from: $0) }
+                        ?? []
+                    let color = gr.color.flatMap { WorkspaceColor(rawValue: $0) }
+                    let group = WorkspaceGroup(
+                        id: groupID,
+                        name: gr.name,
+                        color: color,
+                        isCollapsed: gr.isCollapsed,
+                        childOrder: childOrder,
+                        createdAt: Date(timeIntervalSince1970: gr.createdAt)
+                    )
+                    groups.append(group)
+                }
+
+                // Load topLevelOrder; empty array signals legacy DB (caller backfills)
+                let topLevelOrderJSON = try AppStateRecord
+                    .filter(Column("key") == "topLevelOrder")
+                    .fetchOne(db)?
+                    .value
+                let topLevelOrder: [SidebarID] = topLevelOrderJSON
+                    .flatMap { $0.data(using: .utf8) }
+                    .flatMap { try? JSONDecoder().decode([SidebarID].self, from: $0) }
+                    ?? []
+
                 return LoadResult(
                     workspaces: workspaces,
+                    groups: groups,
+                    topLevelOrder: topLevelOrder,
                     activeWorkspaceID: activeID,
                     repoRegistry: repoRegistry
                 )
             }
         } catch {
             print("PersistenceService: load failed — \(error)")
-            return LoadResult(workspaces: [], activeWorkspaceID: nil, repoRegistry: [])
+            return LoadResult(
+                workspaces: [],
+                groups: [],
+                topLevelOrder: [],
+                activeWorkspaceID: nil,
+                repoRegistry: []
+            )
         }
     }
 }
@@ -200,7 +250,8 @@ struct PersistenceSnapshot {
     let wsRecords: [WorkspaceRecord]
     let pnRecords: [PaneRecord]
     let arRecords: [RepoAssociationRecord]
-    let stateRecord: AppStateRecord
+    let groupRecords: [WorkspaceGroupRecord]
+    let stateRecords: [AppStateRecord]
 
     init(state: AppReducer.State) {
         repoRecords = state.repoRegistry.map { repo in
@@ -262,10 +313,32 @@ struct PersistenceSnapshot {
             }
         }
 
-        stateRecord = AppStateRecord(
-            key: "activeWorkspaceID",
-            value: state.activeWorkspaceID?.uuidString
-        )
+        groupRecords = state.groups.enumerated().map { index, group in
+            let childData = (try? JSONEncoder().encode(group.childOrder)) ?? Data()
+            let childJSON = String(data: childData, encoding: .utf8) ?? "[]"
+            return WorkspaceGroupRecord(
+                id: group.id.uuidString,
+                name: group.name,
+                color: group.color?.rawValue,
+                isCollapsed: group.isCollapsed,
+                childOrderJSON: childJSON,
+                createdAt: group.createdAt.timeIntervalSince1970,
+                sortOrder: index
+            )
+        }
+
+        let topLevelData = (try? JSONEncoder().encode(state.topLevelOrder)) ?? Data()
+        let topLevelJSON = String(data: topLevelData, encoding: .utf8) ?? "[]"
+        stateRecords = [
+            AppStateRecord(
+                key: "activeWorkspaceID",
+                value: state.activeWorkspaceID?.uuidString
+            ),
+            AppStateRecord(
+                key: "topLevelOrder",
+                value: topLevelJSON
+            )
+        ]
     }
 }
 

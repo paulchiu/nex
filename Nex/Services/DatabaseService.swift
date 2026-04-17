@@ -142,6 +142,18 @@ final class DatabaseService: Sendable {
             }
         }
 
+        migrator.registerMigration("v9_workspace_groups") { db in
+            try db.create(table: "workspace_group") { t in
+                t.primaryKey("id", .text)
+                t.column("name", .text).notNull()
+                t.column("color", .text)
+                t.column("isCollapsed", .boolean).notNull().defaults(to: false)
+                t.column("childOrderJSON", .text).notNull().defaults(to: "[]")
+                t.column("createdAt", .double).notNull()
+                t.column("sortOrder", .integer).notNull().defaults(to: 0)
+            }
+        }
+
         try migrator.migrate(writer)
     }
 }
@@ -205,4 +217,16 @@ struct RepoAssociationRecord: Codable, FetchableRecord, PersistableRecord {
     var worktreePath: String
     var branchName: String?
     var isAutoDetected: Bool
+}
+
+struct WorkspaceGroupRecord: Codable, FetchableRecord, PersistableRecord {
+    static let databaseTableName = "workspace_group"
+
+    var id: String
+    var name: String
+    var color: String?
+    var isCollapsed: Bool
+    var childOrderJSON: String
+    var createdAt: Double
+    var sortOrder: Int
 }
