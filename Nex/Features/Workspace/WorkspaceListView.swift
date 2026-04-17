@@ -33,7 +33,7 @@ struct WorkspaceListView: View {
                             .contextMenu {
                                 Button("New Group") {
                                     let placeholder = defaultGroupName(existing: store.groups)
-                                    store.send(.createGroup(name: placeholder))
+                                    store.send(.createGroup(name: placeholder, autoRename: true))
                                 }
                             }
                     }
@@ -307,7 +307,8 @@ struct WorkspaceListView: View {
                     name: placeholder,
                     color: nil,
                     insertAfter: nil,
-                    initialWorkspaceIDs: [workspaceID]
+                    initialWorkspaceIDs: [workspaceID],
+                    autoRename: true
                 ))
             }
         }

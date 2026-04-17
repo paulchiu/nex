@@ -16,7 +16,7 @@ struct NexCommands: Commands {
                 // Immediate creation with a placeholder name; the user
                 // drops straight into inline rename.
                 let placeholder = defaultGroupName(existing: store.groups)
-                store.send(.createGroup(name: placeholder))
+                store.send(.createGroup(name: placeholder, autoRename: true))
             }
 
             menuButton("Preview Markdown...", action: .openFile) {

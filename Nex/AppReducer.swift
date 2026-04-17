@@ -192,7 +192,7 @@ struct AppReducer {
 
         // Workspace groups
         case toggleGroupCollapse(UUID)
-        case createGroup(name: String, color: WorkspaceColor? = nil, insertAfter: SidebarID? = nil, initialWorkspaceIDs: [UUID] = [])
+        case createGroup(name: String, color: WorkspaceColor? = nil, insertAfter: SidebarID? = nil, initialWorkspaceIDs: [UUID] = [], autoRename: Bool = false)
         case renameGroup(id: UUID, name: String)
         case setGroupColor(id: UUID, color: WorkspaceColor?)
         case deleteGroup(id: UUID, cascade: Bool)
@@ -613,7 +613,7 @@ struct AppReducer {
                 state.groups[id: groupID]?.isCollapsed.toggle()
                 return .send(.persistState)
 
-            case .createGroup(let name, let color, let insertAfter, let initialWorkspaceIDs):
+            case .createGroup(let name, let color, let insertAfter, let initialWorkspaceIDs, let autoRename):
                 let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return .none }
 
@@ -657,6 +657,11 @@ struct AppReducer {
 
                 // Reset any dangling prompt state that triggered this.
                 state.groupBulkCreatePrompt = nil
+                // Drop the user straight into inline rename so they can
+                // replace the placeholder name without another click.
+                if autoRename {
+                    state.renamingGroupID = newGroup.id
+                }
                 return .send(.persistState)
 
             case .renameGroup(let id, let name):
@@ -730,6 +735,13 @@ struct AppReducer {
 
             case .moveWorkspaceToGroup(let workspaceID, let targetGroupID, let index):
                 guard state.workspaces[id: workspaceID] != nil else { return .none }
+                // Validate destination BEFORE detaching so a stale caller
+                // referencing a deleted group can't leave the workspace
+                // orphaned (removed from its source but never reattached).
+                if let targetGroupID, state.groups[id: targetGroupID] == nil {
+                    return .none
+                }
+
                 let currentGroupID = state.groupID(forWorkspace: workspaceID)
                 // Remove from current parent (group or top level).
                 if let currentGroupID {
@@ -739,7 +751,6 @@ struct AppReducer {
                 }
 
                 if let targetGroupID {
-                    guard state.groups[id: targetGroupID] != nil else { return .none }
                     var order = state.groups[id: targetGroupID]?.childOrder ?? []
                     let insertAt = index.map { max(0, min($0, order.count)) } ?? order.count
                     order.insert(workspaceID, at: insertAt)

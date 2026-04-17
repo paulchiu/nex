@@ -478,4 +478,52 @@ struct WorkspaceGroupCRUDTests {
             #expect(state.renamingGroupID == nil)
         }
     }
+
+    // MARK: - Regression guards
+
+    /// If a stale caller sends `moveWorkspaceToGroup` with a deleted group id,
+    /// the reducer must not detach the workspace from its current parent.
+    @Test func moveWorkspaceToUnknownGroupIsNoOp() async {
+        let ws = Self.makeWorkspace(id: Self.wsID1, name: "A")
+        let groupA = WorkspaceGroup(id: Self.groupA, name: "G", childOrder: [Self.wsID1])
+        let store = makeStore(
+            workspaces: [ws],
+            groups: [groupA],
+            topLevelOrder: [.group(Self.groupA)]
+        )
+
+        // groupB does not exist — must not orphan wsID1.
+        await store.send(.moveWorkspaceToGroup(
+            workspaceID: Self.wsID1,
+            groupID: Self.groupB,
+            index: nil
+        )) { state in
+            #expect(state.groups[id: Self.groupA]?.childOrder == [Self.wsID1])
+            #expect(state.topLevelOrder == [.group(Self.groupA)])
+        }
+    }
+
+    /// `createGroup(autoRename: true)` drops the user straight into inline
+    /// rename so the placeholder name can be replaced without another click.
+    @Test func createGroupAutoRenameSetsRenamingGroupID() async {
+        let store = makeStore()
+
+        await store.send(.createGroup(name: "New Group", autoRename: true)) { state in
+            #expect(state.groups.count == 1)
+            let newID = state.groups.first!.id
+            #expect(state.renamingGroupID == newID)
+        }
+    }
+
+    /// The bulk-create path passes `autoRename: false` (the default) because
+    /// the user already typed a name into the NewGroupSheet — don't re-open
+    /// the inline rename.
+    @Test func createGroupWithoutAutoRenameLeavesRenamingGroupIDNil() async {
+        let store = makeStore()
+
+        await store.send(.createGroup(name: "Monitors")) { state in
+            #expect(state.groups.count == 1)
+            #expect(state.renamingGroupID == nil)
+        }
+    }
 }
