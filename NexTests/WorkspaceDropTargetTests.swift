@@ -283,4 +283,95 @@ struct WorkspaceDropTargetTests {
         #expect(resolveDropTarget(zones: zones, cursorY: 0) == nil)
         #expect(resolveDropTarget(zones: zones, cursorY: 500) == nil)
     }
+
+    // MARK: - Spring-load
+
+    /// Without spring-load, a collapsed group emits only its header zone —
+    /// its children (if any) are not hit-testable.
+    @Test func collapsedGroupEmitsOnlyHeaderZone() {
+        let a = Self.makeWorkspace(id: Self.wsA)
+        let b = Self.makeWorkspace(id: Self.wsB)
+        let c = Self.makeWorkspace(id: Self.wsC)
+        let d = Self.makeWorkspace(id: Self.wsD)
+        let group = WorkspaceGroup(
+            id: Self.groupG,
+            name: "G",
+            isCollapsed: true,
+            childOrder: [Self.wsC, Self.wsD]
+        )
+        let topLevelOrder: [SidebarID] = [
+            .workspace(Self.wsA),
+            .group(Self.groupG),
+            .workspace(Self.wsB)
+        ]
+        let rowHeights = heights(for: [
+            .workspace(Self.wsA),
+            .group(Self.groupG),
+            .workspace(Self.wsC),
+            .workspace(Self.wsD),
+            .workspace(Self.wsB)
+        ])
+
+        let zones = dropZones(
+            topLevelOrder: topLevelOrder,
+            groups: [group],
+            workspaces: [a, b, c, d],
+            rowHeights: rowHeights,
+            draggedID: Self.wsA,
+            startY: Self.startY
+        )
+        // No groupChild zones because the group is collapsed.
+        let hasChildZones = zones.contains { if case .groupChild = $0.kind { true } else { false } }
+        #expect(hasChildZones == false)
+    }
+
+    /// When `springLoadedGroupID` matches a collapsed group, the walker
+    /// must treat it as expanded and emit child zones so the drag can
+    /// target precise positions inside it.
+    @Test func springLoadedCollapsedGroupExposesChildZones() {
+        let a = Self.makeWorkspace(id: Self.wsA)
+        let b = Self.makeWorkspace(id: Self.wsB)
+        let c = Self.makeWorkspace(id: Self.wsC)
+        let d = Self.makeWorkspace(id: Self.wsD)
+        let group = WorkspaceGroup(
+            id: Self.groupG,
+            name: "G",
+            isCollapsed: true,
+            childOrder: [Self.wsC, Self.wsD]
+        )
+        let topLevelOrder: [SidebarID] = [
+            .workspace(Self.wsA),
+            .group(Self.groupG),
+            .workspace(Self.wsB)
+        ]
+        let rowHeights = heights(for: [
+            .workspace(Self.wsA),
+            .group(Self.groupG),
+            .workspace(Self.wsC),
+            .workspace(Self.wsD),
+            .workspace(Self.wsB)
+        ])
+
+        let zones = dropZones(
+            topLevelOrder: topLevelOrder,
+            groups: [group],
+            workspaces: [a, b, c, d],
+            rowHeights: rowHeights,
+            draggedID: Self.wsA,
+            springLoadedGroupID: Self.groupG,
+            startY: Self.startY
+        )
+        // Expect child zones for C (childIdx 0) and D (childIdx 1).
+        let childIDs = zones.compactMap { zone -> UUID? in
+            if case .groupChild(_, let childID, _) = zone.kind { return childID }
+            return nil
+        }
+        #expect(childIDs == [Self.wsC, Self.wsD])
+
+        // Layout: A 4..24 (top-idx 0), header 24..44 (top-idx 1),
+        // C 44..64 (childIdx 0), D 64..84 (childIdx 1), B 84..104 (top-idx 2).
+        // Cursor at 50 (top half of C) → intoGroup(G, 0).
+        let dropInsideGroup = resolveDropTarget(zones: zones, cursorY: 50)
+        #expect(dropInsideGroup == .intoGroup(groupID: Self.groupG, index: 0))
+    }
 }

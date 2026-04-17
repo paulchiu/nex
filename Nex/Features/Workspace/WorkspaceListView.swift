@@ -14,6 +14,17 @@ struct WorkspaceListView: View {
     @State private var currentDropTarget: DropTarget?
     @State private var rowHeights: [SidebarID: CGFloat] = [:]
 
+    /// The collapsed group the spring-load timer is currently scheduled
+    /// for (or has fired for). Reset when the cursor leaves the group
+    /// or the drag ends — the persisted `isCollapsed` state never
+    /// changes, so collapsing back is automatic.
+    @State private var springLoadTargetID: UUID?
+    @State private var springLoadTask: Task<Void, Never>?
+    /// Group to render as if expanded during the drag, even though its
+    /// persistent `isCollapsed` is still true. Set by the spring-load
+    /// timer once the cursor has hovered long enough.
+    @State private var springLoadedGroupID: UUID?
+
     /// Vertical padding inside the ScrollView's VStack. Drop zones are
     /// computed in the same coordinate space, so they shift by this
     /// amount from the VStack's (0,0) origin.
@@ -21,13 +32,18 @@ struct WorkspaceListView: View {
     /// Approximate laid-out height of `GroupEmptyRow`; must match
     /// `topLevelItemHeight` and the empty-row layout.
     private static let groupEmptyRowHeight: CGFloat = 28
+    /// How long the cursor must hover over a collapsed group header
+    /// before the group auto-expands for the remainder of the drag.
+    /// Matches the default `group-spring-delay` in the Phase 4 plan.
+    private static let springLoadDelayMillis: Int = 650
 
     var body: some View {
         WithPerceptionTracking {
             GeometryReader { outer in
                 ScrollView {
+                    let entries = currentRenderedEntries
                     VStack(spacing: 0) {
-                        ForEach(store.state.renderedEntries) { entry in
+                        ForEach(entries) { entry in
                             entryView(for: entry)
                         }
                         // Trailing flexible spacer that fills remaining
@@ -53,7 +69,7 @@ struct WorkspaceListView: View {
                     .coordinateSpace(name: "workspaceList")
                     .padding(.vertical, 4)
                     .frame(minHeight: outer.size.height, alignment: .top)
-                    .animation(.easeInOut(duration: 0.1), value: store.state.renderedEntries)
+                    .animation(.easeInOut(duration: 0.1), value: entries)
                     .overlay(alignment: .topLeading) {
                         dropIndicatorOverlay
                     }
@@ -411,14 +427,23 @@ struct WorkspaceListView: View {
                             draggedID: workspaceID
                         )
                         currentDropTarget = target
+
+                        // Spring-load: schedule (or cancel) the auto-expand
+                        // timer based on whether the cursor is hovering a
+                        // collapsed group.
+                        if let target, let gid = collapsedGroupUnderCursor(target) {
+                            scheduleSpringLoad(for: gid)
+                        } else if springLoadTask != nil || springLoadedGroupID != nil {
+                            cancelSpringLoad()
+                        }
+
                         // Live-apply only same-container moves (top-level
                         // reorder or within-same-group reorder). Cross-
                         // container moves wait for release so the dragged
                         // row doesn't teleport into a group mid-drag —
                         // the indicator line/tint shows intent instead.
                         if let target,
-                           isSameContainerMove(target: target, sourceID: workspaceID)
-                        {
+                           isSameContainerMove(target: target, sourceID: workspaceID) {
                             applyDropTarget(target, workspaceID: workspaceID)
                         }
                     }
@@ -428,6 +453,7 @@ struct WorkspaceListView: View {
                         let isCrossContainer = target.map {
                             !isSameContainerMove(target: $0, sourceID: sourceID)
                         } ?? false
+                        cancelSpringLoad()
                         withAnimation(.easeInOut(duration: 0.15)) {
                             draggedWorkspaceID = nil
                             dragCurrentY = 0
@@ -461,6 +487,41 @@ struct WorkspaceListView: View {
         }
     }
 
+    /// Treats a group as expanded if its persistent state says so OR
+    /// the drag has spring-loaded it.
+    private func isEffectivelyExpanded(_ group: WorkspaceGroup) -> Bool {
+        !group.isCollapsed || springLoadedGroupID == group.id
+    }
+
+    /// Rendered sidebar entries as the view should draw them right now.
+    /// Mirrors `AppReducer.State.renderedEntries` but respects the
+    /// transient spring-load expansion so children appear under a
+    /// hover-expanded collapsed group without persisting the change.
+    private var currentRenderedEntries: [RenderedEntry] {
+        var entries: [RenderedEntry] = []
+        for item in store.topLevelOrder {
+            switch item {
+            case .workspace(let wsID):
+                guard store.workspaces[id: wsID] != nil else { continue }
+                entries.append(.workspaceRow(workspaceID: wsID, depth: 0))
+            case .group(let gID):
+                guard let group = store.groups[id: gID] else { continue }
+                entries.append(.groupHeader(groupID: gID))
+                if isEffectivelyExpanded(group) {
+                    let children = group.childOrder.filter { store.workspaces[id: $0] != nil }
+                    if children.isEmpty {
+                        entries.append(.groupEmpty(groupID: gID))
+                    } else {
+                        for childID in children {
+                            entries.append(.workspaceRow(workspaceID: childID, depth: 1))
+                        }
+                    }
+                }
+            }
+        }
+        return entries
+    }
+
     private var allHeightsMeasured: Bool {
         // Every top-level workspace must be measured, plus every group header.
         // Child workspaces inside expanded groups also need measurement so
@@ -471,7 +532,7 @@ struct WorkspaceListView: View {
                 if rowHeights[.workspace(id)] == nil { return false }
             case .group(let gid):
                 if rowHeights[.group(gid)] == nil { return false }
-                if let group = store.groups[id: gid], !group.isCollapsed {
+                if let group = store.groups[id: gid], isEffectivelyExpanded(group) {
                     for childID in group.childOrder where store.workspaces[id: childID] != nil {
                         if rowHeights[.workspace(childID)] == nil { return false }
                     }
@@ -489,7 +550,7 @@ struct WorkspaceListView: View {
             return rowHeights[.workspace(id)] ?? 0
         case .group(let gid):
             var h = rowHeights[.group(gid)] ?? 0
-            guard let group = store.groups[id: gid], !group.isCollapsed else { return h }
+            guard let group = store.groups[id: gid], isEffectivelyExpanded(group) else { return h }
             let children = group.childOrder.filter { store.workspaces[id: $0] != nil }
             if children.isEmpty {
                 // GroupEmptyRow is not measured; its approximate laid-out height.
@@ -516,7 +577,7 @@ struct WorkspaceListView: View {
                 y += rowHeights[.workspace(wid)] ?? 0
             case .group(let gid):
                 y += rowHeights[.group(gid)] ?? 0
-                guard let group = store.groups[id: gid], !group.isCollapsed else { continue }
+                guard let group = store.groups[id: gid], isEffectivelyExpanded(group) else { continue }
                 let children = group.childOrder.filter { store.workspaces[id: $0] != nil }
                 if children.isEmpty {
                     y += Self.groupEmptyRowHeight
@@ -539,6 +600,7 @@ struct WorkspaceListView: View {
             workspaces: store.workspaces,
             rowHeights: rowHeights,
             draggedID: draggedID,
+            springLoadedGroupID: springLoadedGroupID,
             startY: Self.contentVerticalPadding,
             emptyPlaceholderHeight: Self.groupEmptyRowHeight
         )
@@ -558,14 +620,14 @@ struct WorkspaceListView: View {
     private var dropIndicatorOverlay: some View {
         if let draggedID = draggedWorkspaceID,
            let target = currentDropTarget,
-           !isSameContainerMove(target: target, sourceID: draggedID)
-        {
+           !isSameContainerMove(target: target, sourceID: draggedID) {
             let zones = dropZones(
                 topLevelOrder: store.topLevelOrder,
                 groups: store.groups,
                 workspaces: store.workspaces,
                 rowHeights: rowHeights,
                 draggedID: draggedID,
+                springLoadedGroupID: springLoadedGroupID,
                 startY: Self.contentVerticalPadding,
                 emptyPlaceholderHeight: Self.groupEmptyRowHeight
             )
@@ -650,6 +712,48 @@ struct WorkspaceListView: View {
             }
         }
         return nil
+    }
+
+    /// Group id the cursor is currently over, if that group is persisted
+    /// as collapsed — the candidate for spring-load. Returns nil when
+    /// the cursor isn't on a collapsed group or its (spring-loaded) children.
+    private func collapsedGroupUnderCursor(_ target: DropTarget) -> UUID? {
+        let gid: UUID? = switch target {
+        case .ontoGroupHeader(let id): id
+        case .intoGroup(let id, _): id
+        case .topLevel: nil
+        }
+        guard let gid, store.groups[id: gid]?.isCollapsed == true else { return nil }
+        return gid
+    }
+
+    /// Starts the 650ms timer to expand `groupID`. Safe to call repeatedly
+    /// while hovering the same group — reschedules only when the target
+    /// actually changes.
+    private func scheduleSpringLoad(for groupID: UUID) {
+        guard springLoadTargetID != groupID else { return }
+        cancelSpringLoad()
+        springLoadTargetID = groupID
+        let target = groupID
+        springLoadTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(Self.springLoadDelayMillis))
+            guard !Task.isCancelled else { return }
+            // Only fire if the user is still targeting this group.
+            guard springLoadTargetID == target else { return }
+            withAnimation(.easeInOut(duration: 0.1)) {
+                springLoadedGroupID = target
+            }
+        }
+    }
+
+    /// Cancels any pending timer and collapses back any transiently
+    /// expanded group. Called when the cursor leaves the candidate
+    /// group and when the drag ends.
+    private func cancelSpringLoad() {
+        springLoadTask?.cancel()
+        springLoadTask = nil
+        springLoadTargetID = nil
+        springLoadedGroupID = nil
     }
 
     /// True when applying `target` keeps the workspace in its current

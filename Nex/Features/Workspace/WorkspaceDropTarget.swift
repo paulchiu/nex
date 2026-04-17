@@ -56,6 +56,7 @@ func dropZones(
     workspaces: IdentifiedArrayOf<WorkspaceFeature.State>,
     rowHeights: [SidebarID: CGFloat],
     draggedID: UUID,
+    springLoadedGroupID: UUID? = nil,
     startY: CGFloat = 0,
     emptyPlaceholderHeight: CGFloat = 28
 ) -> [DropZone] {
@@ -91,7 +92,10 @@ func dropZones(
             yTop += headerH
             topIdx += 1
 
-            if !group.isCollapsed {
+            // Treat the group as expanded if its persistent state says so
+            // OR if it is currently spring-loaded by the drag.
+            let effectivelyExpanded = !group.isCollapsed || springLoadedGroupID == gid
+            if effectivelyExpanded {
                 let children = group.childOrder.filter { workspaces[id: $0] != nil }
                 if children.isEmpty {
                     zones.append(DropZone(
