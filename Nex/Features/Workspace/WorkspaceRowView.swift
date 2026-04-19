@@ -21,8 +21,13 @@ struct WorkspaceRowView: View {
                 .frame(width: 4, height: 24)
 
             VStack(alignment: .leading, spacing: 1) {
+                // Always semibold so a long name doesn't re-wrap when
+                // `isActive` toggles (regular and semibold measure
+                // differently per character). Active/inactive is still
+                // distinguished by colour plus the row's background
+                // highlight.
                 Text(name)
-                    .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(isActive ? .primary : .secondary)
 
                 HStack(spacing: 6) {
