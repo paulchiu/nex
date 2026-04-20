@@ -15,8 +15,8 @@ Nex gives you named, persistent terminal workspaces with free-form split layouts
 
 ### From a release
 
-1. Download `Nex.zip` from the latest release
-2. Unzip and move `Nex.app` to `/Applications`
+1. Download the latest `Nex-X.Y.Z.dmg` from the [releases page](https://github.com/benfriebe/nex/releases/latest)
+2. Open the DMG and drag `Nex.app` into `/Applications`
 3. Run the hook installer to enable Claude Code integration:
 
 ```bash
