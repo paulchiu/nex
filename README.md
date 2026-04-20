@@ -137,7 +137,7 @@ Available actions: `new_workspace`, `open_file`, `switch_to_workspace_1`–`9`, 
 A single system-wide hotkey can bring Nex forward from any app. Set it in **Settings > Keybindings > Global**, or via the config file:
 
 ```
-global-hotkey = super+shift+t
+global-hotkey = opt+shift+x
 global-hotkey-hide-on-repress = true
 ```
 
