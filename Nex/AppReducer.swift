@@ -227,7 +227,7 @@ struct AppReducer {
 
     enum Action: Equatable {
         case appLaunched
-        case createWorkspace(name: String, color: WorkspaceColor? = nil, repos: [Repo] = [], workingDirectory: String? = nil)
+        case createWorkspace(name: String, color: WorkspaceColor? = nil, repos: [Repo] = [], workingDirectory: String? = nil, groupID: UUID? = nil)
         case deleteWorkspace(UUID)
         case moveWorkspace(id: UUID, toIndex: Int)
         case moveGroup(id: UUID, toIndex: Int)
@@ -687,7 +687,8 @@ struct AppReducer {
                     }
                 )
 
-            case .createWorkspace(let name, let color, let repos, let workingDirectory):
+            case .createWorkspace(let name, let color, let repos, let workingDirectory, let groupID):
+                let previousActiveID = state.activeWorkspaceID
                 let resolvedColor = color ?? state.workspaces.nextRandomColor()
                 var workspace = WorkspaceFeature.State(
                     id: uuid(),
@@ -716,7 +717,28 @@ struct AppReducer {
                 }
 
                 state.workspaces.append(workspace)
-                state.topLevelOrder.append(.workspace(workspace.id))
+                // Place into the target group if one was supplied and exists, adjacent to the
+                // previously-active workspace when that workspace is part of the same group.
+                // Fall back to top-level append when the group is missing (defensive).
+                if let groupID, state.groups[id: groupID] != nil {
+                    let insertIndex: Int = {
+                        guard let previousActiveID,
+                              let idx = state.groups[id: groupID]?.childOrder.firstIndex(of: previousActiveID)
+                        else {
+                            return state.groups[id: groupID]?.childOrder.count ?? 0
+                        }
+                        return idx + 1
+                    }()
+                    state.groups[id: groupID]?.childOrder.insert(workspace.id, at: insertIndex)
+                    // Match the .setActiveWorkspace behavior: expand the parent
+                    // group so the just-created (and now active) workspace is
+                    // visible rather than tucked inside a collapsed group.
+                    if state.groups[id: groupID]?.isCollapsed == true {
+                        state.groups[id: groupID]?.isCollapsed = false
+                    }
+                } else {
+                    state.topLevelOrder.append(.workspace(workspace.id))
+                }
                 state.activeWorkspaceID = workspace.id
                 state.isNewWorkspaceSheetPresented = false
 

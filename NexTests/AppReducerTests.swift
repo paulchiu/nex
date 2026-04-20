@@ -106,6 +106,87 @@ struct AppReducerTests {
         }
     }
 
+    @Test func createWorkspaceWithGroupIDInsertsAdjacentToActive() async {
+        // Seed a group containing wsID1 (active). Creating a new workspace with
+        // that group's ID should place the new workspace right after wsID1 in
+        // the group's childOrder, NOT in topLevelOrder.
+        let existing = Self.makeWorkspace(id: Self.wsID1, name: "Existing", paneID: Self.paneID1)
+        let groupID = UUID(uuidString: "BBBBBBBB-0000-0000-0000-000000000001")!
+        let group = WorkspaceGroup(id: groupID, name: "Work", childOrder: [Self.wsID1])
+
+        var appState = AppReducer.State()
+        appState.workspaces = [existing]
+        appState.groups = [group]
+        appState.topLevelOrder = [.group(groupID)]
+        appState.activeWorkspaceID = Self.wsID1
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.createWorkspace(name: "New", groupID: groupID))
+
+        let newID = store.state.workspaces.last!.id
+        #expect(store.state.workspaces.count == 2)
+        #expect(store.state.groups[id: groupID]?.childOrder == [Self.wsID1, newID])
+        #expect(store.state.topLevelOrder == [.group(groupID)])
+        #expect(store.state.activeWorkspaceID == newID)
+    }
+
+    @Test func createWorkspaceWithGroupIDExpandsCollapsedGroup() async {
+        // When inheriting into a collapsed group, the group must auto-expand so
+        // the newly-active workspace isn't hidden in the sidebar. Mirrors the
+        // auto-expand behavior on .setActiveWorkspace.
+        let existing = Self.makeWorkspace(id: Self.wsID1, name: "Existing", paneID: Self.paneID1)
+        let groupID = UUID(uuidString: "BBBBBBBB-0000-0000-0000-000000000002")!
+        let group = WorkspaceGroup(id: groupID, name: "Work", isCollapsed: true, childOrder: [Self.wsID1])
+
+        var appState = AppReducer.State()
+        appState.workspaces = [existing]
+        appState.groups = [group]
+        appState.topLevelOrder = [.group(groupID)]
+        appState.activeWorkspaceID = Self.wsID1
+
+        let store = TestStore(initialState: appState) {
+            AppReducer()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+            $0.uuid = .incrementing
+            $0.date = .constant(Date(timeIntervalSince1970: 1000))
+            $0.gitService.getCurrentBranch = { _ in nil }
+            $0.gitService.getStatus = { _ in .clean }
+            $0.continuousClock = ImmediateClock()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.createWorkspace(name: "New", groupID: groupID))
+
+        #expect(store.state.groups[id: groupID]?.isCollapsed == false)
+    }
+
+    @Test func createWorkspaceWithUnknownGroupIDFallsBackToTopLevel() async {
+        // Defensive path: if the supplied groupID doesn't exist (e.g. the group
+        // was deleted between sheet presentation and create), fall back to
+        // top-level append instead of silently dropping the workspace.
+        let store = makeStore()
+        let missingGroupID = UUID(uuidString: "CCCCCCCC-0000-0000-0000-000000000001")!
+
+        await store.send(.createWorkspace(name: "Orphan", groupID: missingGroupID))
+
+        let newID = store.state.workspaces.first!.id
+        #expect(store.state.workspaces.count == 1)
+        #expect(store.state.topLevelOrder == [.workspace(newID)])
+        #expect(store.state.groups.isEmpty)
+    }
+
     // MARK: - deleteWorkspace
 
     @Test func deleteActiveWorkspaceFocusesMostRecentlyUsed() async {

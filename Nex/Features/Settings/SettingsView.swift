@@ -86,6 +86,16 @@ private struct GeneralSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Workspaces") {
+                    Toggle("Inherit group when creating a new workspace", isOn: Binding(
+                        get: { settingsStore.inheritGroupOnNewWorkspace },
+                        set: { settingsStore.send(.setInheritGroupOnNewWorkspace($0)) }
+                    ))
+                    Text("When the active workspace belongs to a group, new workspaces are created inside that same group. Disable to always create at the top level.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("Panes") {
                     Toggle("Focus follows mouse", isOn: Binding(
                         get: { appStore.focusFollowsMouse },

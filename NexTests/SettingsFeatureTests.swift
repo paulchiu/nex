@@ -43,6 +43,22 @@ struct SettingsFeatureTests {
         }
     }
 
+    @Test func setInheritGroupOnNewWorkspaceUpdatesState() async {
+        let store = makeStore()
+
+        await store.send(.setInheritGroupOnNewWorkspace(false)) { state in
+            #expect(state.inheritGroupOnNewWorkspace == false)
+        }
+        await store.send(.setInheritGroupOnNewWorkspace(true)) { state in
+            #expect(state.inheritGroupOnNewWorkspace == true)
+        }
+    }
+
+    @Test func inheritGroupOnNewWorkspaceDefaultsToTrue() {
+        let state = SettingsFeature.State()
+        #expect(state.inheritGroupOnNewWorkspace == true)
+    }
+
     @Test func resolvedWorktreeBasePathExpandsTilde() {
         var state = SettingsFeature.State()
         state.worktreeBasePath = "~/nex/worktrees"

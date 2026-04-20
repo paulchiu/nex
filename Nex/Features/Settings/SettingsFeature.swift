@@ -15,6 +15,7 @@ struct SettingsFeature {
         var worktreeBasePath: String = SettingsFeature.defaultWorktreeBasePath
         var selectedTheme: NexTheme?
         var autoDetectRepos: Bool = true
+        var inheritGroupOnNewWorkspace: Bool = true
 
         /// The resolved absolute worktree base path. Expands ~ and substitutes
         /// the `<repo>` placeholder:
@@ -39,6 +40,7 @@ struct SettingsFeature {
         case setBackgroundColor(r: Double, g: Double, b: Double)
         case setWorktreeBasePath(String)
         case setAutoDetectRepos(Bool)
+        case setInheritGroupOnNewWorkspace(Bool)
         case selectTheme(NexTheme?)
         case applyAppearance(opacity: Double, r: Double, g: Double, b: Double, theme: NexTheme?)
     }
@@ -53,6 +55,7 @@ struct SettingsFeature {
     static let defaultsKeyWorktreeBasePath = "settings.worktreeBasePath"
     static let defaultsKeySelectedTheme = "settings.selectedTheme"
     static let defaultsKeyAutoDetectRepos = "settings.autoDetectRepos"
+    static let defaultsKeyInheritGroupOnNewWorkspace = "settings.inheritGroupOnNewWorkspace"
 
     @Dependency(\.surfaceManager) var surfaceManager
     @Dependency(\.userDefaults) var userDefaults
@@ -69,6 +72,9 @@ struct SettingsFeature {
                 }
                 if userDefaults.hasKey(Self.defaultsKeyAutoDetectRepos) {
                     state.autoDetectRepos = userDefaults.boolForKey(Self.defaultsKeyAutoDetectRepos)
+                }
+                if userDefaults.hasKey(Self.defaultsKeyInheritGroupOnNewWorkspace) {
+                    state.inheritGroupOnNewWorkspace = userDefaults.boolForKey(Self.defaultsKeyInheritGroupOnNewWorkspace)
                 }
                 if userDefaults.boolForKey(Self.defaultsKeyHasCustomColor) {
                     state.backgroundColorR = userDefaults.doubleForKey(Self.defaultsKeyColorR)
@@ -127,6 +133,11 @@ struct SettingsFeature {
             case .setAutoDetectRepos(let enabled):
                 state.autoDetectRepos = enabled
                 userDefaults.setBool(enabled, Self.defaultsKeyAutoDetectRepos)
+                return .none
+
+            case .setInheritGroupOnNewWorkspace(let enabled):
+                state.inheritGroupOnNewWorkspace = enabled
+                userDefaults.setBool(enabled, Self.defaultsKeyInheritGroupOnNewWorkspace)
                 return .none
 
             case .selectTheme(let theme):

@@ -9,10 +9,20 @@ struct NewWorkspaceSheet: View {
     @State private var color: WorkspaceColor
     @State private var selectedRepos: [Repo] = []
     @State private var isRepoPickerPresented = false
+    @State private var selectedGroupID: UUID?
 
     init(store: StoreOf<AppReducer>) {
         self.store = store
         _color = State(initialValue: store.workspaces.nextRandomColor())
+        // Preselect the active workspace's group when inheritance is enabled,
+        // so the sheet opens pointing at the group the user is likely to want.
+        // They can always flip to "No group" or pick a different one.
+        let defaultGroupID: UUID? = {
+            guard store.settings.inheritGroupOnNewWorkspace,
+                  let activeID = store.activeWorkspaceID else { return nil }
+            return store.state.groupID(forWorkspace: activeID)
+        }()
+        _selectedGroupID = State(initialValue: defaultGroupID)
     }
 
     var body: some View {
@@ -36,6 +46,24 @@ struct NewWorkspaceSheet: View {
                             )
                             .onTapGesture { color = c }
                     }
+                }
+
+                if !store.groups.isEmpty {
+                    HStack {
+                        Text("Group")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Picker("Group", selection: $selectedGroupID) {
+                            Text("No group").tag(UUID?.none)
+                            ForEach(store.groups) { group in
+                                Text(group.name).tag(UUID?.some(group.id))
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 // Repositories section
@@ -109,6 +137,11 @@ struct NewWorkspaceSheet: View {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
 
-        store.send(.createWorkspace(name: trimmed, color: color, repos: selectedRepos))
+        store.send(.createWorkspace(
+            name: trimmed,
+            color: color,
+            repos: selectedRepos,
+            groupID: selectedGroupID
+        ))
     }
 }
