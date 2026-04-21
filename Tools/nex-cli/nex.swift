@@ -13,6 +13,7 @@
 //   nex pane move [left|right|up|down]
 //   nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]
 //   nex pane list [--workspace <name-or-id> | --current] [--json] [--no-header]
+//   nex pane id
 //   nex workspace create [--name "..."] [--path /dir] [--color blue] [--group <name>]
 //   nex workspace move <name-or-id> (--group <name> | --top-level) [--index N]
 //   nex group create <name> [--color blue]
@@ -82,6 +83,7 @@ func printUsage() {
       nex pane move [left|right|up|down]
       nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]
       nex pane list [--workspace <name-or-id> | --current] [--json] [--no-header]
+      nex pane id
       nex workspace create [--name "..."] [--path /dir] [--color blue] [--group <name>]
       nex workspace move <name-or-id> (--group <name> | --top-level) [--index N]
       nex group create <name> [--color blue]
@@ -372,11 +374,19 @@ func handleEvent(_ args: inout ArraySlice<String>) {
 
 func handlePane(_ args: inout ArraySlice<String>) {
     guard let action = args.popFirst() else {
-        fputs("Usage: nex pane split|create|close|name|send|move|list [...]\n", stderr)
+        fputs("Usage: nex pane split|create|close|name|send|move|list|id [...]\n", stderr)
         exit(1)
     }
 
     switch action {
+    case "id":
+        guard let paneID = ProcessInfo.processInfo.environment["NEX_PANE_ID"],
+              !paneID.isEmpty
+        else {
+            exit(1)
+        }
+        print(paneID)
+
     case "split":
         let paneID = requirePaneID()
         let direction = parseFlag("--direction", from: &args)
@@ -492,7 +502,7 @@ func handlePane(_ args: inout ArraySlice<String>) {
 
     default:
         fputs("Unknown pane action: \(action)\n", stderr)
-        fputs("Valid actions: split, create, close, name, send, move, move-to-workspace, list\n", stderr)
+        fputs("Valid actions: split, create, close, name, send, move, move-to-workspace, list, id\n", stderr)
         exit(1)
     }
 }

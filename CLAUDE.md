@@ -83,6 +83,7 @@ make check
   - `nex event stop|start|error|notification|session-start [--message ...] [--title ...] [--body ...]`
   - `nex pane split|create|close|name|send|move|move-to-workspace [options]`
   - `nex pane list [--workspace <name-or-id> | --current] [--json] [--no-header]` — only command that returns data; prints a human-readable table by default, JSON array with `--json`
+  - `nex pane id` — prints current `NEX_PANE_ID` (exit 0) or exits 1 if not set. Local only; doesn't touch the socket. Useful as a cheap in-Nex check
   - `nex workspace create [--name ...] [--path ...] [--color ...] [--group <name>]`
   - `nex workspace move <name-or-id> (--group <name> | --top-level) [--index N]`
   - `nex group create <name> [--color blue]`
