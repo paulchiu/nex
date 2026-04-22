@@ -89,6 +89,11 @@ struct CommandPaletteView: View {
             localQuery = query
             DispatchQueue.main.async { isFieldFocused = true }
         }
+        .onDisappear {
+            // Release the palette field editor so SurfaceContainerView's
+            // focus grab isn't blocked by its `firstResponder is NSText` guard.
+            NSApp.keyWindow?.makeFirstResponder(nil)
+        }
         .onKeyPress(.upArrow) {
             scrollToSelection = true
             onSelectPrevious()
