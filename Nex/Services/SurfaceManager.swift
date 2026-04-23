@@ -113,6 +113,26 @@ final class SurfaceManager: Sendable {
         surface.sendEnterKey()
     }
 
+    /// Grant keyboard focus to a pane's surface, overriding whatever
+    /// currently holds first responder (e.g. the command palette's
+    /// TextField editor). Unlike `SurfaceContainerView`'s passive focus
+    /// grab — which bails when an NSText holds first responder — this
+    /// is an authoritative move used by reducer effects.
+    @MainActor
+    func focus(paneID: UUID) {
+        _focusCalls.append(paneID)
+        let surfaceView = lock.withLock { surfaces[paneID] }
+        guard let surface = surfaceView, let window = surface.window else { return }
+        window.makeFirstResponder(surface)
+    }
+
+    /// Test-only record of paneIDs passed to `focus(paneID:)`, in order.
+    /// Lets reducer-level tests assert on focus effects without a
+    /// live window hierarchy.
+    private nonisolated(unsafe) var _focusCalls: [UUID] = []
+    @MainActor
+    var focusCalls: [UUID] { _focusCalls }
+
     func paneID(for rawSurface: ghostty_surface_t) -> UUID? {
         lock.withLock {
             surfaces.first { _, view in

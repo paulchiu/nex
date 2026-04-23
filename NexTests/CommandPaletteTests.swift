@@ -32,7 +32,9 @@ struct CommandPaletteTests {
 
     private func makeStore(
         workspaces: IdentifiedArrayOf<WorkspaceFeature.State> = [],
-        activeWorkspaceID: UUID? = nil
+        activeWorkspaceID: UUID? = nil,
+        surfaceManager: SurfaceManager = SurfaceManager(),
+        clock: any Clock<Duration> = ImmediateClock()
     ) -> TestStoreOf<AppReducer> {
         var appState = AppReducer.State()
         appState.workspaces = workspaces
@@ -41,12 +43,12 @@ struct CommandPaletteTests {
         let store = TestStore(initialState: appState) {
             AppReducer()
         } withDependencies: {
-            $0.surfaceManager = SurfaceManager()
+            $0.surfaceManager = surfaceManager
             $0.uuid = .incrementing
             $0.date = .constant(Date(timeIntervalSince1970: 1000))
             $0.gitService.getCurrentBranch = { _ in nil }
             $0.gitService.getStatus = { _ in .clean }
-            $0.continuousClock = ImmediateClock()
+            $0.continuousClock = clock
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
         return store
@@ -429,5 +431,114 @@ struct CommandPaletteTests {
         await store.send(.commandPaletteConfirm) { state in
             state.isCommandPaletteVisible = false
         }
+    }
+
+    // MARK: - Focus handoff on close
+
+    @Test func confirmPaneFocusesDestinationSurface() async {
+        let manager = SurfaceManager()
+        let pane1 = Pane(id: Self.paneID1)
+        let pane2 = Pane(id: Self.paneID2)
+        let ws = Self.makeWorkspace(
+            id: Self.wsID1, name: "WS",
+            panes: [pane1, pane2],
+            layout: .split(.horizontal, ratio: 0.5,
+                           first: .leaf(Self.paneID1), second: .leaf(Self.paneID2)),
+            focusedPaneID: Self.paneID1
+        )
+        let store = makeStore(
+            workspaces: [ws],
+            activeWorkspaceID: Self.wsID1,
+            surfaceManager: manager
+        )
+
+        await store.send(.toggleCommandPalette)
+        await store.send(.commandPaletteSelectNext) // 1 — pane1
+        await store.send(.commandPaletteSelectNext) // 2 — pane2
+        await store.send(.commandPaletteConfirm)
+        await store.finish()
+
+        #expect(manager.focusCalls == [Self.paneID2])
+    }
+
+    @Test func confirmWorkspaceFocusesItsActivePane() async {
+        let manager = SurfaceManager()
+        let pane1 = Pane(id: Self.paneID1)
+        let pane2 = Pane(id: Self.paneID2)
+        let pane3 = Pane(id: Self.paneID3)
+        let ws1 = Self.makeWorkspace(
+            id: Self.wsID1, name: "First",
+            panes: [pane1], layout: .leaf(Self.paneID1)
+        )
+        let ws2 = Self.makeWorkspace(
+            id: Self.wsID2, name: "Second",
+            panes: [pane2, pane3],
+            layout: .split(.vertical, ratio: 0.5,
+                           first: .leaf(Self.paneID2), second: .leaf(Self.paneID3)),
+            focusedPaneID: Self.paneID3
+        )
+        let store = makeStore(
+            workspaces: [ws1, ws2],
+            activeWorkspaceID: Self.wsID1,
+            surfaceManager: manager
+        )
+
+        // index 2 selects ws2 (no explicit paneID)
+        await store.send(.toggleCommandPalette)
+        await store.send(.commandPaletteSelectNext)
+        await store.send(.commandPaletteSelectNext)
+        await store.send(.commandPaletteConfirm)
+        await store.finish()
+
+        #expect(manager.focusCalls == [Self.paneID3])
+    }
+
+    @Test func dismissFocusesActiveWorkspacePane() async {
+        let manager = SurfaceManager()
+        let pane1 = Pane(id: Self.paneID1)
+        let ws = Self.makeWorkspace(
+            id: Self.wsID1, name: "WS",
+            panes: [pane1], layout: .leaf(Self.paneID1),
+            focusedPaneID: Self.paneID1
+        )
+        let store = makeStore(
+            workspaces: [ws],
+            activeWorkspaceID: Self.wsID1,
+            surfaceManager: manager
+        )
+
+        await store.send(.toggleCommandPalette)
+        await store.send(.dismissCommandPalette)
+        await store.finish()
+
+        #expect(manager.focusCalls == [Self.paneID1])
+    }
+
+    @Test func reopeningCancelsPendingFocus() async {
+        let manager = SurfaceManager()
+        let clock = TestClock()
+        let pane1 = Pane(id: Self.paneID1)
+        let ws = Self.makeWorkspace(
+            id: Self.wsID1, name: "WS",
+            panes: [pane1], layout: .leaf(Self.paneID1),
+            focusedPaneID: Self.paneID1
+        )
+        let store = makeStore(
+            workspaces: [ws],
+            activeWorkspaceID: Self.wsID1,
+            surfaceManager: manager,
+            clock: clock
+        )
+
+        // Open → dismiss: schedules a delayed focus.
+        await store.send(.toggleCommandPalette)
+        await store.send(.dismissCommandPalette)
+        // Reopen before the handoff delay elapses — the pending focus
+        // must be cancelled so it can't steal focus from the new palette.
+        await store.send(.toggleCommandPalette)
+        await clock.advance(by: AppReducer.paletteFocusHandoffDelay * 2)
+        await store.finish()
+
+        #expect(manager.focusCalls.isEmpty)
     }
 }
