@@ -58,6 +58,42 @@ struct AppReducer {
             return workspaces[id: id]
         }
 
+        /// Sidebar entry that the active workspace occupies, used as an
+        /// insertion anchor for `.nearSelection` group placement. Returns
+        /// the workspace's own entry when it's top-level, or its parent
+        /// group's entry when nested. `nil` when there's no active
+        /// workspace or it isn't yet in the sidebar.
+        var activeWorkspaceSidebarAnchor: SidebarID? {
+            sidebarAnchor(for: activeWorkspaceID)
+        }
+
+        /// Anchor used by `.nearSelection` group placement. Prefers the
+        /// first workspace being folded into the new group (so a row-level
+        /// "New Group..." on a non-active workspace lands next to that
+        /// row, not next to the previously active workspace). Falls back
+        /// to the active workspace for the empty-group flow.
+        func nearSelectionAnchor(for initialWorkspaceIDs: [UUID]) -> SidebarID? {
+            if let firstInitial = initialWorkspaceIDs.first,
+               let anchor = sidebarAnchor(for: firstInitial) {
+                return anchor
+            }
+            return activeWorkspaceSidebarAnchor
+        }
+
+        /// Resolve a workspace ID to its sidebar entry: the workspace's
+        /// own top-level entry when it's top-level, its parent group's
+        /// entry when nested, or `nil` if the workspace isn't placed yet.
+        private func sidebarAnchor(for workspaceID: UUID?) -> SidebarID? {
+            guard let workspaceID else { return nil }
+            if topLevelOrder.contains(.workspace(workspaceID)) {
+                return .workspace(workspaceID)
+            }
+            for group in groups where group.childOrder.contains(workspaceID) {
+                return .group(group.id)
+            }
+            return nil
+        }
+
         var commandPaletteItems: [CommandPaletteItem] {
             var items: [CommandPaletteItem] = []
             let home = NSHomeDirectory()
@@ -506,6 +542,10 @@ struct AppReducer {
         if let path {
             seeded.panes[seeded.panes.startIndex].workingDirectory = path
         }
+        // Capture the anchor for `.nearSelection` BEFORE overwriting
+        // `activeWorkspaceID` — the previously active workspace is what
+        // we want the new one to land next to within the target group.
+        let previousActiveID = state.activeWorkspaceID
         state.workspaces.append(seeded)
         state.topLevelOrder.append(.workspace(newWorkspaceID))
         state.activeWorkspaceID = newWorkspaceID
@@ -520,6 +560,27 @@ struct AppReducer {
             state.topLevelOrder.append(.group(newGroup.id))
             targetGroupID = newGroup.id
         }
+
+        // Mirror the `createWorkspace` + groupID path: honor the
+        // `newWorkspacePlacement` setting when picking the slot in
+        // the target group's childOrder. `.endOfList` appends (nil),
+        // `.nearSelection` inserts right after the previously-active
+        // workspace's slot when it's in the same group. A freshly
+        // created group has an empty childOrder, so both modes land
+        // on append for the "new group" branch above.
+        let targetIndex: Int? = {
+            switch state.settings.newWorkspacePlacement {
+            case .endOfList:
+                return nil
+            case .nearSelection:
+                guard let previousActiveID,
+                      let idx = state.groups[id: targetGroupID]?.childOrder.firstIndex(of: previousActiveID)
+                else {
+                    return nil
+                }
+                return idx + 1
+            }
+        }()
 
         // Create the initial surface for the workspace, then move it
         // under the resolved group, then persist. Mirrors the
@@ -541,7 +602,7 @@ struct AppReducer {
             .send(.moveWorkspaceToGroup(
                 workspaceID: newWorkspaceID,
                 groupID: targetGroupID,
-                index: nil
+                index: targetIndex
             ))
         )
     }
@@ -868,17 +929,30 @@ struct AppReducer {
                 }
 
                 state.workspaces.append(workspace)
-                // Place into the target group if one was supplied and exists, adjacent to the
-                // previously-active workspace when that workspace is part of the same group.
-                // Fall back to top-level append when the group is missing (defensive).
+                // Place into the target group if one was supplied and exists.
+                // Placement within the group (or at top level when no group is
+                // supplied) follows the `newWorkspacePlacement` setting:
+                //   - `.endOfList` always appends.
+                //   - `.nearSelection` inserts after the previously-active
+                //     workspace's slot (its entry in the group's childOrder,
+                //     or its top-level sidebar anchor when ungrouped).
+                // Fall back to top-level append when the supplied group is
+                // missing (defensive).
+                let placement = state.settings.newWorkspacePlacement
                 if let groupID, state.groups[id: groupID] != nil {
                     let insertIndex: Int = {
-                        guard let previousActiveID,
-                              let idx = state.groups[id: groupID]?.childOrder.firstIndex(of: previousActiveID)
-                        else {
-                            return state.groups[id: groupID]?.childOrder.count ?? 0
+                        let count = state.groups[id: groupID]?.childOrder.count ?? 0
+                        switch placement {
+                        case .endOfList:
+                            return count
+                        case .nearSelection:
+                            guard let previousActiveID,
+                                  let idx = state.groups[id: groupID]?.childOrder.firstIndex(of: previousActiveID)
+                            else {
+                                return count
+                            }
+                            return idx + 1
                         }
-                        return idx + 1
                     }()
                     state.groups[id: groupID]?.childOrder.insert(workspace.id, at: insertIndex)
                     // Match the .setActiveWorkspace behavior: expand the parent
@@ -888,7 +962,17 @@ struct AppReducer {
                         state.groups[id: groupID]?.isCollapsed = false
                     }
                 } else {
-                    state.topLevelOrder.append(.workspace(workspace.id))
+                    switch placement {
+                    case .endOfList:
+                        state.topLevelOrder.append(.workspace(workspace.id))
+                    case .nearSelection:
+                        if let anchor = state.activeWorkspaceSidebarAnchor,
+                           let idx = state.topLevelOrder.firstIndex(of: anchor) {
+                            state.topLevelOrder.insert(.workspace(workspace.id), at: idx + 1)
+                        } else {
+                            state.topLevelOrder.append(.workspace(workspace.id))
+                        }
+                    }
                 }
                 state.activeWorkspaceID = workspace.id
                 state.isNewWorkspaceSheetPresented = false
@@ -1202,6 +1286,47 @@ struct AppReducer {
                     validInitial.append(id)
                 }
 
+                // Resolve the insertion anchor before any mutations. When
+                // the caller specifies an explicit anchor, use it. Otherwise
+                // fall back to the `newGroupPlacement` setting:
+                //   - `.endOfList` always appends.
+                //   - `.nearSelection` prefers the first `initialWorkspaceIDs`
+                //     entry (the row the action was launched from in the
+                //     workspace-row "New Group..." flow) and only falls back
+                //     to the active workspace for the empty-group flow.
+                let resolvedInsertAfter: SidebarID? = if let insertAfter {
+                    insertAfter
+                } else {
+                    switch state.settings.newGroupPlacement {
+                    case .endOfList:
+                        nil
+                    case .nearSelection:
+                        state.nearSelectionAnchor(for: validInitial)
+                    }
+                }
+
+                // Capture the anchor's position and whether it will be
+                // detached *before* mutating `topLevelOrder`, so the new
+                // group can slot into the spot the row occupied even when
+                // that row is about to be folded into the new group.
+                let anchorIndexBefore: Int? =
+                    resolvedInsertAfter.flatMap { state.topLevelOrder.firstIndex(of: $0) }
+                let anchorWillBeDetached: Bool = {
+                    guard case .workspace(let id) = resolvedInsertAfter else { return false }
+                    return validInitial.contains(id)
+                }()
+                let removedBeforeAnchor: Int = {
+                    guard let anchorIdx = anchorIndexBefore, !validInitial.isEmpty else { return 0 }
+                    let moved = Set(validInitial)
+                    var count = 0
+                    for i in 0 ..< anchorIdx {
+                        if case .workspace(let id) = state.topLevelOrder[i], moved.contains(id) {
+                            count += 1
+                        }
+                    }
+                    return count
+                }()
+
                 let newGroup = WorkspaceGroup(
                     id: uuid(),
                     name: trimmed,
@@ -1226,8 +1351,15 @@ struct AppReducer {
 
                 // Insertion position in `topLevelOrder`.
                 let newEntry: SidebarID = .group(newGroup.id)
-                if let insertAfter, let idx = state.topLevelOrder.firstIndex(of: insertAfter) {
-                    state.topLevelOrder.insert(newEntry, at: idx + 1)
+                if let anchorIdx = anchorIndexBefore {
+                    // Adjust for removals that were strictly before the anchor.
+                    let adjusted = anchorIdx - removedBeforeAnchor
+                    // If the anchor itself was removed (it was the workspace
+                    // being grouped), its slot is now free and becomes the
+                    // insertion point. Otherwise insert right after the anchor.
+                    let target = anchorWillBeDetached ? adjusted : adjusted + 1
+                    let bounded = max(0, min(target, state.topLevelOrder.count))
+                    state.topLevelOrder.insert(newEntry, at: bounded)
                 } else {
                     state.topLevelOrder.append(newEntry)
                 }
