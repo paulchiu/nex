@@ -7,7 +7,7 @@
 //   nex event stop|start|error|notification|session-start [--message ...] [--title ...] [--body ...]
 //   nex pane split [--direction horizontal|vertical] [--path /dir] [--name <label>] [--target <name-or-uuid>]
 //   nex pane create [--path /dir] [--name <label>] [--target <name-or-uuid>]
-//   nex pane close
+//   nex pane close [--target <name-or-uuid>] [--workspace <name-or-uuid>]
 //   nex pane name <name>
 //   nex pane send --to <name-or-uuid> <command...>
 //   nex pane move [left|right|up|down]
@@ -75,9 +75,9 @@ func printUsage() {
     Usage:
       nex --version
       nex event stop|start|error|notification|session-start [--message ...] [--title ...] [--body ...]
-      nex pane split [--direction horizontal|vertical] [--path /dir] [--name <label>]
-      nex pane create [--path /dir] [--name <label>]
-      nex pane close
+      nex pane split [--direction horizontal|vertical] [--path /dir] [--name <label>] [--target <name-or-uuid>]
+      nex pane create [--path /dir] [--name <label>] [--target <name-or-uuid>]
+      nex pane close [--target <name-or-uuid>] [--workspace <name-or-uuid>]
       nex pane name <name>
       nex pane send --to <name-or-uuid> <command...>
       nex pane move [left|right|up|down]
@@ -420,12 +420,52 @@ func handlePane(_ args: inout ArraySlice<String>) {
         sendJSON(payload)
 
     case "close":
-        let paneID = requirePaneID()
-        let payload: [String: String] = [
-            "command": "pane-close",
-            "pane_id": paneID
+        let target = parseFlag("--target", from: &args)
+        let workspace = parseFlag("--workspace", from: &args)
+        var payload: [String: Any] = [
+            "command": "pane-close"
         ]
-        sendJSON(payload)
+        if let target {
+            // `--target` addresses a pane by label or UUID, so the
+            // caller doesn't need to be running inside a Nex pane.
+            payload["target"] = target
+        } else {
+            payload["pane_id"] = requirePaneID()
+        }
+        if let workspace {
+            // `--workspace <name-or-id>` disambiguates when the same
+            // label is reused across workspaces. Ignored when `target`
+            // is a UUID; useful for label lookups.
+            payload["workspace"] = workspace
+        }
+
+        guard let replyData = sendJSONAndReadReply(payload) else {
+            fputs("nex pane close: transport failure (is Nex running?)\n", stderr)
+            exit(1)
+        }
+        guard !replyData.isEmpty else {
+            fputs("nex pane close: no response from Nex (upgrade required? need v0.20+)\n", stderr)
+            exit(1)
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: replyData) as? [String: Any] else {
+            fputs("nex pane close: invalid JSON response\n", stderr)
+            exit(1)
+        }
+        if let ok = json["ok"] as? Bool, ok == false {
+            let msg = (json["error"] as? String) ?? "unknown error"
+            fputs("nex pane close: \(msg)\n", stderr)
+            exit(1)
+        }
+        // Success — print the resolved pane id (and label/workspace
+        // when known) so humans see clear confirmation and scripts can
+        // chain on the id.
+        let closedID = (json["pane_id"] as? String) ?? "?"
+        let label = json["label"] as? String
+        let wsName = json["workspace_name"] as? String
+        var line = "pane deleted: \(closedID)"
+        if let label { line += " (\(label))" }
+        if let wsName { line += " in workspace \(wsName)" }
+        print(line)
 
     case "name":
         let paneID = requirePaneID()

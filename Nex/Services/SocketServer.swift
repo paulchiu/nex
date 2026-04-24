@@ -12,7 +12,17 @@ enum SocketMessage: Equatable {
     // Pane commands
     case paneSplit(paneID: UUID, direction: PaneLayout.SplitDirection?, path: String?, name: String?, target: String?)
     case paneCreate(paneID: UUID, path: String?, name: String?, target: String?)
-    case paneClose(paneID: UUID)
+    /// Close a pane. In practice the CLI sends one or the other:
+    /// `paneID` comes from `NEX_PANE_ID` for the no-flag form; `target`
+    /// carries the `--target <name-or-uuid>` value. `workspace`
+    /// (name-or-UUID) optionally narrows label resolution to a single
+    /// workspace, disambiguating cross-workspace label collisions.
+    /// The decoder preserves whichever fields are present (both `paneID`
+    /// and `target` are allowed on the wire) and rejects a message
+    /// missing both. The reducer prefers `target` when both are
+    /// supplied and replies with a structured success/error payload
+    /// (request/response — see `replyCommandAllowlist`).
+    case paneClose(paneID: UUID?, target: String?, workspace: String?)
     case paneName(paneID: UUID, name: String)
     case paneSend(paneID: UUID, target: String, text: String)
     case paneMove(paneID: UUID, direction: PaneLayout.Direction)
@@ -39,7 +49,7 @@ enum SocketMessage: Equatable {
 /// command outside this allowlist the server does not allocate a
 /// `ReplyHandle` and the wire behaviour is byte-identical to the
 /// pre-request/response protocol.
-private let replyCommandAllowlist: Set<String> = ["pane-list"]
+private let replyCommandAllowlist: Set<String> = ["pane-list", "pane-close"]
 
 /// Unix domain socket server that listens for structured JSON messages
 /// from the `nex` CLI tool. Agent hooks (Claude Code, Codex)
@@ -484,6 +494,20 @@ final class SocketServer: Sendable {
             return (.openFile(path: path, paneID: paneID), wire)
         }
 
+        if wire.command == "pane-close" {
+            // Accept either `pane_id` (current pane, existing behaviour)
+            // or `target` (name-or-UUID, new). At least one must be
+            // present; the reducer resolves `target` to a concrete pane.
+            // `workspace` optionally narrows label resolution to a
+            // specific workspace (useful when the same label is reused
+            // across workspaces).
+            let paneID = wire.paneID.flatMap { UUID(uuidString: $0) }
+            let target = (wire.target?.isEmpty == true) ? nil : wire.target
+            let workspace = (wire.workspace?.isEmpty == true) ? nil : wire.workspace
+            guard paneID != nil || target != nil else { return nil }
+            return (.paneClose(paneID: paneID, target: target, workspace: workspace), wire)
+        }
+
         if wire.command == "pane-list" {
             // `pane_id` is optional — required only when `scope == "current"`,
             // which the reducer validates. Invalid UUIDs fail the request
@@ -519,8 +543,6 @@ final class SocketServer: Sendable {
             socketMessage = .paneSplit(paneID: paneID, direction: dir, path: wire.path, name: wire.name, target: wire.target)
         case "pane-create":
             socketMessage = .paneCreate(paneID: paneID, path: wire.path, name: wire.name, target: wire.target)
-        case "pane-close":
-            socketMessage = .paneClose(paneID: paneID)
         case "pane-name":
             guard let name = wire.name, !name.isEmpty else { return nil }
             socketMessage = .paneName(paneID: paneID, name: name)
