@@ -330,5 +330,17 @@
       length="11666129"
       type="application/octet-stream" />
   </item>
+    <item>
+    <title>Version 0.21.0</title>
+    <pubDate>Fri, 24 Apr 2026 12:55:06 +0000</pubDate>
+    <sparkle:version>0.21.0</sparkle:version>
+    <sparkle:shortVersionString>0.21.0</sparkle:shortVersionString>
+    <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+    <enclosure
+      url="https://github.com/benfriebe/nex/releases/download/v0.21.0/Nex-0.21.0.dmg"
+      sparkle:edSignature="vH7ETOaYsNduK1p4p0mLvNmC9iWtiJUti2qArDYURVaM3qEngjRbgY2KSUptNCkiaec+XyyoTbA7VzNtyPe4CQ=="
+      length="11981730"
+      type="application/octet-stream" />
+  </item>
   </channel>
 </rss>
