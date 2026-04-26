@@ -28,6 +28,7 @@ struct GitService {
     var pruneWorktrees: @Sendable (_ repoPath: String) async throws -> Void
     var resolveRepoRoot: @Sendable (_ path: String) async -> RepoRootInfo?
     var getDiff: @Sendable (_ repoPath: String, _ targetPath: String?) async throws -> String
+    var resolveHeadPath: @Sendable (_ worktreePath: String) async throws -> String
 }
 
 // MARK: - Live Implementation
@@ -220,6 +221,22 @@ extension GitService {
                 args += ["--", targetPath]
             }
             return try runGit(args: args, at: repoPath)
+        },
+
+        resolveHeadPath: { worktreePath in
+            // `--git-path HEAD` returns the absolute path to the worktree's
+            // HEAD file. For the main worktree this is `<repo>/.git/HEAD`;
+            // for a linked worktree it's `<repo>/.git/worktrees/<name>/HEAD`.
+            let raw = try runGit(args: ["rev-parse", "--git-path", "HEAD"], at: worktreePath)
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            // `--git-path` returns relative paths for the main worktree
+            // (e.g. ".git/HEAD"). Resolve against the worktree root.
+            let absolute: String = if trimmed.hasPrefix("/") {
+                trimmed
+            } else {
+                (worktreePath as NSString).appendingPathComponent(trimmed)
+            }
+            return (absolute as NSString).standardizingPath
         }
     )
 }
@@ -288,7 +305,12 @@ extension GitService: DependencyKey {
             listWorktrees: unimplemented("GitService.listWorktrees"),
             pruneWorktrees: unimplemented("GitService.pruneWorktrees"),
             resolveRepoRoot: { _ in nil },
-            getDiff: { _, _ in "" }
+            getDiff: { _, _ in "" },
+            // Non-failing stub: an empty path causes `open()` to return -1
+            // in `GitHeadWatcher`, so the watcher silently no-ops in tests
+            // that don't care about HEAD watching. Tests that do care should
+            // override this to return a real HEAD path.
+            resolveHeadPath: { _ in "" }
         )
     }
 }

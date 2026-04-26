@@ -378,6 +378,9 @@ struct AppReducer {
         case refreshGitStatus
         case gitStatusUpdated(associationID: UUID, status: RepoGitStatus)
         case startGitStatusTimer
+        case startHeadWatcher(workspaceID: UUID, associationID: UUID, worktreePath: String)
+        case stopHeadWatcher(associationID: UUID)
+        case headChanged(workspaceID: UUID, associationID: UUID)
 
         /// External indicators (menu bar, dock badge)
         case updateExternalIndicators
@@ -429,6 +432,7 @@ struct AppReducer {
     @Dependency(\.surfaceManager) var surfaceManager
     @Dependency(\.persistenceService) var persistenceService
     @Dependency(\.gitService) var gitService
+    @Dependency(\.gitHeadWatcher) var gitHeadWatcher
     @Dependency(\.socketServer) var socketServer
     @Dependency(\.notificationService) var notificationService
     @Dependency(\.statusBarController) var statusBarController
@@ -442,6 +446,14 @@ struct AppReducer {
     private enum AutoLinkDebounceID: Hashable { case pane(UUID) }
     private enum AutoUnlinkDebounceID: Hashable { case workspace(UUID) }
     private enum PaletteFocusID: Hashable { case pending }
+    private enum HeadWatcherID: Hashable { case association(UUID) }
+    private enum HeadChangedDebounceID: Hashable { case association(UUID) }
+
+    /// Debounce for `headChanged` effects. `git checkout` typically writes
+    /// HEAD via temp file + atomic rename, which can fire two events back
+    /// to back. Coalesce them so we only run `git status` + branch resolve
+    /// once per logical checkout.
+    static let headChangedDebounce: Duration = .milliseconds(150)
 
     /// Delay after the palette triggers a focus change before we claim
     /// first responder for the destination surface. Matches the palette
@@ -1099,17 +1111,28 @@ struct AppReducer {
                 let paneID = workspace.panes.first!.id
                 let cwd = workspace.panes.first!.workingDirectory
                 let opacity = ghosttyConfig.backgroundOpacity
+                let workspaceID = workspace.id
+                let watcherSeeds: [Effect<Action>] = workspace.repoAssociations.map { assoc in
+                    Effect.send(.startHeadWatcher(
+                        workspaceID: workspaceID,
+                        associationID: assoc.id,
+                        worktreePath: assoc.worktreePath
+                    ))
+                }
                 return .merge(
-                    .run { _ in
-                        await surfaceManager.createSurface(paneID: paneID, workingDirectory: cwd, backgroundOpacity: opacity)
-                    },
-                    .send(.persistState)
+                    [
+                        .run { _ in
+                            await surfaceManager.createSurface(paneID: paneID, workingDirectory: cwd, backgroundOpacity: opacity)
+                        },
+                        .send(.persistState)
+                    ] + watcherSeeds
                 )
 
             case .deleteWorkspace(let id):
                 guard let workspace = state.workspaces[id: id] else { return .none }
                 let paneIDs = workspace.layout.allPaneIDs
                     + workspace.parkedPanes.map(\.id)
+                let assocIDs = workspace.repoAssociations.map(\.id)
                 state.workspaces.remove(id: id)
                 state.topLevelOrder.removeAll { $0 == .workspace(id) }
                 for groupID in state.groups.ids {
@@ -1135,13 +1158,16 @@ struct AppReducer {
                     state.lastSelectionAnchor = nil
                 }
 
+                let stopEffects = assocIDs.map { Effect.send(Action.stopHeadWatcher(associationID: $0)) }
                 return .merge(
-                    .run { _ in
-                        for paneID in paneIDs {
-                            await surfaceManager.destroySurface(paneID: paneID)
-                        }
-                    },
-                    .send(.persistState)
+                    [
+                        .run { _ in
+                            for paneID in paneIDs {
+                                await surfaceManager.destroySurface(paneID: paneID)
+                            }
+                        },
+                        .send(.persistState)
+                    ] + stopEffects
                 )
 
             case .moveWorkspace(let id, let toIndex):
@@ -1807,34 +1833,49 @@ struct AppReducer {
                 let shellPanes: [(id: UUID, cwd: String)] = workspaces.flatMap { ws in
                     ws.panes.filter { $0.type == .shell }.map { (id: $0.id, cwd: $0.workingDirectory) }
                 }
-                return .merge(
-                    .run { send in
-                        for pane in shellPanes {
-                            await surfaceManager.createSurface(
-                                paneID: pane.id,
-                                workingDirectory: pane.cwd,
-                                backgroundOpacity: opacity
-                            )
-                        }
+                // Seed HEAD watchers for every persisted RepoAssociation so
+                // sidebar branch/status updates land within ~200ms of any
+                // `git checkout` after restart.
+                let watcherSeeds: [Effect<Action>] = state.workspaces.flatMap { ws in
+                    ws.repoAssociations.map { assoc in
+                        Effect.send(.startHeadWatcher(
+                            workspaceID: ws.id,
+                            associationID: assoc.id,
+                            worktreePath: assoc.worktreePath
+                        ))
+                    }
+                }
 
-                        // Auto-resume Claude Code sessions after surfaces are ready.
-                        // Persist AFTER sending resume commands so session IDs survive
-                        // if the app crashes before the resume actually executes.
-                        if !panesToResume.isEmpty {
-                            try? await clock.sleep(for: .seconds(2))
-                            for entry in panesToResume {
-                                await surfaceManager.sendCommand(
-                                    to: entry.paneID,
-                                    command: "claude --resume \(entry.sessionID)"
+                return .merge(
+                    [
+                        .run { send in
+                            for pane in shellPanes {
+                                await surfaceManager.createSurface(
+                                    paneID: pane.id,
+                                    workingDirectory: pane.cwd,
+                                    backgroundOpacity: opacity
                                 )
                             }
-                        }
 
-                        // Now that resume commands have been sent, persist the cleared state
-                        await send(.persistState)
-                    },
-                    .send(.refreshGitStatus),
-                    .send(.startGitStatusTimer)
+                            // Auto-resume Claude Code sessions after surfaces are ready.
+                            // Persist AFTER sending resume commands so session IDs survive
+                            // if the app crashes before the resume actually executes.
+                            if !panesToResume.isEmpty {
+                                try? await clock.sleep(for: .seconds(2))
+                                for entry in panesToResume {
+                                    await surfaceManager.sendCommand(
+                                        to: entry.paneID,
+                                        command: "claude --resume \(entry.sessionID)"
+                                    )
+                                }
+                            }
+
+                            // Now that resume commands have been sent, persist the cleared state
+                            await send(.persistState)
+                        },
+                        .send(.refreshGitStatus),
+                        .send(.startGitStatusTimer)
+                    ] + watcherSeeds
                 )
 
             case .workspaces(.element(_, action: .agentStarted)):
@@ -2618,10 +2659,27 @@ struct AppReducer {
             case .surfaceDirectoryChanged(let paneID, let directory):
                 guard let workspace = state.workspaceContainingPane(paneID)
                 else { return .none }
-                return .send(.workspaces(.element(
-                    id: workspace.id,
-                    action: .paneDirectoryChanged(paneID: paneID, directory: directory)
-                )))
+                // Refresh any RepoAssociation whose worktree contains the new
+                // pwd. Catches `cd ../other-worktree` instantly, before the
+                // 30s timer or an unrelated HEAD change would otherwise pick
+                // it up.
+                let standardizedPwd = (directory as NSString).standardizingPath
+                let touched = workspace.repoAssociations.filter { assoc in
+                    let root = (assoc.worktreePath as NSString).standardizingPath
+                    return standardizedPwd == root || standardizedPwd.hasPrefix(root + "/")
+                }
+                let workspaceID = workspace.id
+                let pwdRefreshes: [Effect<Action>] = touched.map { assoc in
+                    Effect.send(.headChanged(workspaceID: workspaceID, associationID: assoc.id))
+                }
+                return .merge(
+                    [
+                        .send(.workspaces(.element(
+                            id: workspace.id,
+                            action: .paneDirectoryChanged(paneID: paneID, directory: directory)
+                        )))
+                    ] + pwdRefreshes
+                )
 
             case .surfaceProcessExited(let paneID):
                 guard let workspace = state.workspaceContainingPane(paneID)
@@ -2741,7 +2799,12 @@ struct AppReducer {
                 state.repoRegistry[id: repoID]?.isAutoDiscovered = false
                 return .merge(
                     .send(.persistState),
-                    .send(.refreshGitStatus)
+                    .send(.refreshGitStatus),
+                    .send(.startHeadWatcher(
+                        workspaceID: workspaceID,
+                        associationID: assoc.id,
+                        worktreePath: worktreePath
+                    ))
                 )
 
             case .worktreeCreationFailed:
@@ -2758,13 +2821,17 @@ struct AppReducer {
 
                 if deleteWorktree {
                     return .merge(
+                        .send(.stopHeadWatcher(associationID: associationID)),
                         .run { _ in
                             try? await gitService.removeWorktree(repo.path, assoc.worktreePath)
                         },
                         .send(.persistState)
                     )
                 }
-                return .send(.persistState)
+                return .merge(
+                    .send(.stopHeadWatcher(associationID: associationID)),
+                    .send(.persistState)
+                )
 
             // MARK: - Auto-Detected Repo Associations
 
@@ -2850,6 +2917,11 @@ struct AppReducer {
                             ))
                         }
                     )
+                    effects.append(.send(.startHeadWatcher(
+                        workspaceID: workspaceID,
+                        associationID: assocID,
+                        worktreePath: resolvedWorktree
+                    )))
                 }
 
                 if addedRepo {
@@ -2889,6 +2961,7 @@ struct AppReducer {
                 }
 
                 var removedRepoIDs: Set<UUID> = []
+                var stoppedAssocIDs: [UUID] = []
                 for assocID in candidateIDs {
                     guard let assoc = state.workspaces[id: workspaceID]?
                         .repoAssociations[id: assocID] else { continue }
@@ -2897,6 +2970,7 @@ struct AppReducer {
                         state.workspaces[id: workspaceID]?.repoAssociations.remove(id: assocID)
                         state.gitStatuses.removeValue(forKey: assocID)
                         removedRepoIDs.insert(assoc.repoID)
+                        stoppedAssocIDs.append(assocID)
                     }
                 }
 
@@ -2914,7 +2988,9 @@ struct AppReducer {
                     }
                 }
 
-                return removedRepoIDs.isEmpty ? .none : .send(.persistState)
+                if removedRepoIDs.isEmpty { return .none }
+                let stopEffects = stoppedAssocIDs.map { Effect.send(Action.stopHeadWatcher(associationID: $0)) }
+                return .merge(stopEffects + [.send(.persistState)])
 
             case .repoRemoteURLResolved(let repoID, let url):
                 state.repoRegistry[id: repoID]?.remoteURL = url
@@ -2966,6 +3042,60 @@ struct AppReducer {
                     }
                 }
                 .cancellable(id: GitStatusTimerID.timer, cancelInFlight: true)
+
+            case .startHeadWatcher(let workspaceID, let associationID, let worktreePath):
+                return .run { [gitService, gitHeadWatcher] send in
+                    // Resolve the real HEAD path. For a linked worktree this
+                    // is `<repo>/.git/worktrees/<name>/HEAD`, not the
+                    // worktree's own `.git/HEAD`.
+                    guard let headPath = try? await gitService.resolveHeadPath(worktreePath) else {
+                        return
+                    }
+                    let stream = gitHeadWatcher.start(
+                        associationID: associationID,
+                        headPath: headPath
+                    )
+                    for await _ in stream {
+                        await send(.headChanged(
+                            workspaceID: workspaceID,
+                            associationID: associationID
+                        ))
+                    }
+                }
+                .cancellable(id: HeadWatcherID.association(associationID), cancelInFlight: true)
+
+            case .stopHeadWatcher(let associationID):
+                gitHeadWatcher.stop(associationID: associationID)
+                return .merge(
+                    .cancel(id: HeadWatcherID.association(associationID)),
+                    .cancel(id: HeadChangedDebounceID.association(associationID))
+                )
+
+            case .headChanged(let workspaceID, let associationID):
+                guard let assoc = state.workspaces[id: workspaceID]?
+                    .repoAssociations[id: associationID]
+                else { return .none }
+                let path = assoc.worktreePath
+                return .run { [gitService, clock] send in
+                    // Coalesce the double-write of `git checkout` (HEAD is
+                    // typically rewritten via temp file + atomic rename, so
+                    // we see two events back to back). `cancelInFlight: true`
+                    // means a second event within the debounce window starts
+                    // a fresh sleep.
+                    try? await clock.sleep(for: Self.headChangedDebounce)
+                    let status = await (try? gitService.getStatus(path)) ?? .unknown
+                    let branch = try? await gitService.getCurrentBranch(path)
+                    await send(.gitStatusUpdated(associationID: associationID, status: status))
+                    await send(.repoAssociationBranchResolved(
+                        workspaceID: workspaceID,
+                        associationID: associationID,
+                        branch: branch
+                    ))
+                }
+                .cancellable(
+                    id: HeadChangedDebounceID.association(associationID),
+                    cancelInFlight: true
+                )
 
             // MARK: - Search
 
