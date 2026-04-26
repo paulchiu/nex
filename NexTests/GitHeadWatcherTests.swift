@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 @testable import Nex
 import Testing
@@ -25,13 +26,27 @@ struct GitHeadWatcherTests {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
         process.arguments = args
         process.currentDirectoryURL = dir
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
         try process.run()
         process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
+        guard process.terminationStatus == 0 else {
+            let message = String(data: errorData, encoding: .utf8) ?? ""
+            throw GitTestError.commandFailed(
+                command: "git \(args.joined(separator: " "))",
+                exitCode: Int(process.terminationStatus),
+                stderr: message
+            )
+        }
         return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    private enum GitTestError: Error {
+        case commandFailed(command: String, exitCode: Int, stderr: String)
     }
 
     private static func headPath(for worktree: URL) throws -> String {
@@ -40,6 +55,18 @@ struct GitHeadWatcherTests {
         return raw.hasPrefix("/")
             ? raw
             : (worktree.path as NSString).appendingPathComponent(raw)
+    }
+
+    private static func atomicallyReplaceHead(_ head: String, contents: String) throws {
+        let tmp = "\(head).tmp-\(UUID().uuidString)"
+        try contents.write(toFile: tmp, atomically: false, encoding: .utf8)
+        guard rename(tmp, head) == 0 else {
+            throw NSError(
+                domain: NSPOSIXErrorDomain,
+                code: Int(errno),
+                userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(errno))]
+            )
+        }
     }
 
     /// Wait for the next event on the stream with a timeout. Returns true
@@ -62,6 +89,18 @@ struct GitHeadWatcherTests {
             group.cancelAll()
             return result
         }
+    }
+
+    private static func waitUntil(
+        timeoutAttempts: Int = 200,
+        sleep: Duration = .milliseconds(5),
+        _ condition: () -> Bool
+    ) async -> Bool {
+        for _ in 0 ..< timeoutAttempts {
+            if condition() { return true }
+            try? await Task.sleep(for: sleep)
+        }
+        return condition()
     }
 
     // MARK: - Tests
@@ -163,6 +202,39 @@ struct GitHeadWatcherTests {
         #expect(next == nil, "stream should be finished after stop")
     }
 
+    @Test func stopDuringPendingReopenDoesNotRestartWatcher() async throws {
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let head = try Self.headPath(for: repo)
+        let watcher = GitHeadWatcher(reopenDelay: .seconds(1))
+        let id = UUID()
+        let stream = watcher.start(associationID: id, headPath: head)
+        defer { watcher.stop(associationID: id) }
+        var iterator = stream.makeAsyncIterator()
+
+        try await Task.sleep(for: .milliseconds(50))
+        try Self.atomicallyReplaceHead(head, contents: "ref: refs/heads/pending-stop\n")
+        let event = await iterator.next()
+        #expect(event != nil, "watcher should emit for the atomic HEAD replace")
+
+        let pending = await Self.waitUntil {
+            watcher.pendingReopenCount == 1
+        }
+        #expect(pending, "watcher should enter the pending reopen window")
+
+        watcher.stop(associationID: id)
+        #expect(watcher.watchedCount == 0)
+        #expect(watcher.pendingReopenCount == 0)
+
+        try await Task.sleep(for: .milliseconds(1200))
+        #expect(watcher.watchedCount == 0, "stop should cancel the delayed reopen")
+        #expect(watcher.pendingReopenCount == 0)
+
+        let next = await iterator.next()
+        #expect(next == nil, "stream should be finished after stop")
+    }
+
     @Test func startReplacesExistingEntryForSameID() async throws {
         let repo = try Self.makeRepo()
         defer { try? FileManager.default.removeItem(at: repo) }
@@ -214,5 +286,37 @@ struct GitHeadWatcherTests {
         // Silence "unused" warnings — keeps the streams alive until here.
         _ = streamA
         _ = streamB
+    }
+
+    @Test func stopAllCancelsPendingReopens() async throws {
+        let repo = try Self.makeRepo()
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let head = try Self.headPath(for: repo)
+        let watcher = GitHeadWatcher(reopenDelay: .seconds(1))
+        let id = UUID()
+        let stream = watcher.start(associationID: id, headPath: head)
+        var iterator = stream.makeAsyncIterator()
+
+        try await Task.sleep(for: .milliseconds(50))
+        try Self.atomicallyReplaceHead(head, contents: "ref: refs/heads/pending-stop-all\n")
+        let event = await iterator.next()
+        #expect(event != nil, "watcher should emit for the atomic HEAD replace")
+
+        let pending = await Self.waitUntil {
+            watcher.pendingReopenCount == 1
+        }
+        #expect(pending, "watcher should enter the pending reopen window")
+
+        watcher.stopAll()
+        #expect(watcher.watchedCount == 0)
+        #expect(watcher.pendingReopenCount == 0)
+
+        try await Task.sleep(for: .milliseconds(1200))
+        #expect(watcher.watchedCount == 0, "stopAll should cancel delayed reopens")
+        #expect(watcher.pendingReopenCount == 0)
+
+        let next = await iterator.next()
+        #expect(next == nil, "stream should be finished after stopAll")
     }
 }
