@@ -87,8 +87,10 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
     mutating func visitListItem(_ item: ListItem) -> String {
         let content = item.children.map { visit($0) }.joined()
         if let checkbox = item.checkbox {
-            let checked = checkbox == .checked ? " checked disabled" : " disabled"
-            return "<li><input type=\"checkbox\"\(checked)> \(content)</li>\n"
+            let attrs = checkbox == .checked ? " checked disabled" : " disabled"
+            return "<li class=\"task-list-item\">"
+                + "<input type=\"checkbox\" class=\"task-list-item-checkbox\"\(attrs)> "
+                + "\(content)</li>\n"
         }
         return "<li>\(content)</li>\n"
     }
@@ -346,7 +348,17 @@ enum MarkdownRenderer {
         .dark th { background: #161b22; }
         ul, ol { padding-left: 2em; margin: 0.5em 0; }
         li { margin: 0.25em 0; }
-        li > input[type="checkbox"] { margin-right: 0.5em; }
+        li.task-list-item { list-style-type: none; }
+        /* -1.4em pulls the checkbox into the bullet column. Assumes
+           `ul, ol { padding-left: 2em }` above. */
+        li.task-list-item > input.task-list-item-checkbox {
+            margin: 0 0.4em 0.15em -1.4em;
+            vertical-align: middle;
+        }
+        /* Inline the leading paragraph so it sits beside the checkbox.
+           Vertical margins drop on inline elements, so trailing block <p>s
+           in loose lists still get their own top margin. */
+        li.task-list-item > p:first-of-type { display: inline; }
         hr {
             border: none;
             border-top: 1px solid #d1d9e0;
