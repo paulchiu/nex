@@ -9,7 +9,7 @@
 //   nex pane create [--path /dir] [--name <label>] [--target <name-or-uuid>]
 //   nex pane close [--target <name-or-uuid>] [--workspace <name-or-uuid>]
 //   nex pane name <name>
-//   nex pane send --to <name-or-uuid> <command...>
+//   nex pane send --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>
 //   nex pane move [left|right|up|down]
 //   nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]
 //   nex pane list [--workspace <name-or-id> | --current] [--json] [--no-header]
@@ -81,7 +81,7 @@ func printUsage() {
       nex pane create [--path /dir] [--name <label>] [--target <name-or-uuid>]
       nex pane close [--target <name-or-uuid>] [--workspace <name-or-uuid>]
       nex pane name <name>
-      nex pane send --to <name-or-uuid> <command...>
+      nex pane send --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>
       nex pane move [left|right|up|down]
       nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]
       nex pane list [--workspace <name-or-id> | --current] [--json] [--no-header]
@@ -433,6 +433,15 @@ func handlePane(_ args: inout ArraySlice<String>) {
             // `--target` addresses a pane by label or UUID, so the
             // caller doesn't need to be running inside a Nex pane.
             payload["target"] = target
+            // When running inside a Nex pane, also forward the origin
+            // pane id so the reducer can scope label resolution to the
+            // caller's own workspace (issue #92). Without this the
+            // server falls back to a global lookup and silently
+            // routes to a label match in another workspace.
+            if let originPaneID = ProcessInfo.processInfo.environment["NEX_PANE_ID"],
+               !originPaneID.isEmpty {
+                payload["pane_id"] = originPaneID
+            }
         } else {
             payload["pane_id"] = requirePaneID()
         }
@@ -487,24 +496,65 @@ func handlePane(_ args: inout ArraySlice<String>) {
 
     case "send":
         let paneID = requirePaneID()
-        guard let target = parseFlag("--to", from: &args) else {
-            fputs("Usage: nex pane send --to <name-or-uuid> <command...>\n", stderr)
+        // `--target` matches the rest of the pane subcommands; `--to`
+        // is the original flag and remains supported as a quiet alias
+        // for any scripts that already use it.
+        let target = parseFlag("--target", from: &args) ?? parseFlag("--to", from: &args)
+        guard let target else {
+            fputs("Usage: nex pane send --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>\n", stderr)
             exit(1)
         }
+        // `--workspace <name-or-id>` scopes label resolution. Without
+        // it, the server restricts label lookup to the sender's own
+        // workspace (issue #92). Parse before joining the rest of the
+        // args into the payload text.
+        let workspace = parseFlag("--workspace", from: &args)
 
         let text = args.joined(separator: " ")
         guard !text.isEmpty else {
-            fputs("Usage: nex pane send --to <name-or-uuid> <command...>\n", stderr)
+            fputs("Usage: nex pane send --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>\n", stderr)
             exit(1)
         }
 
-        let payload: [String: String] = [
+        var payload: [String: Any] = [
             "command": "pane-send",
             "pane_id": paneID,
             "target": target,
             "text": text
         ]
-        sendJSON(payload)
+        if let workspace {
+            payload["workspace"] = workspace
+        }
+
+        guard let replyData = sendJSONAndReadReply(payload) else {
+            fputs("nex pane send: transport failure (is Nex running?)\n", stderr)
+            exit(1)
+        }
+        // Empty reply = older Nex that silently dropped the request.
+        // Fire-and-forget pre-#92 servers behaved this way; treat as
+        // success so users on mixed-version setups aren't blocked.
+        if replyData.isEmpty {
+            return
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: replyData) as? [String: Any] else {
+            fputs("nex pane send: invalid JSON response\n", stderr)
+            exit(1)
+        }
+        if let ok = json["ok"] as? Bool, ok == false {
+            let msg = (json["error"] as? String) ?? "unknown error"
+            fputs("nex pane send: \(msg)\n", stderr)
+            exit(1)
+        }
+        // Success ack — print the resolved pane id (and label/workspace
+        // when known) so humans see clear confirmation and scripts can
+        // chain on the id. Mirrors the `pane close` ack format.
+        let resolvedID = (json["pane_id"] as? String) ?? "?"
+        let resolvedLabel = json["label"] as? String
+        let resolvedWS = json["workspace_name"] as? String
+        var ack = "sent to \(resolvedID)"
+        if let resolvedLabel { ack += " (\(resolvedLabel))" }
+        if let resolvedWS { ack += " in workspace \(resolvedWS)" }
+        print(ack)
 
     case "move":
         let paneID = requirePaneID()

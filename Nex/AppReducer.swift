@@ -813,32 +813,51 @@ struct AppReducer {
                 }
                 resolvedID = uuid
             } else {
-                // Label lookup. Workspace scope wins when supplied;
-                // otherwise prefer the origin workspace before falling
-                // back to a globally-unique match.
+                // Label lookup. We require an explicit workspace
+                // scope: either `--workspace <name-or-id>` (highest
+                // precedence) or an origin pane via `NEX_PANE_ID`
+                // (implicit — the caller's own workspace). A bare
+                // label with neither would have to fall back to a
+                // global match, which is the silent-routing class of
+                // bug tracked in #92 — refuse rather than guess.
+                // UUID targets are unaffected since UUIDs are unique
+                // and always resolve globally.
                 let candidates: [Pane]
+                let originWorkspaceName: String?
                 if let scopedWorkspace {
                     candidates = Array(scopedWorkspace.panes.filter { $0.label == target })
+                    originWorkspaceName = nil
                 } else if let paneID,
                           let origin = state.workspaces.first(where: { $0.panes[id: paneID] != nil }) {
-                    let local = origin.panes.filter { $0.label == target }
-                    if local.count == 1 {
-                        candidates = Array(local)
-                    } else if local.isEmpty {
-                        candidates = state.workspaces.flatMap(\.panes).filter { $0.label == target }
-                    } else {
-                        // Ambiguous within origin workspace — surface
-                        // rather than picking arbitrarily.
-                        candidates = Array(local)
-                    }
+                    candidates = Array(origin.panes.filter { $0.label == target })
+                    originWorkspaceName = origin.name
+                } else if let paneID {
+                    // `paneID` came from the wire but no workspace
+                    // contains it — the sender's NEX_PANE_ID is stale
+                    // (origin pane was closed but the env var lives
+                    // on). Treat the caller as if they had no implicit
+                    // workspace context.
+                    return .error(
+                        "origin pane '\(paneID.uuidString)' no longer exists; " +
+                            "pass --workspace <name-or-id> to address a pane in another workspace"
+                    )
                 } else {
-                    candidates = state.workspaces.flatMap(\.panes).filter { $0.label == target }
+                    return .error(
+                        "label '\(target)' requires --workspace <name-or-id> when called from outside a Nex pane"
+                    )
                 }
 
                 switch candidates.count {
                 case 0:
-                    let scope = scopedWorkspace.map { " in workspace '\($0.name)'" } ?? ""
-                    return .error("no pane with label '\(target)'\(scope)")
+                    let scopeSuffix = if let scopedWorkspace {
+                        " in workspace '\(scopedWorkspace.name)'"
+                    } else if let originWorkspaceName {
+                        " in workspace '\(originWorkspaceName)' " +
+                            "(use --workspace <name-or-id> to address another workspace)"
+                    } else {
+                        ""
+                    }
+                    return .error("no pane with label '\(target)'\(scopeSuffix)")
                 case 1:
                     resolvedID = candidates[0].id
                 default:
@@ -977,6 +996,52 @@ struct AppReducer {
             }
             reply?.send(payload)
             reply?.close()
+        }
+    }
+
+    /// Resolve + dispatch a `pane-send` request. Mirrors
+    /// `handlePaneClose` / `handlePaneCapture` — uses the shared
+    /// `resolvePaneTarget` so label lookup is scoped to the sender's
+    /// workspace by default and `--workspace` is the explicit
+    /// cross-workspace escape hatch (issue #92). Replies with
+    /// `{ok:true,...}` on success, `{ok:false,error:...}` on failure.
+    /// `reply == nil` is the legacy fire-and-forget path: dispatch on
+    /// success and silently drop on error so older CLIs keep working.
+    func handlePaneSend(
+        state: State,
+        paneID: UUID,
+        target: String,
+        text: String,
+        workspaceFilter: String?,
+        reply: SocketServer.ReplyHandle?
+    ) -> Effect<Action> {
+        let resolvedID: UUID
+        let workspace: WorkspaceFeature.State
+        switch resolvePaneTarget(state: state, paneID: paneID, target: target, workspaceFilter: workspaceFilter) {
+        case .found(let resolved, let ws):
+            resolvedID = resolved
+            workspace = ws
+        case .error(let error):
+            reply?.send(["ok": false, "error": error])
+            reply?.close()
+            return .none
+        }
+
+        var payload: [String: Any] = [
+            "ok": true,
+            "pane_id": resolvedID.uuidString,
+            "workspace_id": workspace.id.uuidString,
+            "workspace_name": workspace.name
+        ]
+        if let label = workspace.panes[id: resolvedID]?.label {
+            payload["label"] = label
+        }
+        reply?.send(payload)
+        reply?.close()
+
+        let mgr = surfaceManager
+        return .run { _ in
+            await mgr.sendCommand(to: resolvedID, command: text)
         }
     }
 
@@ -2458,17 +2523,15 @@ struct AppReducer {
                     state.workspaces[id: workspace.id]?.panes[id: paneID]?.label = name.isEmpty ? nil : name
                     return .send(.persistState)
 
-                case .paneSend(let paneID, let target, let text):
-                    guard state.workspaces.first(where: { $0.panes[id: paneID] != nil }) != nil
-                    else { return .none }
-
-                    guard let resolvedID = Self.resolveTarget(target, from: paneID, state: state)
-                    else { return .none }
-
-                    let mgr = surfaceManager
-                    return .run { _ in
-                        await mgr.sendCommand(to: resolvedID, command: text)
-                    }
+                case .paneSend(let paneID, let target, let text, let workspaceFilter):
+                    return handlePaneSend(
+                        state: state,
+                        paneID: paneID,
+                        target: target,
+                        text: text,
+                        workspaceFilter: workspaceFilter,
+                        reply: reply
+                    )
 
                 case .paneMove(let paneID, let direction):
                     guard let workspace = state.workspaces.first(where: { $0.panes[id: paneID] != nil })
