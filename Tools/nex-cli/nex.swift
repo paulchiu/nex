@@ -100,6 +100,26 @@ func printUsage() {
     """, stderr)
 }
 
+func printPaneCloseUsage(stream: UnsafeMutablePointer<FILE>) {
+    fputs("""
+    Usage:
+      nex pane close                          # close the calling pane (requires NEX_PANE_ID)
+      nex pane close --target <name-or-uuid>  # close a specific pane by label or UUID
+
+    Options:
+      --workspace <name-or-uuid>  Scope label resolution to a specific workspace.
+      -h, --help                  Show this help.
+
+    A bare positional argument is rejected on purpose — addressing a pane
+    other than the caller always goes through --target so a typo cannot
+    silently close the calling pane.
+
+    Exit codes: 0 on success, non-zero on failure (unknown target, ambiguous label,
+    transport failure, etc).
+    \n
+    """, stream)
+}
+
 func parseFlag(_ name: String, from args: inout ArraySlice<String>) -> String? {
     guard let idx = args.firstIndex(of: name) else { return nil }
     let valueIdx = args.index(after: idx)
@@ -424,8 +444,38 @@ func handlePane(_ args: inout ArraySlice<String>) {
         sendJSON(payload)
 
     case "close":
+        if args.contains("--help") || args.contains("-h") {
+            printPaneCloseUsage(stream: stdout)
+            exit(0)
+        }
         let target = parseFlag("--target", from: &args)
         let workspace = parseFlag("--workspace", from: &args)
+        // Issue #108: a positional `<name-or-uuid>` was silently
+        // dropped and the calling pane was closed instead. We
+        // deliberately do NOT support positional targets — `--target`
+        // is the explicit, unambiguous form. Anything left in `args`
+        // after parsing the known flags is treated as user error and
+        // rejected, so a typo can never silently fall through to
+        // closing the caller.
+        let knownFlags: Set = ["--target", "--workspace", "--help", "-h"]
+        let leftover = args.filter { knownFlags.contains($0) == false }
+        if let first = leftover.first {
+            if first.hasPrefix("--") || first.hasPrefix("-") {
+                fputs("nex pane close: unknown option \(first)\n", stderr)
+            } else {
+                fputs("nex pane close: unexpected argument '\(first)' — use --target <name-or-uuid> to address a specific pane\n", stderr)
+            }
+            printPaneCloseUsage(stream: stderr)
+            exit(1)
+        }
+        // A bare `--workspace` without a target is meaningless and
+        // would otherwise fall through to closing the calling pane —
+        // the exact destructive surprise this fix exists to prevent.
+        if target == nil, workspace != nil {
+            fputs("nex pane close: --workspace requires --target <name-or-uuid>\n", stderr)
+            printPaneCloseUsage(stream: stderr)
+            exit(1)
+        }
         var payload: [String: Any] = [
             "command": "pane-close"
         ]
@@ -1006,6 +1056,11 @@ guard let subcommand = args.popFirst() else {
 
 if subcommand == "--version" || subcommand == "version" {
     print("nex \(nexVersion)")
+    exit(0)
+}
+
+if subcommand == "--help" || subcommand == "-h" || subcommand == "help" {
+    printUsage()
     exit(0)
 }
 
