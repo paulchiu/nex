@@ -1054,7 +1054,7 @@ struct AppReducer {
     /// inside `SurfaceManager.sendKey` via `GhosttySurface.sendNamedKey`.
     func handlePaneSendKey(
         state: State,
-        paneID: UUID,
+        paneID: UUID?,
         target: String,
         key: String,
         workspaceFilter: String?,

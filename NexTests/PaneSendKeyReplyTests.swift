@@ -226,6 +226,68 @@ struct PaneSendKeyReplyTests {
         #expect(sink.payloads[0]["workspace_id"] as? String == Self.ws2ID.uuidString)
     }
 
+    // MARK: - Callable from outside a Nex pane (nil paneID)
+
+    @Test func sendKeyByUUIDWithoutOriginPaneRepliesOk() async {
+        // External script with no NEX_PANE_ID — UUID target should
+        // resolve globally (UUIDs are unique) without needing
+        // --workspace.
+        let ws = makeWorkspace(
+            id: Self.ws1ID, name: "alpha",
+            panes: [Pane(id: Self.pane1), Pane(id: Self.pane2)]
+        )
+        let store = makeStore(workspaces: [ws], activeWorkspaceID: Self.ws1ID)
+
+        let sink = CaptureSink()
+        await store.send(.socketMessage(
+            .paneSendKey(paneID: nil, target: Self.pane2.uuidString, key: "enter", workspace: nil),
+            reply: makeCaptureHandle(sink)
+        ))
+
+        #expect(sink.payloads[0]["ok"] as? Bool == true)
+        #expect(sink.payloads[0]["pane_id"] as? String == Self.pane2.uuidString)
+    }
+
+    @Test func sendKeyByLabelWithoutOriginPaneRequiresWorkspace() async {
+        // External script with no NEX_PANE_ID and no --workspace —
+        // label resolution can't pick a workspace, so the request
+        // must be rejected with a hint pointing at --workspace.
+        let ws = makeWorkspace(
+            id: Self.ws1ID, name: "alpha",
+            panes: [Pane(id: Self.pane1, label: "worker")]
+        )
+        let store = makeStore(workspaces: [ws], activeWorkspaceID: Self.ws1ID)
+
+        let sink = CaptureSink()
+        await store.send(.socketMessage(
+            .paneSendKey(paneID: nil, target: "worker", key: "enter", workspace: nil),
+            reply: makeCaptureHandle(sink)
+        ))
+
+        #expect(sink.payloads[0]["ok"] as? Bool == false)
+        let error = sink.payloads[0]["error"] as? String ?? ""
+        #expect(error.contains("--workspace"))
+    }
+
+    @Test func sendKeyByLabelWithoutOriginPaneAndExplicitWorkspaceRepliesOk() async {
+        // External script with --workspace specified — resolves
+        // cleanly even without a NEX_PANE_ID origin.
+        let ws = makeWorkspace(
+            id: Self.ws1ID, name: "alpha",
+            panes: [Pane(id: Self.pane1, label: "worker")]
+        )
+        let store = makeStore(workspaces: [ws], activeWorkspaceID: Self.ws1ID)
+
+        let sink = CaptureSink()
+        await store.send(.socketMessage(
+            .paneSendKey(paneID: nil, target: "worker", key: "enter", workspace: "alpha"),
+            reply: makeCaptureHandle(sink)
+        ))
+
+        #expect(sink.payloads[0]["ok"] as? Bool == true)
+        #expect(sink.payloads[0]["pane_id"] as? String == Self.pane1.uuidString)
+    }
+
     @Test func sendKeyToUnknownTargetFails() async {
         let ws = makeWorkspace(
             id: Self.ws1ID, name: "alpha",

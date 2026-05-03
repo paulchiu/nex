@@ -302,6 +302,18 @@ struct SocketParsingTests {
         #expect(result == nil)
     }
 
+    @Test func parsePaneSendKeyWithoutPaneIDAccepted() {
+        // External callers without a NEX_PANE_ID still produce a
+        // valid wire message; the reducer's resolvePaneTarget will
+        // demand --workspace for label targets.
+        let data = jsonData("""
+        {"command":"pane-send-key","target":"worker","key":"enter","workspace":"alpha"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result != nil)
+        #expect(result?.0 == .paneSendKey(paneID: nil, target: "worker", key: "enter", workspace: "alpha"))
+    }
+
     // MARK: - parseWireMessage — Workspace commands
 
     @Test func parseWorkspaceCreateCommand() {

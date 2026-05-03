@@ -33,10 +33,13 @@ enum SocketMessage: Equatable {
     case paneSend(paneID: UUID, target: String, text: String, workspace: String?)
     /// Send a single named keystroke (Enter, Tab, Escape, ...) to a
     /// pane resolved by `target`. `key` is one of the names in
-    /// `GhosttySurface.namedKeyAliases`. Workspace scoping mirrors
+    /// `GhosttySurface.namedKeyAliases`. `paneID` is optional (mirrors
+    /// `pane-close` / `pane-capture`) so external scripts without a
+    /// `NEX_PANE_ID` can still address a pane by UUID or by label
+    /// when paired with `--workspace`. Workspace scoping mirrors
     /// `paneSend`. Reply contract is the same: structured success or
     /// `{ok:false,error:...}` (issue #98).
-    case paneSendKey(paneID: UUID, target: String, key: String, workspace: String?)
+    case paneSendKey(paneID: UUID?, target: String, key: String, workspace: String?)
     case paneMove(paneID: UUID, direction: PaneLayout.Direction)
     case paneMoveToWorkspace(paneID: UUID, toWorkspace: String, create: Bool)
     /// Workspace commands
@@ -580,6 +583,20 @@ final class SocketServer: Sendable {
             ), wire)
         }
 
+        if wire.command == "pane-send-key" {
+            // Mirrors `pane-close` / `pane-capture`: `paneID` (from
+            // NEX_PANE_ID, when set) scopes label resolution to the
+            // caller's workspace; without it, the reducer's
+            // `resolvePaneTarget` requires either a UUID target or
+            // an explicit `--workspace`. `target` and `key` are
+            // both required and non-empty.
+            let paneID = wire.paneID.flatMap { UUID(uuidString: $0) }
+            guard let target = wire.target, !target.isEmpty,
+                  let key = wire.key, !key.isEmpty else { return nil }
+            let workspace = (wire.workspace?.isEmpty == true) ? nil : wire.workspace
+            return (.paneSendKey(paneID: paneID, target: target, key: key, workspace: workspace), wire)
+        }
+
         guard let paneIDString = wire.paneID,
               let paneID = UUID(uuidString: paneIDString) else { return nil }
 
@@ -613,11 +630,6 @@ final class SocketServer: Sendable {
                   let text = wire.text, !text.isEmpty else { return nil }
             let workspace = (wire.workspace?.isEmpty == true) ? nil : wire.workspace
             socketMessage = .paneSend(paneID: paneID, target: target, text: text, workspace: workspace)
-        case "pane-send-key":
-            guard let target = wire.target, !target.isEmpty,
-                  let key = wire.key, !key.isEmpty else { return nil }
-            let workspace = (wire.workspace?.isEmpty == true) ? nil : wire.workspace
-            socketMessage = .paneSendKey(paneID: paneID, target: target, key: key, workspace: workspace)
         case "pane-move":
             guard let dirString = wire.direction,
                   let dir = PaneLayout.Direction(rawValue: dirString) else { return nil }
