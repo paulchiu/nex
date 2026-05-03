@@ -9,7 +9,7 @@ struct MarkdownPaneView: NSViewRepresentable {
     let isFocused: Bool
     var backgroundColor: NSColor = .windowBackgroundColor
     var backgroundOpacity: Double = 1.0
-    var fontSize: Double = 14
+    var fontSize: Double = Pane.defaultMarkdownFontSize
     @Environment(\.sidebarTextEditingActive) private var sidebarTextEditingActive
 
     func makeCoordinator() -> Coordinator {
@@ -101,7 +101,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         var filePath: String = ""
         var backgroundColor: NSColor = .windowBackgroundColor
         var backgroundOpacity: Double = 1.0
-        var fontSize: Double = 14
+        var fontSize: Double = Pane.defaultMarkdownFontSize
         var lastIsFocused: Bool = false
         private var currentContent: String = ""
         /// Monotonic token: incremented before each render, checked after

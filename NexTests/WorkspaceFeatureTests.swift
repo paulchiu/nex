@@ -384,6 +384,66 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    @Test func resetMarkdownFontSizeRestoresDefault() async {
+        var workspace = WorkspaceFeature.State(name: "Test")
+        let paneID = UUID()
+        workspace.panes.append(Pane(
+            id: paneID,
+            type: .markdown,
+            filePath: "/tmp/note.md",
+            markdownFontSize: 22
+        ))
+
+        let store = TestStore(initialState: workspace) {
+            WorkspaceFeature()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        await store.send(.resetMarkdownFontSize(paneID)) { state in
+            state.panes[id: paneID]?.markdownFontSize = Pane.defaultMarkdownFontSize
+        }
+    }
+
+    @Test func resetMarkdownFontSizeIgnoresNonMarkdownPane() async {
+        var workspace = WorkspaceFeature.State(name: "Test")
+        let paneID = UUID()
+        workspace.panes.append(Pane(id: paneID, type: .shell, markdownFontSize: 22))
+
+        let store = TestStore(initialState: workspace) {
+            WorkspaceFeature()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        // No state mutation expected — guard rejects shell panes.
+        await store.send(.resetMarkdownFontSize(paneID))
+    }
+
+    @Test func resetMarkdownFontSizeIgnoresEditingPane() async {
+        var workspace = WorkspaceFeature.State(name: "Test")
+        let paneID = UUID()
+        workspace.panes.append(Pane(
+            id: paneID,
+            type: .markdown,
+            filePath: "/tmp/note.md",
+            isEditing: true,
+            markdownFontSize: 22
+        ))
+
+        let store = TestStore(initialState: workspace) {
+            WorkspaceFeature()
+        } withDependencies: {
+            $0.surfaceManager = SurfaceManager()
+        }
+        store.exhaustivity = .off(showSkippedAssertions: false)
+
+        // No mutation: edit-mode panes use the editor's own zoom.
+        await store.send(.resetMarkdownFontSize(paneID))
+    }
+
     @Test func setColor() async {
         let store = TestStore(initialState: WorkspaceFeature.State(name: "Test", color: .blue)) {
             WorkspaceFeature()
