@@ -7,6 +7,10 @@ enum PaneStatus: String, Codable, Equatable {
 }
 
 struct Pane: Identifiable, Equatable {
+    /// Default body font size (px) for markdown preview panes. The reset
+    /// keybinding (⌘0) snaps `markdownFontSize` back to this value.
+    static let defaultMarkdownFontSize: Double = 14
+
     let id: UUID
     var label: String?
     var type: PaneType
@@ -52,7 +56,7 @@ struct Pane: Identifiable, Equatable {
         scratchpadContent: String? = nil,
         status: PaneStatus = .idle,
         claudeSessionID: String? = nil,
-        markdownFontSize: Double = 14,
+        markdownFontSize: Double = Pane.defaultMarkdownFontSize,
         parkedSourcePaneID: UUID? = nil,
         createdAt: Date = Date(),
         lastActivityAt: Date = Date()

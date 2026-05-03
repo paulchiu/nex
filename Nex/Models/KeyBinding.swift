@@ -233,6 +233,7 @@ enum NexAction: String, CaseIterable {
     case toggleMarkdownEdit = "toggle_markdown_edit"
     case increaseMarkdownFontSize = "increase_markdown_font_size"
     case decreaseMarkdownFontSize = "decrease_markdown_font_size"
+    case resetMarkdownFontSize = "reset_markdown_font_size"
     case toggleZoom = "toggle_zoom"
     case reopenClosedPane = "reopen_closed_pane"
     case toggleSearch = "toggle_search"
@@ -290,6 +291,7 @@ enum NexAction: String, CaseIterable {
         case .toggleMarkdownEdit: "Toggle Markdown Edit"
         case .increaseMarkdownFontSize: "Increase Markdown Font Size"
         case .decreaseMarkdownFontSize: "Decrease Markdown Font Size"
+        case .resetMarkdownFontSize: "Reset Markdown Font Size"
         case .toggleZoom: "Toggle Zoom"
         case .reopenClosedPane: "Reopen Closed Pane"
         case .toggleSearch: "Toggle Search"
@@ -322,7 +324,8 @@ enum NexAction: String, CaseIterable {
             "Workspaces"
         case .toggleSidebar, .toggleInspector:
             "View"
-        case .openFile, .toggleMarkdownEdit, .increaseMarkdownFontSize, .decreaseMarkdownFontSize, .openDiff:
+        case .openFile, .toggleMarkdownEdit, .increaseMarkdownFontSize, .decreaseMarkdownFontSize,
+             .resetMarkdownFontSize, .openDiff:
             "Files"
         case .toggleSearch, .closeSearch:
             "Search"
@@ -482,6 +485,7 @@ struct KeyBindingMap: Equatable {
         bindings[KeyTrigger(keyCode: 14, modifiers: .command)] = .toggleMarkdownEdit // ⌘E
         bindings[KeyTrigger(keyCode: 24, modifiers: .command)] = .increaseMarkdownFontSize // ⌘=
         bindings[KeyTrigger(keyCode: 27, modifiers: .command)] = .decreaseMarkdownFontSize // ⌘-
+        bindings[KeyTrigger(keyCode: 29, modifiers: .command)] = .resetMarkdownFontSize // ⌘0
         bindings[KeyTrigger(keyCode: 36, modifiers: [.command, .shift])] = .toggleZoom // ⌘⇧Return
         bindings[KeyTrigger(keyCode: 17, modifiers: [.command, .shift])] = .reopenClosedPane // ⌘⇧T
         bindings[KeyTrigger(keyCode: 3, modifiers: .command)] = .toggleSearch // ⌘F

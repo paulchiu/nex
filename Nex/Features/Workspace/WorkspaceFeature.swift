@@ -176,6 +176,7 @@ struct WorkspaceFeature {
         case toggleMarkdownEdit(UUID)
         case increaseMarkdownFontSize(UUID)
         case decreaseMarkdownFontSize(UUID)
+        case resetMarkdownFontSize(UUID)
         case createScratchpad
         case scratchpadContentChanged(paneID: UUID, content: String)
         case addRepoAssociation(RepoAssociation)
@@ -735,6 +736,13 @@ struct WorkspaceFeature {
                 else { return .none }
                 let next = max(pane.markdownFontSize - 1, 8)
                 state.panes[id: paneID]?.markdownFontSize = next
+                return .none
+
+            case .resetMarkdownFontSize(let paneID):
+                guard state.panes[id: paneID]?.type == .markdown,
+                      state.panes[id: paneID]?.isEditing == false
+                else { return .none }
+                state.panes[id: paneID]?.markdownFontSize = Pane.defaultMarkdownFontSize
                 return .none
 
             case .addRepoAssociation(let assoc):
