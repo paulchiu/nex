@@ -249,6 +249,59 @@ struct SocketParsingTests {
         #expect(result == nil)
     }
 
+    // MARK: - parseWireMessage — pane-send-key (issue #98)
+
+    @Test func parsePaneSendKeyCommand() {
+        let data = jsonData("""
+        {"command":"pane-send-key","pane_id":"\(Self.paneIDString)","target":"worker","key":"enter"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result != nil)
+        #expect(result?.0 == .paneSendKey(paneID: Self.paneUUID, target: "worker", key: "enter", workspace: nil))
+    }
+
+    @Test func parsePaneSendKeyWithWorkspace() {
+        let data = jsonData("""
+        {"command":"pane-send-key","pane_id":"\(Self.paneIDString)","target":"worker","key":"tab","workspace":"beta"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result != nil)
+        #expect(result?.0 == .paneSendKey(paneID: Self.paneUUID, target: "worker", key: "tab", workspace: "beta"))
+    }
+
+    @Test func parsePaneSendKeyEmptyWorkspaceNormalisedToNil() {
+        let data = jsonData("""
+        {"command":"pane-send-key","pane_id":"\(Self.paneIDString)","target":"worker","key":"enter","workspace":""}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result != nil)
+        #expect(result?.0 == .paneSendKey(paneID: Self.paneUUID, target: "worker", key: "enter", workspace: nil))
+    }
+
+    @Test func parsePaneSendKeyMissingTarget() {
+        let data = jsonData("""
+        {"command":"pane-send-key","pane_id":"\(Self.paneIDString)","key":"enter"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result == nil)
+    }
+
+    @Test func parsePaneSendKeyMissingKey() {
+        let data = jsonData("""
+        {"command":"pane-send-key","pane_id":"\(Self.paneIDString)","target":"worker"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result == nil)
+    }
+
+    @Test func parsePaneSendKeyEmptyKeyRejected() {
+        let data = jsonData("""
+        {"command":"pane-send-key","pane_id":"\(Self.paneIDString)","target":"worker","key":""}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result == nil)
+    }
+
     // MARK: - parseWireMessage — Workspace commands
 
     @Test func parseWorkspaceCreateCommand() {

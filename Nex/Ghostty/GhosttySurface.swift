@@ -29,15 +29,32 @@ final class GhosttySurface {
 
     /// Send a Return key press+release to the terminal.
     func sendEnterKey() {
+        _ = sendNamedKey("enter")
+    }
+
+    /// Send a single named key press+release. Returns true if the
+    /// name resolves to a known key. Used by `nex pane send-key` to
+    /// deliver an explicit keystroke (Enter, Tab, Escape, ...) outside
+    /// any bracketed-paste envelope — see issue #98.
+    @discardableResult
+    func sendNamedKey(_ name: String) -> Bool {
+        guard let spec = Self.namedKey(for: name) else { return false }
+
         var key = ghostty_input_key_s()
         key.action = GHOSTTY_ACTION_PRESS
-        key.keycode = 0x24 // macOS Return keycode
-        key.mods = GHOSTTY_MODS_NONE
+        key.keycode = spec.keycode
+        key.mods = spec.mods
         key.consumed_mods = GHOSTTY_MODS_NONE
         key.composing = false
-        key.unshifted_codepoint = 0x0D
-        "\r".withCString { ptr in
-            key.text = ptr
+        key.unshifted_codepoint = spec.codepoint
+
+        if let text = spec.text {
+            text.withCString { ptr in
+                key.text = ptr
+                _ = ghostty_surface_key(surface, key)
+            }
+        } else {
+            key.text = nil
             _ = ghostty_surface_key(surface, key)
         }
 
@@ -45,6 +62,62 @@ final class GhosttySurface {
         release.action = GHOSTTY_ACTION_RELEASE
         release.text = nil
         _ = ghostty_surface_key(surface, release)
+        return true
+    }
+
+    /// Description of a synthesized keystroke. `text` is the byte
+    /// sequence the PTY should see; `nil` means "let libghostty
+    /// translate the keycode" (arrow keys, whose escape sequence
+    /// depends on terminal mode).
+    private struct NamedKeySpec {
+        let keycode: UInt32
+        let codepoint: UInt32
+        let text: String?
+        let mods: ghostty_input_mods_e
+    }
+
+    /// Names accepted by `sendNamedKey`. Lowercased on lookup so the
+    /// CLI can pass `Enter` / `ENTER` / `enter` interchangeably. The
+    /// list is intentionally narrow — it's the set of keys an
+    /// orchestrator pane realistically needs to drive a TUI.
+    static let namedKeyAliases: [String] = [
+        "enter", "return",
+        "tab",
+        "escape", "esc",
+        "space",
+        "backspace",
+        "up", "down", "left", "right",
+        "ctrl-c"
+    ]
+
+    private static func namedKey(for rawName: String) -> NamedKeySpec? {
+        let lowered = rawName.lowercased()
+        switch lowered {
+        case "enter", "return":
+            return NamedKeySpec(keycode: 0x24, codepoint: 0x0D, text: "\r", mods: GHOSTTY_MODS_NONE)
+        case "tab":
+            return NamedKeySpec(keycode: 0x30, codepoint: 0x09, text: "\t", mods: GHOSTTY_MODS_NONE)
+        case "escape", "esc":
+            return NamedKeySpec(keycode: 0x35, codepoint: 0x1B, text: "\u{1B}", mods: GHOSTTY_MODS_NONE)
+        case "space":
+            return NamedKeySpec(keycode: 0x31, codepoint: 0x20, text: " ", mods: GHOSTTY_MODS_NONE)
+        case "backspace":
+            // macOS Delete (backspace) keycode is 0x33; PTY byte is DEL (0x7F).
+            return NamedKeySpec(keycode: 0x33, codepoint: 0x7F, text: "\u{7F}", mods: GHOSTTY_MODS_NONE)
+        case "up":
+            return NamedKeySpec(keycode: 0x7E, codepoint: 0xF700, text: nil, mods: GHOSTTY_MODS_NONE)
+        case "down":
+            return NamedKeySpec(keycode: 0x7D, codepoint: 0xF701, text: nil, mods: GHOSTTY_MODS_NONE)
+        case "left":
+            return NamedKeySpec(keycode: 0x7B, codepoint: 0xF702, text: nil, mods: GHOSTTY_MODS_NONE)
+        case "right":
+            return NamedKeySpec(keycode: 0x7C, codepoint: 0xF703, text: nil, mods: GHOSTTY_MODS_NONE)
+        case "ctrl-c":
+            // C keycode 0x08, with control mod the PTY sees ETX (0x03).
+            return NamedKeySpec(keycode: 0x08, codepoint: 0x63, text: "\u{03}", mods: GHOSTTY_MODS_CTRL)
+        default:
+            return nil
+        }
     }
 
     func sendPreedit(_ text: String) {

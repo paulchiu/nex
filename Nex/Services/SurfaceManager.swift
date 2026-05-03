@@ -113,6 +113,20 @@ final class SurfaceManager: Sendable {
         surface.sendEnterKey()
     }
 
+    /// Send a single named keystroke (Enter, Tab, Escape, ...) to a
+    /// pane's terminal. Used by `nex pane send-key` to deliver an
+    /// explicit keystroke outside any bracketed-paste envelope —
+    /// `pane send "text"` followed by `pane send-key enter` is the
+    /// reliable submit path for TUI targets (issue #98). Returns
+    /// false if `keyName` is not in the supported allowlist.
+    @MainActor
+    @discardableResult
+    func sendKey(to paneID: UUID, keyName: String) -> Bool {
+        let surfaceView = lock.withLock { surfaces[paneID] }
+        guard let surface = surfaceView?.ghosttySurface else { return false }
+        return surface.sendNamedKey(keyName)
+    }
+
     /// Read the terminal contents of a pane as plain text. Returns nil if no
     /// surface is registered for the pane (e.g. it was destroyed concurrently).
     /// When `includeScrollback` is false, returns just the visible viewport.

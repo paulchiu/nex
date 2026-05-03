@@ -31,6 +31,12 @@ enum SocketMessage: Equatable {
     /// workspaces. The reducer replies with a structured success/error
     /// payload (request/response — see `replyCommandAllowlist`).
     case paneSend(paneID: UUID, target: String, text: String, workspace: String?)
+    /// Send a single named keystroke (Enter, Tab, Escape, ...) to a
+    /// pane resolved by `target`. `key` is one of the names in
+    /// `GhosttySurface.namedKeyAliases`. Workspace scoping mirrors
+    /// `paneSend`. Reply contract is the same: structured success or
+    /// `{ok:false,error:...}` (issue #98).
+    case paneSendKey(paneID: UUID, target: String, key: String, workspace: String?)
     case paneMove(paneID: UUID, direction: PaneLayout.Direction)
     case paneMoveToWorkspace(paneID: UUID, toWorkspace: String, create: Bool)
     /// Workspace commands
@@ -66,7 +72,7 @@ enum SocketMessage: Equatable {
 /// command outside this allowlist the server does not allocate a
 /// `ReplyHandle` and the wire behaviour is byte-identical to the
 /// pre-request/response protocol.
-private let replyCommandAllowlist: Set<String> = ["pane-list", "pane-close", "pane-capture", "pane-send"]
+private let replyCommandAllowlist: Set<String> = ["pane-list", "pane-close", "pane-capture", "pane-send", "pane-send-key"]
 
 /// Unix domain socket server that listens for structured JSON messages
 /// from the `nex` CLI tool. Agent hooks (Claude Code, Codex)
@@ -441,6 +447,9 @@ final class SocketServer: Sendable {
         var color: String?
         var target: String?
         var text: String?
+        /// `pane-send-key` — name of the keystroke to deliver
+        /// (e.g. "enter", "tab"). See `GhosttySurface.namedKeyAliases`.
+        var key: String?
         // Group/workspace-management fields
         var newName: String?
         var cascade: Bool?
@@ -463,7 +472,7 @@ final class SocketServer: Sendable {
             case paneID = "pane_id"
             case message, title, body
             case sessionID = "session_id"
-            case direction, path, name, color, target, text
+            case direction, path, name, color, target, text, key
             case newName = "new_name"
             case cascade, index, group
             case workspace, scope
@@ -604,6 +613,11 @@ final class SocketServer: Sendable {
                   let text = wire.text, !text.isEmpty else { return nil }
             let workspace = (wire.workspace?.isEmpty == true) ? nil : wire.workspace
             socketMessage = .paneSend(paneID: paneID, target: target, text: text, workspace: workspace)
+        case "pane-send-key":
+            guard let target = wire.target, !target.isEmpty,
+                  let key = wire.key, !key.isEmpty else { return nil }
+            let workspace = (wire.workspace?.isEmpty == true) ? nil : wire.workspace
+            socketMessage = .paneSendKey(paneID: paneID, target: target, key: key, workspace: workspace)
         case "pane-move":
             guard let dirString = wire.direction,
                   let dir = PaneLayout.Direction(rawValue: dirString) else { return nil }

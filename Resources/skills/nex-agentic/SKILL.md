@@ -197,6 +197,20 @@ nex workspace create [--name "..."] [--path /dir] [--color blue|green|red|yellow
   followed by an Enter keypress. If a shell is running, the text executes as a
   shell command. If Claude is running in interactive mode, the text becomes a
   prompt.
+- **TUI submit caveat (issue #98)**: when the target opts into bracketed-paste
+  mode (Claude Code, vim, ...), the trailing Enter from `pane send` is
+  intermittently captured inside the paste envelope and the message lands as
+  pasted text without submitting. For interactive Claude/TUI workers, prefer
+  the explicit two-step submit:
+
+  ```bash
+  nex pane send     --target worker-1 "<prompt>"
+  nex pane send-key --target worker-1 enter
+  ```
+
+  `pane send-key` accepts `enter`, `return`, `tab`, `escape`/`esc`, `space`,
+  `backspace`, `up`/`down`/`left`/`right`, and `ctrl-c`. It uses the same
+  `--target` / `--workspace` resolution as `pane send`.
 
 ## Multi-Agent Workflow Patterns
 

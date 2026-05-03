@@ -10,6 +10,7 @@
 //   nex pane close [--target <name-or-uuid>] [--workspace <name-or-uuid>]
 //   nex pane name <name>
 //   nex pane send --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>
+//   nex pane send-key --target <name-or-uuid> [--workspace <name-or-uuid>] <key>
 //   nex pane move [left|right|up|down]
 //   nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]
 //   nex pane list [--workspace <name-or-id> | --current] [--json] [--no-header]
@@ -82,6 +83,7 @@ func printUsage() {
       nex pane close [--target <name-or-uuid>] [--workspace <name-or-uuid>]
       nex pane name <name>
       nex pane send --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>
+      nex pane send-key --target <name-or-uuid> [--workspace <name-or-uuid>] <key>
       nex pane move [left|right|up|down]
       nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]
       nex pane list [--workspace <name-or-id> | --current] [--json] [--no-header]
@@ -398,7 +400,7 @@ func handleEvent(_ args: inout ArraySlice<String>) {
 
 func handlePane(_ args: inout ArraySlice<String>) {
     guard let action = args.popFirst() else {
-        fputs("Usage: nex pane split|create|close|name|send|move|list|capture|id [...]\n", stderr)
+        fputs("Usage: nex pane split|create|close|name|send|send-key|move|list|capture|id [...]\n", stderr)
         exit(1)
     }
 
@@ -606,6 +608,88 @@ func handlePane(_ args: inout ArraySlice<String>) {
         if let resolvedWS { ack += " in workspace \(resolvedWS)" }
         print(ack)
 
+    case "send-key":
+        // Issue #98: bracketed-paste mode in TUI targets sometimes
+        // captures the trailing newline from `pane send` inside the
+        // paste envelope, so the message lands as `[Pasted text]` and
+        // never submits. `pane send-key` delivers an explicit
+        // keystroke (Enter, Tab, Escape, ...) outside any paste
+        // envelope, so the workflow becomes:
+        //   nex pane send     --target X "text"
+        //   nex pane send-key --target X enter
+        let target = parseFlag("--target", from: &args)
+        let workspace = parseFlag("--workspace", from: &args)
+        guard let target, !target.isEmpty else {
+            fputs("Usage: nex pane send-key --target <name-or-uuid> [--workspace <name-or-uuid>] <key>\n", stderr)
+            exit(1)
+        }
+        // Reject unknown options before accepting the positional key,
+        // mirroring `pane close`'s defensive parsing (issue #108) so a
+        // typo can't silently fall through to a key send. parseFlag
+        // has already consumed --target/--workspace and their values,
+        // so anything still in args that starts with `-` is an
+        // unknown option and the rest must be the single positional
+        // key token.
+        let keyTokens = args.filter { !$0.hasPrefix("-") }
+        let unknownOpts = args.filter { $0.hasPrefix("-") }
+        if let first = unknownOpts.first {
+            fputs("nex pane send-key: unknown option \(first)\n", stderr)
+            fputs("Usage: nex pane send-key --target <name-or-uuid> [--workspace <name-or-uuid>] <key>\n", stderr)
+            exit(1)
+        }
+        guard let key = keyTokens.first, keyTokens.count == 1 else {
+            fputs("Usage: nex pane send-key --target <name-or-uuid> [--workspace <name-or-uuid>] <key>\n", stderr)
+            fputs("       <key> is one of: enter, return, tab, escape, esc, space, backspace, up, down, left, right, ctrl-c\n", stderr)
+            exit(1)
+        }
+
+        // pane_id is the caller's NEX_PANE_ID when set — it scopes
+        // label resolution to the caller's workspace by default
+        // (issue #92). When called from outside a Nex pane (e.g. an
+        // external script), the request still works as long as the
+        // target resolves unambiguously or `--workspace` is supplied.
+        var payload: [String: Any] = [
+            "command": "pane-send-key",
+            "target": target,
+            "key": key
+        ]
+        if let originPaneID = ProcessInfo.processInfo.environment["NEX_PANE_ID"],
+           !originPaneID.isEmpty {
+            payload["pane_id"] = originPaneID
+        }
+        if let workspace, !workspace.isEmpty {
+            payload["workspace"] = workspace
+        }
+
+        guard let replyData = sendJSONAndReadReply(payload) else {
+            fputs("nex pane send-key: transport failure (is Nex running?)\n", stderr)
+            exit(1)
+        }
+        // Empty reply = older Nex that doesn't know the command. Treat
+        // as failure — unlike `pane send`, there's no pre-#98 fallback
+        // path that produced the right behaviour silently.
+        if replyData.isEmpty {
+            fputs("nex pane send-key: empty reply (Nex version may not support this command)\n", stderr)
+            exit(1)
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: replyData) as? [String: Any] else {
+            fputs("nex pane send-key: invalid JSON response\n", stderr)
+            exit(1)
+        }
+        if let ok = json["ok"] as? Bool, ok == false {
+            let msg = (json["error"] as? String) ?? "unknown error"
+            fputs("nex pane send-key: \(msg)\n", stderr)
+            exit(1)
+        }
+        let resolvedID = (json["pane_id"] as? String) ?? "?"
+        let resolvedLabel = json["label"] as? String
+        let resolvedWS = json["workspace_name"] as? String
+        let resolvedKey = (json["key"] as? String) ?? key.lowercased()
+        var ack = "sent \(resolvedKey) to \(resolvedID)"
+        if let resolvedLabel { ack += " (\(resolvedLabel))" }
+        if let resolvedWS { ack += " in workspace \(resolvedWS)" }
+        print(ack)
+
     case "move":
         let paneID = requirePaneID()
         guard let direction = args.popFirst() else {
@@ -649,7 +733,7 @@ func handlePane(_ args: inout ArraySlice<String>) {
 
     default:
         fputs("Unknown pane action: \(action)\n", stderr)
-        fputs("Valid actions: split, create, close, name, send, move, move-to-workspace, list, capture, id\n", stderr)
+        fputs("Valid actions: split, create, close, name, send, send-key, move, move-to-workspace, list, capture, id\n", stderr)
         exit(1)
     }
 }
