@@ -145,11 +145,20 @@ struct AppReducer {
             }
 
             if commandPaletteQuery.isEmpty { return items }
-            let terms = commandPaletteQuery.lowercased()
-                .split(separator: " ")
-                .filter { !$0.isEmpty }
-            guard !terms.isEmpty else { return items }
-            return items.filter { item in
+            var query = Substring(commandPaletteQuery.lowercased()).drop(while: \.isWhitespace)
+            let scopedItems: [CommandPaletteItem]
+            if query.hasPrefix("w:") {
+                query = query.dropFirst(2)
+                scopedItems = items.filter { $0.paneID == nil }
+            } else if query.hasPrefix("p:") {
+                query = query.dropFirst(2)
+                scopedItems = items.filter { $0.paneID != nil }
+            } else {
+                scopedItems = items
+            }
+            let terms = query.split(separator: " ").filter { !$0.isEmpty }
+            guard !terms.isEmpty else { return scopedItems }
+            return scopedItems.filter { item in
                 let searchable = (item.title + " " + item.subtitle + " " + item.workspaceName).lowercased()
                 return terms.allSatisfy { searchable.contains($0) }
             }

@@ -229,6 +229,131 @@ struct CommandPaletteTests {
         #expect(state.commandPaletteItems.count == 2) // 1 workspace + 1 pane
     }
 
+    // MARK: - Scope Prefixes (w: / p:)
+
+    /// Fixture where a pane label collides with the workspace name term so
+    /// scope tests can prove cross-scope exclusion (i.e. `w:loy` returns the
+    /// "Loyalty" workspace and NOT the pane labeled "loyal-server").
+    private static func collidingNameWorkspaces() -> [WorkspaceFeature.State] {
+        let pane1 = Pane(id: Self.paneID1, label: "loyal-server", workingDirectory: "/tmp")
+        let pane2 = Pane(id: Self.paneID2, label: "client", workingDirectory: "/tmp")
+        let pane3 = Pane(id: Self.paneID3, label: "default-shell", workingDirectory: "/tmp")
+        let ws1 = makeWorkspace(
+            id: Self.wsID1, name: "Loyalty",
+            panes: [pane1, pane2],
+            layout: .split(.horizontal, ratio: 0.5,
+                           first: .leaf(Self.paneID1), second: .leaf(Self.paneID2))
+        )
+        let ws2 = makeWorkspace(
+            id: Self.wsID2, name: "Default",
+            panes: [pane3], layout: .leaf(Self.paneID3)
+        )
+        return [ws1, ws2]
+    }
+
+    @Test func workspacePrefixScopesToWorkspacesOnly() {
+        var state = AppReducer.State()
+        state.workspaces = IdentifiedArray(uniqueElements: Self.collidingNameWorkspaces())
+        state.commandPaletteQuery = "w:"
+
+        let items = state.commandPaletteItems
+        #expect(items.count == 2)
+        #expect(items.allSatisfy { $0.paneID == nil })
+    }
+
+    @Test func workspacePrefixWithTermExcludesMatchingPanes() {
+        // Without the scope, "loy" matches both the "Loyalty" workspace AND
+        // the pane "loyal-server" (and arguably "client" via workspaceName).
+        // The `w:` prefix must drop everything but the workspace.
+        var state = AppReducer.State()
+        state.workspaces = IdentifiedArray(uniqueElements: Self.collidingNameWorkspaces())
+
+        // Sanity: bare term matches both kinds.
+        state.commandPaletteQuery = "loy"
+        #expect(state.commandPaletteItems.contains { $0.paneID == Self.paneID1 })
+
+        // With the prefix, only the workspace remains.
+        state.commandPaletteQuery = "w:loy"
+        let items = state.commandPaletteItems
+        #expect(items.count == 1)
+        #expect(items[0].paneID == nil)
+        #expect(items[0].workspaceID == Self.wsID1)
+    }
+
+    @Test func panePrefixScopesToPanesOnly() {
+        var state = AppReducer.State()
+        state.workspaces = IdentifiedArray(uniqueElements: Self.collidingNameWorkspaces())
+        state.commandPaletteQuery = "p:"
+
+        let items = state.commandPaletteItems
+        #expect(items.count == 3)
+        #expect(items.allSatisfy { $0.paneID != nil })
+    }
+
+    @Test func panePrefixWithTermExcludesMatchingWorkspaces() {
+        // Without the scope, "default" matches the "Default" workspace AND
+        // the pane "default-shell". The `p:` prefix must drop the workspace.
+        var state = AppReducer.State()
+        state.workspaces = IdentifiedArray(uniqueElements: Self.collidingNameWorkspaces())
+
+        state.commandPaletteQuery = "default"
+        #expect(state.commandPaletteItems.contains { $0.paneID == nil && $0.workspaceID == Self.wsID2 })
+
+        state.commandPaletteQuery = "p:default"
+        let items = state.commandPaletteItems
+        #expect(items.count == 1)
+        #expect(items[0].paneID == Self.paneID3)
+    }
+
+    @Test func prefixIsCaseInsensitive() {
+        var state = AppReducer.State()
+        state.workspaces = IdentifiedArray(uniqueElements: Self.collidingNameWorkspaces())
+        state.commandPaletteQuery = "W:LOY"
+
+        let items = state.commandPaletteItems
+        #expect(items.count == 1)
+        #expect(items[0].workspaceID == Self.wsID1)
+    }
+
+    @Test func prefixToleratesLeadingWhitespace() {
+        // Pasted queries or accidental leading spaces should still trigger
+        // the prefix, since the user clearly meant the scope.
+        var state = AppReducer.State()
+        state.workspaces = IdentifiedArray(uniqueElements: Self.collidingNameWorkspaces())
+        state.commandPaletteQuery = "  w:loy"
+
+        let items = state.commandPaletteItems
+        #expect(items.count == 1)
+        #expect(items[0].paneID == nil)
+        #expect(items[0].workspaceID == Self.wsID1)
+    }
+
+    @Test func prefixWithTrailingWhitespaceReturnsScopedAll() {
+        var state = AppReducer.State()
+        state.workspaces = IdentifiedArray(uniqueElements: Self.collidingNameWorkspaces())
+        state.commandPaletteQuery = "w:   "
+
+        let items = state.commandPaletteItems
+        #expect(items.count == 2)
+        #expect(items.allSatisfy { $0.paneID == nil })
+    }
+
+    @Test func prefixDoesNotApplyMidQuery() {
+        // The literal string "w:" appearing mid-query is not a prefix.
+        let pane1 = Pane(id: Self.paneID1, label: "w:report", workingDirectory: "/tmp")
+        let ws = Self.makeWorkspace(
+            id: Self.wsID1, name: "Dev",
+            panes: [pane1], layout: .leaf(Self.paneID1)
+        )
+
+        var state = AppReducer.State()
+        state.workspaces = [ws]
+        state.commandPaletteQuery = "report w:"
+        let items = state.commandPaletteItems
+        #expect(items.count == 1)
+        #expect(items[0].paneID == Self.paneID1)
+    }
+
     // MARK: - Navigation
 
     @Test func selectNextClampsToEnd() async {
