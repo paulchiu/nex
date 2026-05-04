@@ -1013,6 +1013,7 @@ struct AppReducer {
         target: String,
         text: String,
         workspaceFilter: String?,
+        bare: Bool,
         reply: SocketServer.ReplyHandle?
     ) -> Effect<Action> {
         let resolvedID: UUID
@@ -1031,7 +1032,8 @@ struct AppReducer {
             "ok": true,
             "pane_id": resolvedID.uuidString,
             "workspace_id": workspace.id.uuidString,
-            "workspace_name": workspace.name
+            "workspace_name": workspace.name,
+            "bare": bare
         ]
         if let label = workspace.panes[id: resolvedID]?.label {
             payload["label"] = label
@@ -1041,7 +1043,72 @@ struct AppReducer {
 
         let mgr = surfaceManager
         return .run { _ in
-            await mgr.sendCommand(to: resolvedID, command: text)
+            if bare {
+                // Compose-mode: write text only, no Enter. Caller is
+                // expected to follow up with `pane send-key` to drive
+                // the input (autocomplete, multi-key sequences, ...).
+                await mgr.sendText(to: resolvedID, text: text)
+            } else {
+                await mgr.sendCommand(to: resolvedID, command: text)
+            }
+        }
+    }
+
+    /// Resolve + dispatch a `pane-send-key` request. Mirrors
+    /// `handlePaneSend` — same target resolution, same reply
+    /// contract, same fire-and-forget back-compat. Adds a key-name
+    /// validation step that rejects unknown names with a structured
+    /// error before touching the surface (issue #98). The reducer
+    /// only knows the allowlist; the actual keystroke is synthesized
+    /// inside `SurfaceManager.sendKey` via `GhosttySurface.sendNamedKey`.
+    func handlePaneSendKey(
+        state: State,
+        paneID: UUID?,
+        target: String,
+        key: String,
+        workspaceFilter: String?,
+        reply: SocketServer.ReplyHandle?
+    ) -> Effect<Action> {
+        // Validate the key name first so an unknown key never silently
+        // resolves a target. The supported set lives on
+        // GhosttySurface so the CLI, reducer, and surface layer share
+        // one source of truth.
+        let normalizedKey = key.lowercased()
+        guard GhosttySurface.namedKeyAliases.contains(normalizedKey) else {
+            let valid = GhosttySurface.namedKeyAliases.joined(separator: ", ")
+            reply?.send(["ok": false, "error": "unknown key '\(key)' (valid: \(valid))"])
+            reply?.close()
+            return .none
+        }
+
+        let resolvedID: UUID
+        let workspace: WorkspaceFeature.State
+        switch resolvePaneTarget(state: state, paneID: paneID, target: target, workspaceFilter: workspaceFilter) {
+        case .found(let resolved, let ws):
+            resolvedID = resolved
+            workspace = ws
+        case .error(let error):
+            reply?.send(["ok": false, "error": error])
+            reply?.close()
+            return .none
+        }
+
+        var payload: [String: Any] = [
+            "ok": true,
+            "pane_id": resolvedID.uuidString,
+            "workspace_id": workspace.id.uuidString,
+            "workspace_name": workspace.name,
+            "key": normalizedKey
+        ]
+        if let label = workspace.panes[id: resolvedID]?.label {
+            payload["label"] = label
+        }
+        reply?.send(payload)
+        reply?.close()
+
+        let mgr = surfaceManager
+        return .run { _ in
+            await mgr.sendKey(to: resolvedID, keyName: normalizedKey)
         }
     }
 
@@ -2523,12 +2590,23 @@ struct AppReducer {
                     state.workspaces[id: workspace.id]?.panes[id: paneID]?.label = name.isEmpty ? nil : name
                     return .send(.persistState)
 
-                case .paneSend(let paneID, let target, let text, let workspaceFilter):
+                case .paneSend(let paneID, let target, let text, let workspaceFilter, let bare):
                     return handlePaneSend(
                         state: state,
                         paneID: paneID,
                         target: target,
                         text: text,
+                        workspaceFilter: workspaceFilter,
+                        bare: bare,
+                        reply: reply
+                    )
+
+                case .paneSendKey(let paneID, let target, let key, let workspaceFilter):
+                    return handlePaneSendKey(
+                        state: state,
+                        paneID: paneID,
+                        target: target,
+                        key: key,
                         workspaceFilter: workspaceFilter,
                         reply: reply
                     )
