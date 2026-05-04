@@ -88,7 +88,7 @@ struct PaneSendReplyTests {
 
         let sink = CaptureSink()
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil),
+            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil, bare: false),
             reply: makeCaptureHandle(sink)
         ))
 
@@ -101,6 +101,45 @@ struct PaneSendReplyTests {
         #expect(sink.payloads[0]["label"] as? String == "worker")
     }
 
+    @Test func sendWithBareFlagSetsAckPayload() async {
+        // `--bare` (issue #98): the reply payload echoes the bare
+        // flag so callers can confirm it took effect. Reducer
+        // behaviour switches from `sendCommand` (text + Enter) to
+        // `sendText` (text only); we don't have surface-level
+        // observability in TestStore but the ack confirms wiring.
+        let ws = makeWorkspace(
+            id: Self.ws1ID, name: "alpha",
+            panes: [Pane(id: Self.pane1), Pane(id: Self.pane2, label: "worker")]
+        )
+        let store = makeStore(workspaces: [ws], activeWorkspaceID: Self.ws1ID)
+
+        let sink = CaptureSink()
+        await store.send(.socketMessage(
+            .paneSend(paneID: Self.pane1, target: "worker", text: "ls /tm", workspace: nil, bare: true),
+            reply: makeCaptureHandle(sink)
+        ))
+
+        #expect(sink.payloads[0]["ok"] as? Bool == true)
+        #expect(sink.payloads[0]["bare"] as? Bool == true)
+        #expect(sink.payloads[0]["pane_id"] as? String == Self.pane2.uuidString)
+    }
+
+    @Test func sendWithoutBareFlagDefaultsFalseInAck() async {
+        let ws = makeWorkspace(
+            id: Self.ws1ID, name: "alpha",
+            panes: [Pane(id: Self.pane1), Pane(id: Self.pane2, label: "worker")]
+        )
+        let store = makeStore(workspaces: [ws], activeWorkspaceID: Self.ws1ID)
+
+        let sink = CaptureSink()
+        await store.send(.socketMessage(
+            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil, bare: false),
+            reply: makeCaptureHandle(sink)
+        ))
+
+        #expect(sink.payloads[0]["bare"] as? Bool == false)
+    }
+
     @Test func sendByUUIDRepliesOk() async {
         let ws = makeWorkspace(
             id: Self.ws1ID, name: "alpha",
@@ -110,7 +149,7 @@ struct PaneSendReplyTests {
 
         let sink = CaptureSink()
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane1, target: Self.pane2.uuidString, text: "echo", workspace: nil),
+            .paneSend(paneID: Self.pane1, target: Self.pane2.uuidString, text: "echo", workspace: nil, bare: false),
             reply: makeCaptureHandle(sink)
         ))
 
@@ -137,7 +176,7 @@ struct PaneSendReplyTests {
 
         let sink = CaptureSink()
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil),
+            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil, bare: false),
             reply: makeCaptureHandle(sink)
         ))
 
@@ -159,7 +198,7 @@ struct PaneSendReplyTests {
 
         let sink = CaptureSink()
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane1, target: "ghost", text: "echo", workspace: nil),
+            .paneSend(paneID: Self.pane1, target: "ghost", text: "echo", workspace: nil, bare: false),
             reply: makeCaptureHandle(sink)
         ))
 
@@ -182,7 +221,7 @@ struct PaneSendReplyTests {
 
         let sink = CaptureSink()
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil),
+            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil, bare: false),
             reply: makeCaptureHandle(sink)
         ))
 
@@ -206,7 +245,7 @@ struct PaneSendReplyTests {
 
         let sink = CaptureSink()
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: "beta"),
+            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: "beta", bare: false),
             reply: makeCaptureHandle(sink)
         ))
 
@@ -230,7 +269,7 @@ struct PaneSendReplyTests {
 
         let sink = CaptureSink()
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane1, target: Self.pane2.uuidString, text: "echo", workspace: "alpha"),
+            .paneSend(paneID: Self.pane1, target: Self.pane2.uuidString, text: "echo", workspace: "alpha", bare: false),
             reply: makeCaptureHandle(sink)
         ))
 
@@ -247,7 +286,7 @@ struct PaneSendReplyTests {
 
         let sink = CaptureSink()
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: "ghost"),
+            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: "ghost", bare: false),
             reply: makeCaptureHandle(sink)
         ))
 
@@ -271,7 +310,7 @@ struct PaneSendReplyTests {
 
         let sink = CaptureSink()
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane3, target: "worker", text: "echo", workspace: nil),
+            .paneSend(paneID: Self.pane3, target: "worker", text: "echo", workspace: nil, bare: false),
             reply: makeCaptureHandle(sink)
         ))
 
@@ -296,7 +335,7 @@ struct PaneSendReplyTests {
         let store = makeStore(workspaces: [ws], activeWorkspaceID: Self.ws1ID)
 
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil),
+            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil, bare: false),
             reply: nil
         ))
         // No payload to assert on; the meaningful contract is "no
@@ -321,7 +360,7 @@ struct PaneSendReplyTests {
         let store = makeStore(workspaces: [ws1, ws2], activeWorkspaceID: Self.ws1ID)
 
         await store.send(.socketMessage(
-            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil),
+            .paneSend(paneID: Self.pane1, target: "worker", text: "echo", workspace: nil, bare: false),
             reply: nil
         ))
         // Both panes still exist; no exceptions.

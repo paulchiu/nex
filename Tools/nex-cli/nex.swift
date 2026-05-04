@@ -9,7 +9,7 @@
 //   nex pane create [--path /dir] [--name <label>] [--target <name-or-uuid>]
 //   nex pane close [--target <name-or-uuid>] [--workspace <name-or-uuid>]
 //   nex pane name <name>
-//   nex pane send --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>
+//   nex pane send [--bare] --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>
 //   nex pane send-key --target <name-or-uuid> [--workspace <name-or-uuid>] <key>
 //   nex pane move [left|right|up|down]
 //   nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]
@@ -82,7 +82,7 @@ func printUsage() {
       nex pane create [--path /dir] [--name <label>] [--target <name-or-uuid>]
       nex pane close [--target <name-or-uuid>] [--workspace <name-or-uuid>]
       nex pane name <name>
-      nex pane send --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>
+      nex pane send [--bare] --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>
       nex pane send-key --target <name-or-uuid> [--workspace <name-or-uuid>] <key>
       nex pane move [left|right|up|down]
       nex pane move-to-workspace --to-workspace <name-or-uuid> [--create]
@@ -553,7 +553,7 @@ func handlePane(_ args: inout ArraySlice<String>) {
         // for any scripts that already use it.
         let target = parseFlag("--target", from: &args) ?? parseFlag("--to", from: &args)
         guard let target else {
-            fputs("Usage: nex pane send --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>\n", stderr)
+            fputs("Usage: nex pane send [--bare] --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>\n", stderr)
             exit(1)
         }
         // `--workspace <name-or-id>` scopes label resolution. Without
@@ -561,10 +561,15 @@ func handlePane(_ args: inout ArraySlice<String>) {
         // workspace (issue #92). Parse before joining the rest of the
         // args into the payload text.
         let workspace = parseFlag("--workspace", from: &args)
+        // `--bare` (issue #98) — write text without appending Enter.
+        // Pair with `pane send-key` for compositional input (e.g.
+        // type a partial command then `pane send-key tab` to trigger
+        // autocomplete). Default behaviour is unchanged.
+        let bare = popSwitch("--bare", from: &args)
 
         let text = args.joined(separator: " ")
         guard !text.isEmpty else {
-            fputs("Usage: nex pane send --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>\n", stderr)
+            fputs("Usage: nex pane send [--bare] --target <name-or-uuid> [--workspace <name-or-uuid>] <command...>\n", stderr)
             exit(1)
         }
 
@@ -572,7 +577,8 @@ func handlePane(_ args: inout ArraySlice<String>) {
             "command": "pane-send",
             "pane_id": paneID,
             "target": target,
-            "text": text
+            "text": text,
+            "bare": bare
         ]
         if let workspace {
             payload["workspace"] = workspace
@@ -603,7 +609,8 @@ func handlePane(_ args: inout ArraySlice<String>) {
         let resolvedID = (json["pane_id"] as? String) ?? "?"
         let resolvedLabel = json["label"] as? String
         let resolvedWS = json["workspace_name"] as? String
-        var ack = "sent to \(resolvedID)"
+        let bareAck = (json["bare"] as? Bool) ?? false
+        var ack = bareAck ? "sent (bare) to \(resolvedID)" : "sent to \(resolvedID)"
         if let resolvedLabel { ack += " (\(resolvedLabel))" }
         if let resolvedWS { ack += " in workspace \(resolvedWS)" }
         print(ack)

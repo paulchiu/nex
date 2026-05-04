@@ -30,7 +30,13 @@ enum SocketMessage: Equatable {
     /// or to disambiguate when the same label is reused across
     /// workspaces. The reducer replies with a structured success/error
     /// payload (request/response — see `replyCommandAllowlist`).
-    case paneSend(paneID: UUID, target: String, text: String, workspace: String?)
+    /// `bare` = true → write `text` to the PTY without the trailing
+    /// Enter keystroke `pane send` normally appends. Pair with
+    /// `paneSendKey` to compose multi-step interactive input
+    /// (e.g. `pane send --bare "ls /tm"` then `pane send-key tab`
+    /// to trigger autocomplete). Default false preserves the
+    /// pre-#98 contract.
+    case paneSend(paneID: UUID, target: String, text: String, workspace: String?, bare: Bool)
     /// Send a single named keystroke (Enter, Tab, Escape, ...) to a
     /// pane resolved by `target`. `key` is one of the names in
     /// `GhosttySurface.namedKeyAliases`. `paneID` is optional (mirrors
@@ -453,6 +459,8 @@ final class SocketServer: Sendable {
         /// `pane-send-key` — name of the keystroke to deliver
         /// (e.g. "enter", "tab"). See `GhosttySurface.namedKeyAliases`.
         var key: String?
+        /// `pane-send` — when true, write text without appending Enter.
+        var bare: Bool?
         // Group/workspace-management fields
         var newName: String?
         var cascade: Bool?
@@ -475,7 +483,7 @@ final class SocketServer: Sendable {
             case paneID = "pane_id"
             case message, title, body
             case sessionID = "session_id"
-            case direction, path, name, color, target, text, key
+            case direction, path, name, color, target, text, key, bare
             case newName = "new_name"
             case cascade, index, group
             case workspace, scope
@@ -629,7 +637,10 @@ final class SocketServer: Sendable {
             guard let target = wire.target, !target.isEmpty,
                   let text = wire.text, !text.isEmpty else { return nil }
             let workspace = (wire.workspace?.isEmpty == true) ? nil : wire.workspace
-            socketMessage = .paneSend(paneID: paneID, target: target, text: text, workspace: workspace)
+            socketMessage = .paneSend(
+                paneID: paneID, target: target, text: text,
+                workspace: workspace, bare: wire.bare ?? false
+            )
         case "pane-move":
             guard let dirString = wire.direction,
                   let dir = PaneLayout.Direction(rawValue: dirString) else { return nil }

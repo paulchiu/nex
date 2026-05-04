@@ -212,7 +212,7 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneSend(paneID: Self.paneUUID, target: "build", text: "make test", workspace: nil))
+        #expect(result?.0 == .paneSend(paneID: Self.paneUUID, target: "build", text: "make test", workspace: nil, bare: false))
     }
 
     @Test func parsePaneSendWithWorkspace() {
@@ -221,7 +221,7 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneSend(paneID: Self.paneUUID, target: "worker", text: "echo", workspace: "beta"))
+        #expect(result?.0 == .paneSend(paneID: Self.paneUUID, target: "worker", text: "echo", workspace: "beta", bare: false))
     }
 
     @Test func parsePaneSendEmptyWorkspaceNormalisedToNil() {
@@ -230,7 +230,7 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result != nil)
-        #expect(result?.0 == .paneSend(paneID: Self.paneUUID, target: "worker", text: "echo", workspace: nil))
+        #expect(result?.0 == .paneSend(paneID: Self.paneUUID, target: "worker", text: "echo", workspace: nil, bare: false))
     }
 
     @Test func parsePaneSendMissingTarget() {
@@ -247,6 +247,28 @@ struct SocketParsingTests {
         """)
         let result = SocketServer.parseWireMessage(data)
         #expect(result == nil)
+    }
+
+    @Test func parsePaneSendWithBareFlag() {
+        // `--bare` (issue #98) — text only, no trailing Enter. Pair
+        // with pane-send-key for compositional input (autocomplete,
+        // multi-key sequences).
+        let data = jsonData("""
+        {"command":"pane-send","pane_id":"\(Self.paneIDString)","target":"build","text":"ls /tm","bare":true}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result?.0 == .paneSend(paneID: Self.paneUUID, target: "build", text: "ls /tm", workspace: nil, bare: true))
+    }
+
+    @Test func parsePaneSendBareDefaultsFalse() {
+        // Old CLIs that don't know about --bare omit the field; the
+        // wire decoder must default to false so existing behaviour is
+        // unchanged.
+        let data = jsonData("""
+        {"command":"pane-send","pane_id":"\(Self.paneIDString)","target":"build","text":"ls"}
+        """)
+        let result = SocketServer.parseWireMessage(data)
+        #expect(result?.0 == .paneSend(paneID: Self.paneUUID, target: "build", text: "ls", workspace: nil, bare: false))
     }
 
     // MARK: - parseWireMessage — pane-send-key (issue #98)

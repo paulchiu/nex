@@ -1013,6 +1013,7 @@ struct AppReducer {
         target: String,
         text: String,
         workspaceFilter: String?,
+        bare: Bool,
         reply: SocketServer.ReplyHandle?
     ) -> Effect<Action> {
         let resolvedID: UUID
@@ -1031,7 +1032,8 @@ struct AppReducer {
             "ok": true,
             "pane_id": resolvedID.uuidString,
             "workspace_id": workspace.id.uuidString,
-            "workspace_name": workspace.name
+            "workspace_name": workspace.name,
+            "bare": bare
         ]
         if let label = workspace.panes[id: resolvedID]?.label {
             payload["label"] = label
@@ -1041,7 +1043,14 @@ struct AppReducer {
 
         let mgr = surfaceManager
         return .run { _ in
-            await mgr.sendCommand(to: resolvedID, command: text)
+            if bare {
+                // Compose-mode: write text only, no Enter. Caller is
+                // expected to follow up with `pane send-key` to drive
+                // the input (autocomplete, multi-key sequences, ...).
+                await mgr.sendText(to: resolvedID, text: text)
+            } else {
+                await mgr.sendCommand(to: resolvedID, command: text)
+            }
         }
     }
 
@@ -2581,13 +2590,14 @@ struct AppReducer {
                     state.workspaces[id: workspace.id]?.panes[id: paneID]?.label = name.isEmpty ? nil : name
                     return .send(.persistState)
 
-                case .paneSend(let paneID, let target, let text, let workspaceFilter):
+                case .paneSend(let paneID, let target, let text, let workspaceFilter, let bare):
                     return handlePaneSend(
                         state: state,
                         paneID: paneID,
                         target: target,
                         text: text,
                         workspaceFilter: workspaceFilter,
+                        bare: bare,
                         reply: reply
                     )
 
