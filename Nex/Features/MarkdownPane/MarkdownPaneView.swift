@@ -20,8 +20,9 @@ struct MarkdownPaneView: NSViewRepresentable {
         let container = PaneFocusView(paneID: paneID)
 
         let config = WKWebViewConfiguration()
-        let scrollHandler = context.coordinator
-        config.userContentController.add(scrollHandler, name: "scrollHandler")
+        let handler = context.coordinator
+        config.userContentController.add(handler, name: "scrollHandler")
+        config.userContentController.add(handler, name: "nexFind")
         config.userContentController.addUserScript(WKUserScript(
             source: """
             window.addEventListener('scroll', function() {
@@ -30,6 +31,11 @@ struct MarkdownPaneView: NSViewRepresentable {
                 window.webkit.messageHandlers.scrollHandler.postMessage(fraction);
             });
             """,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        ))
+        config.userContentController.addUserScript(WKUserScript(
+            source: MarkdownFindScript.source,
             injectionTime: .atDocumentEnd,
             forMainFrameOnly: true
         ))
@@ -48,6 +54,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         context.coordinator.fontSize = fontSize
         context.coordinator.loadFile()
         context.coordinator.startWatching()
+        MarkdownFindController.shared.register(paneID: paneID, coordinator: context.coordinator)
 
         container.embed(webView)
 
@@ -89,6 +96,9 @@ struct MarkdownPaneView: NSViewRepresentable {
 
     static func dismantleNSView(_: PaneFocusView, coordinator: Coordinator) {
         coordinator.stopWatching()
+        if let id = coordinator.paneID {
+            MarkdownFindController.shared.unregister(paneID: id)
+        }
         coordinator.webView = nil
     }
 
@@ -167,8 +177,42 @@ struct MarkdownPaneView: NSViewRepresentable {
             _: WKUserContentController,
             didReceive message: WKScriptMessage
         ) {
-            guard let fraction = message.body as? Double, let paneID else { return }
-            PaneFocusView.saveScrollFraction(CGFloat(fraction), for: paneID)
+            guard let paneID else { return }
+            switch message.name {
+            case "scrollHandler":
+                guard let fraction = message.body as? Double else { return }
+                PaneFocusView.saveScrollFraction(CGFloat(fraction), for: paneID)
+            case "nexFind":
+                guard let payload = message.body as? [String: Any],
+                      let total = payload["total"] as? Int,
+                      let current = payload["current"] as? Int else { return }
+                NotificationCenter.default.post(
+                    name: .markdownFindResult,
+                    object: nil,
+                    userInfo: ["paneID": paneID, "total": total, "current": current]
+                )
+            default:
+                break
+            }
+        }
+
+        // MARK: - Find-in-page (called by MarkdownFindController)
+
+        func runFindUpdate(needle: String) {
+            guard let webView else { return }
+            let escaped = MarkdownFindScript.encodeNeedle(needle)
+            webView.evaluateJavaScript("window.__nexFind && window.__nexFind.search(\(escaped));")
+        }
+
+        func runFindNavigate(forward: Bool) {
+            guard let webView else { return }
+            let fn = forward ? "next" : "prev"
+            webView.evaluateJavaScript("window.__nexFind && window.__nexFind.\(fn)();")
+        }
+
+        func runFindClose() {
+            guard let webView else { return }
+            webView.evaluateJavaScript("window.__nexFind && window.__nexFind.clear();")
         }
 
         // MARK: - WKNavigationDelegate (scroll restore)
@@ -184,6 +228,8 @@ struct MarkdownPaneView: NSViewRepresentable {
                     "window.scrollTo(0, \(fraction) * Math.max(1, document.body.scrollHeight - window.innerHeight))"
                 )
             }
+            // The reload wiped any active find marks. Re-apply if a needle is still set.
+            MarkdownFindController.shared.reapply(paneID: paneID)
         }
 
         func startWatching() {
