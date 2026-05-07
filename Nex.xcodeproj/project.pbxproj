@@ -106,6 +106,7 @@
 		DA4AC555E9C3FC84061F2FB9 /* PaneFocusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FD9BCE4ABC267C7E34EAF09 /* PaneFocusView.swift */; };
 		DBBD0CD88C3B7EF588D5CB04 /* GitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0153509BA13BB205C40DE2D5 /* GitService.swift */; };
 		DC11308E0E92225F551CF162 /* AutoDetectRepoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADBC4A3F4B30336A12D32DF4 /* AutoDetectRepoTests.swift */; };
+		DDD05A3B3A535DEA66485A47 /* WindowSpacesBindingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D09D767C96B3F96E4DF7C5 /* WindowSpacesBindingTests.swift */; };
 		DE4BB209669A230B465E2722 /* WorkspaceFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA19A5A6562DDB77C0AE44B6 /* WorkspaceFeatureTests.swift */; };
 		E02D1D3DE36CC8F66B5072AB /* GroupIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11C5539104EFEFA5CCB936F1 /* GroupIcon.swift */; };
 		E0ABD2D68012C6BF24A92E7D /* KeybindingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D45D65A66C475B0CEEC53C /* KeybindingService.swift */; };
@@ -121,6 +122,7 @@
 		ECA2C078504EB9BF0E04B343 /* GhosttyConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96AD7A8D7E6592B90FBB7D24 /* GhosttyConfig.swift */; };
 		ED79F70009D8C2A4A1A742F8 /* ResizeDimensionsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F6F950849E47A0BCC6DEAB5 /* ResizeDimensionsOverlay.swift */; };
 		EDD3C2388FB932FCF46F3444 /* HelpDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA085FC1EE7D90E88FEF33CB /* HelpDataTests.swift */; };
+		EDF35E86B633BB1E8C3DE844 /* WindowSpacesBinding.swift in Sources */ = {isa = PBXBuildFile; fileRef = E99FA58E4E44ADAD17A788E2 /* WindowSpacesBinding.swift */; };
 		EFDCA64CD227A833D2801893 /* CLIInstallService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9EC869803E36C99B3653FF5 /* CLIInstallService.swift */; };
 		F01CDB667AE2A0CF2A825AD3 /* WorkspaceDropTargetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E01C66D4D59D04F6372D8AD7 /* WorkspaceDropTargetTests.swift */; };
 		F1139F84E35AF1181F136C9D /* KeyBinding.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBF3FB912BD029F17AF0AA25 /* KeyBinding.swift */; };
@@ -219,6 +221,7 @@
 		935FE280F97CB5A1DBD31113 /* NexGhosttyDefaults.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NexGhosttyDefaults.swift; sourceTree = "<group>"; };
 		93D45D65A66C475B0CEEC53C /* KeybindingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeybindingService.swift; sourceTree = "<group>"; };
 		94CA6C20BB3882E02348ADF4 /* SurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurfaceView.swift; sourceTree = "<group>"; };
+		94D09D767C96B3F96E4DF7C5 /* WindowSpacesBindingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSpacesBindingTests.swift; sourceTree = "<group>"; };
 		96AD7A8D7E6592B90FBB7D24 /* GhosttyConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GhosttyConfig.swift; sourceTree = "<group>"; };
 		9D96CD47FF756C95404DF4F6 /* Pane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pane.swift; sourceTree = "<group>"; };
 		A11F5427AE75515696FB8295 /* PaneLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaneLayoutTests.swift; sourceTree = "<group>"; };
@@ -258,6 +261,7 @@
 		E08D39F8F87D7505CD32D25D /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		E5859C5B2E1850D1262AFE4B /* Nex.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nex.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E5A4C5D8F4C099C65A7EA890 /* ScratchpadEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScratchpadEditorView.swift; sourceTree = "<group>"; };
+		E99FA58E4E44ADAD17A788E2 /* WindowSpacesBinding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowSpacesBinding.swift; sourceTree = "<group>"; };
 		E9F7D5571F89D43BC6C76928 /* WorkspaceGroupSocketTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceGroupSocketTests.swift; sourceTree = "<group>"; };
 		EA085FC1EE7D90E88FEF33CB /* HelpDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpDataTests.swift; sourceTree = "<group>"; };
 		EA19A5A6562DDB77C0AE44B6 /* WorkspaceFeatureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceFeatureTests.swift; sourceTree = "<group>"; };
@@ -384,6 +388,7 @@
 				1C625959E287CE9896D5BA4D /* RepoRegistryTests.swift */,
 				ADD43112159981D690331BA5 /* SettingsFeatureTests.swift */,
 				AC84F1EBC8A83D60127093E9 /* SocketParsingTests.swift */,
+				94D09D767C96B3F96E4DF7C5 /* WindowSpacesBindingTests.swift */,
 				28D977DB42ACD0B176225711 /* WorkspaceColorSelectionTests.swift */,
 				E01C66D4D59D04F6372D8AD7 /* WorkspaceDropTargetTests.swift */,
 				EA19A5A6562DDB77C0AE44B6 /* WorkspaceFeatureTests.swift */,
@@ -489,6 +494,7 @@
 				42A24C1FEC6EA31096603326 /* SurfaceManager.swift */,
 				C711FF0D53387D16F50C5EA6 /* UpdaterService.swift */,
 				8C693AF419763177AE1CEA0F /* UserDefaultsClient.swift */,
+				E99FA58E4E44ADAD17A788E2 /* WindowSpacesBinding.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -737,6 +743,7 @@
 				B5B3A5F0C2FA6509D37FA74A /* RepoRegistryTests.swift in Sources */,
 				EAF43DC55C5612F3AE83BF02 /* SettingsFeatureTests.swift in Sources */,
 				2B4533964D77117EE6D98690 /* SocketParsingTests.swift in Sources */,
+				DDD05A3B3A535DEA66485A47 /* WindowSpacesBindingTests.swift in Sources */,
 				5C4AA6204D49398B2E63A18B /* WorkspaceColorSelectionTests.swift in Sources */,
 				F01CDB667AE2A0CF2A825AD3 /* WorkspaceDropTargetTests.swift in Sources */,
 				DE4BB209669A230B465E2722 /* WorkspaceFeatureTests.swift in Sources */,
@@ -824,6 +831,7 @@
 				B8DCB316773E208FABEDA9D7 /* UpdaterService.swift in Sources */,
 				A8F1A82072120476BAEC2D52 /* UserDefaultsClient.swift in Sources */,
 				B167B81282ADF716B21B1679 /* VibrancyView.swift in Sources */,
+				EDF35E86B633BB1E8C3DE844 /* WindowSpacesBinding.swift in Sources */,
 				4AF9CB9A4E7CE871FBE1A6F2 /* WorkspaceColor.swift in Sources */,
 				B4846A1AC5C67E51AFA9C846 /* WorkspaceDropTarget.swift in Sources */,
 				E62618BAC6927017CC4ECC44 /* WorkspaceFeature.swift in Sources */,
