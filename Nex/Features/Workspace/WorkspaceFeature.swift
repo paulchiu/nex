@@ -963,6 +963,11 @@ struct WorkspaceFeature {
             case .searchTotalUpdated(let paneID, let total):
                 guard state.searchingPaneID == paneID else { return .none }
                 state.searchTotal = total
+                // Drop any stale selection when matches go to zero (e.g.
+                // a markdown live-reload turns a doc with hits into one
+                // without). Otherwise the overlay would render a count
+                // like "3/0".
+                if total == 0 { state.searchSelected = nil }
                 return .none
 
             case .searchSelectedUpdated(let paneID, let selected):

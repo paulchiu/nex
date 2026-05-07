@@ -7,8 +7,8 @@ final class GhosttyConfig {
 
     init() {
         rawConfig = ghostty_config_new()
-        ghostty_config_load_default_files(rawConfig)
         Self.loadNexDefaults(rawConfig)
+        ghostty_config_load_default_files(rawConfig)
         ghostty_config_load_recursive_files(rawConfig)
     }
 
@@ -17,24 +17,24 @@ final class GhosttyConfig {
     /// values take precedence.
     init(overrideFile path: String) {
         rawConfig = ghostty_config_new()
-        ghostty_config_load_default_files(rawConfig)
         Self.loadNexDefaults(rawConfig)
+        ghostty_config_load_default_files(rawConfig)
         ghostty_config_load_recursive_files(rawConfig)
         path.withCString { ghostty_config_load_file(rawConfig, $0) }
     }
 
     /// Apply Nex's opinionated tweaks on top of ghostty's compiled-in
     /// defaults but BEFORE the user's `~/.config/ghostty/config` so any
-    /// of these can still be overridden by the user.
+    /// of these can still be overridden by the user. Order matters:
+    /// `loadDefaultFiles` reads the user's XDG / app-support config, so
+    /// our defaults must run first to keep user overrides winning.
     private static func loadNexDefaults(_ raw: ghostty_config_t) {
         let path = NSTemporaryDirectory() + "nex-ghostty-defaults"
-        if !FileManager.default.fileExists(atPath: path) {
-            try? NexGhosttyDefaults.source.write(
-                toFile: path,
-                atomically: true,
-                encoding: .utf8
-            )
-        }
+        try? NexGhosttyDefaults.source.write(
+            toFile: path,
+            atomically: true,
+            encoding: .utf8
+        )
         path.withCString { ghostty_config_load_file(raw, $0) }
     }
 
