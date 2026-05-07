@@ -15,9 +15,12 @@ enum MarkdownFindScript {
       ns.currentIndex = -1;
 
       var styleEl = document.createElement('style');
+      // Colors mirror ghostty's `search-background` /
+      // `search-selected-background` (set by NexGhosttyDefaults) so
+      // terminal find and markdown find share a palette.
       styleEl.textContent = (
-        "mark.nex-find-match { background: rgba(255, 217, 0, 0.55); color: inherit; border-radius: 2px; padding: 0; }" +
-        "mark.nex-find-match.nex-find-current { background: rgba(255, 138, 0, 0.85); outline: 1px solid rgba(255, 80, 0, 0.9); }"
+        "mark.nex-find-match { background: #F2D027; color: #000; border-radius: 2px; padding: 0; }" +
+        "mark.nex-find-match.nex-find-current { background: #FF7A00; color: #000; }"
       );
       // Defer until <head> exists. Inject CSS via JS so that the
       // markdown HTML renderer doesn't need to know about find styling.
