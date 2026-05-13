@@ -84,4 +84,52 @@ struct SurfaceViewKeyboardTests {
         #expect(flags.contains(.command))
         #expect(flags.contains(.capsLock))
     }
+
+    @Test func ghosttyCharactersPassesThroughPrintableText() {
+        let event = keyEvent(
+            keyCode: 3,
+            characters: "f",
+            charactersIgnoringModifiers: "f"
+        )
+
+        #expect(SurfaceView.ghosttyCharacters(from: event) == "f")
+    }
+
+    @Test func ghosttyCharactersStripsControlForCtrlJ() {
+        // Ctrl+J produces U+000A (newline). ghostty handles control-character
+        // encoding internally, so we return the un-controlled character ("j")
+        // and let ghostty re-encode it based on terminal mode.
+        let event = keyEvent(
+            keyCode: 0x26,
+            modifierFlags: .control,
+            characters: "\n",
+            charactersIgnoringModifiers: "j"
+        )
+
+        #expect(SurfaceView.ghosttyCharacters(from: event) == "j")
+    }
+
+    @Test func ghosttyCharactersReturnsNilForPUAFunctionKey() {
+        // F1 lives in NSEvent's PUA range (U+F704). Returning it as text would
+        // poison ghostty's input; we expect nil so the keycode path handles it.
+        let event = keyEvent(
+            keyCode: 0x7A,
+            characters: "\u{F704}",
+            charactersIgnoringModifiers: "\u{F704}"
+        )
+
+        #expect(SurfaceView.ghosttyCharacters(from: event) == nil)
+    }
+
+    @Test func ghosttyCharactersPassesThroughMultiCharacterStrings() {
+        // Multi-scalar strings (dead-key composition, surrogate pairs, etc.)
+        // skip the single-character special cases and pass through verbatim.
+        let event = keyEvent(
+            keyCode: 0,
+            characters: "é",
+            charactersIgnoringModifiers: "e"
+        )
+
+        #expect(SurfaceView.ghosttyCharacters(from: event) == "é")
+    }
 }
