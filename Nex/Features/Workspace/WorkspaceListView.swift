@@ -48,6 +48,14 @@ struct WorkspaceListView: View {
     /// the other selected rows behind in their original slots.
     @State private var hiddenMultiDragIDs: Set<UUID> = []
 
+    /// Case-insensitive substring filter for the sidebar. Matches
+    /// against workspace name AND any of its labels. View-local —
+    /// neither persisted nor in AppReducer state — so keyboard
+    /// shortcuts (Cmd+1..9, Cmd+Shift+] / [) still address the full
+    /// workspace set.
+    @State private var filterText: String = ""
+    @FocusState private var isFilterFieldFocused: Bool
+
     /// Post-release "land into collapsed group" override. When dropping a
     /// row onto a collapsed group that stays collapsed, the default
     /// release (offset → 0 + entries-change fade) makes the row visually
@@ -102,6 +110,106 @@ struct WorkspaceListView: View {
     private static let autoScrollIntervalMillis: Int = 15
 
     var body: some View {
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                // Render once at the top so the TextField keeps its
+                // SwiftUI identity (and `@FocusState`) as `filterText`
+                // toggles between empty and non-empty — otherwise the
+                // field's responder is torn down on the first keystroke
+                // and the caret disappears mid-type.
+                filterField
+                if filterText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    mainListBody
+                } else {
+                    filteredListBody
+                }
+            }
+            // Bulk-action dialogs and sheets are attached at the body
+            // level (not inside `mainListBody`) so they remain mounted
+            // while the filter is active. Otherwise a "Delete N
+            // Workspaces..." invoked from a filtered-list context menu
+            // would set the confirmation state but have no presenter,
+            // leaving a stale destructive prompt that fires the
+            // moment the filter is cleared.
+            .confirmationDialog(
+                bulkDeleteTitle,
+                isPresented: Binding(
+                    get: { store.bulkDeleteConfirmationIDs != nil },
+                    set: { if !$0 { store.send(.cancelBulkDelete) } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) { store.send(.confirmBulkDelete) }
+                Button("Cancel", role: .cancel) { store.send(.cancelBulkDelete) }
+            } message: {
+                Text("This cannot be undone. Panes and surfaces in these workspaces will be closed.")
+            }
+            .confirmationDialog(
+                groupDeleteTitle,
+                isPresented: Binding(
+                    get: { store.groupDeleteConfirmation != nil },
+                    set: { if !$0 { store.send(.cancelGroupDelete) } }
+                ),
+                titleVisibility: .visible
+            ) {
+                if let confirmation = store.groupDeleteConfirmation {
+                    if confirmation.workspaceCount == 0 {
+                        Button("Delete Group", role: .destructive) {
+                            store.send(.deleteGroup(id: confirmation.groupID, cascade: false))
+                        }
+                    } else {
+                        Button("Move Workspaces to Top Level", role: .destructive) {
+                            store.send(.deleteGroup(id: confirmation.groupID, cascade: false))
+                        }
+                        Button(
+                            "Delete Group and \(confirmation.workspaceCount) Workspace\(confirmation.workspaceCount == 1 ? "" : "s")",
+                            role: .destructive
+                        ) {
+                            store.send(.deleteGroup(id: confirmation.groupID, cascade: true))
+                        }
+                    }
+                    Button("Cancel", role: .cancel) { store.send(.cancelGroupDelete) }
+                }
+            } message: {
+                if let confirmation = store.groupDeleteConfirmation, confirmation.workspaceCount > 0 {
+                    Text("Choose whether to also delete the \(confirmation.workspaceCount) workspace\(confirmation.workspaceCount == 1 ? "" : "s") inside this group. Moving them to the top level is the safer option.")
+                } else {
+                    Text("This group is empty and will be removed.")
+                }
+            }
+            .sheet(isPresented: Binding(
+                get: { store.groupBulkCreatePrompt != nil },
+                set: { if !$0 { store.send(.cancelBulkCreateGroup) } }
+            )) {
+                if let prompt = store.groupBulkCreatePrompt {
+                    NewGroupSheet(
+                        workspaceCount: prompt.workspaceIDs.count,
+                        defaultName: defaultGroupName(existing: store.groups),
+                        onCreate: { name, color in
+                            store.send(.confirmBulkCreateGroup(name: name, color: color))
+                        },
+                        onCancel: { store.send(.cancelBulkCreateGroup) }
+                    )
+                }
+            }
+            .sheet(isPresented: Binding(
+                get: { store.groupCustomEmojiPrompt != nil },
+                set: { if !$0 { store.send(.cancelGroupCustomEmoji) } }
+            )) {
+                if let prompt = store.groupCustomEmojiPrompt {
+                    GroupCustomEmojiSheet(
+                        groupName: prompt.groupName,
+                        onConfirm: { emoji in
+                            store.send(.confirmGroupCustomEmoji(emoji))
+                        },
+                        onCancel: { store.send(.cancelGroupCustomEmoji) }
+                    )
+                }
+            }
+        }
+    }
+
+    private var mainListBody: some View {
         WithPerceptionTracking {
             GeometryReader { outer in
                 ScrollView {
@@ -206,83 +314,6 @@ struct WorkspaceListView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .padding(12)
-            }
-            .confirmationDialog(
-                bulkDeleteTitle,
-                isPresented: Binding(
-                    get: { store.bulkDeleteConfirmationIDs != nil },
-                    set: { if !$0 { store.send(.cancelBulkDelete) } }
-                ),
-                titleVisibility: .visible
-            ) {
-                Button("Delete", role: .destructive) { store.send(.confirmBulkDelete) }
-                Button("Cancel", role: .cancel) { store.send(.cancelBulkDelete) }
-            } message: {
-                Text("This cannot be undone. Panes and surfaces in these workspaces will be closed.")
-            }
-            .confirmationDialog(
-                groupDeleteTitle,
-                isPresented: Binding(
-                    get: { store.groupDeleteConfirmation != nil },
-                    set: { if !$0 { store.send(.cancelGroupDelete) } }
-                ),
-                titleVisibility: .visible
-            ) {
-                if let confirmation = store.groupDeleteConfirmation {
-                    if confirmation.workspaceCount == 0 {
-                        // Empty group: no workspaces to move or cascade.
-                        // A single "Delete Group" is the only meaningful action.
-                        Button("Delete Group", role: .destructive) {
-                            store.send(.deleteGroup(id: confirmation.groupID, cascade: false))
-                        }
-                    } else {
-                        Button("Move Workspaces to Top Level", role: .destructive) {
-                            store.send(.deleteGroup(id: confirmation.groupID, cascade: false))
-                        }
-                        Button(
-                            "Delete Group and \(confirmation.workspaceCount) Workspace\(confirmation.workspaceCount == 1 ? "" : "s")",
-                            role: .destructive
-                        ) {
-                            store.send(.deleteGroup(id: confirmation.groupID, cascade: true))
-                        }
-                    }
-                    Button("Cancel", role: .cancel) { store.send(.cancelGroupDelete) }
-                }
-            } message: {
-                if let confirmation = store.groupDeleteConfirmation, confirmation.workspaceCount > 0 {
-                    Text("Choose whether to also delete the \(confirmation.workspaceCount) workspace\(confirmation.workspaceCount == 1 ? "" : "s") inside this group. Moving them to the top level is the safer option.")
-                } else {
-                    Text("This group is empty and will be removed.")
-                }
-            }
-            .sheet(isPresented: Binding(
-                get: { store.groupBulkCreatePrompt != nil },
-                set: { if !$0 { store.send(.cancelBulkCreateGroup) } }
-            )) {
-                if let prompt = store.groupBulkCreatePrompt {
-                    NewGroupSheet(
-                        workspaceCount: prompt.workspaceIDs.count,
-                        defaultName: defaultGroupName(existing: store.groups),
-                        onCreate: { name, color in
-                            store.send(.confirmBulkCreateGroup(name: name, color: color))
-                        },
-                        onCancel: { store.send(.cancelBulkCreateGroup) }
-                    )
-                }
-            }
-            .sheet(isPresented: Binding(
-                get: { store.groupCustomEmojiPrompt != nil },
-                set: { if !$0 { store.send(.cancelGroupCustomEmoji) } }
-            )) {
-                if let prompt = store.groupCustomEmojiPrompt {
-                    GroupCustomEmojiSheet(
-                        groupName: prompt.groupName,
-                        onConfirm: { emoji in
-                            store.send(.confirmGroupCustomEmoji(emoji))
-                        },
-                        onCancel: { store.send(.cancelGroupCustomEmoji) }
-                    )
-                }
             }
         }
     }
@@ -481,6 +512,189 @@ struct WorkspaceListView: View {
         return ids
     }
 
+    private var filterField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+
+            TextField("Filter workspaces or labels", text: $filterText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 11))
+                .focused($isFilterFieldFocused)
+                .accessibilityIdentifier("sidebar.filter.field")
+                .onSubmit {
+                    // Enter activates the first match and closes the
+                    // filter — the textbook type-to-find UX.
+                    if let firstID = filteredWorkspaceIDs.first {
+                        store.send(.clearWorkspaceSelection)
+                        store.send(.setActiveWorkspace(firstID))
+                        filterText = ""
+                        isFilterFieldFocused = false
+                    }
+                }
+                .onExitCommand {
+                    // Esc clears the field and yields focus back to the
+                    // window so the next keystroke goes to the active
+                    // pane, not back into the field.
+                    filterText = ""
+                    isFilterFieldFocused = false
+                }
+
+            if !filterText.isEmpty {
+                Button {
+                    filterText = ""
+                    isFilterFieldFocused = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sidebar.filter.clear")
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.6))
+    }
+
+    /// Workspaces whose name OR any label contains `filterText`
+    /// (case-insensitive, leading/trailing whitespace trimmed).
+    /// Preserves the order they appear in the sidebar (walks
+    /// `topLevelOrder`, descending into groups regardless of collapse
+    /// state — when filtering, the user wants to find rows, not
+    /// respect collapse).
+    private var filteredWorkspaceIDs: [UUID] {
+        let needle = filterText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !needle.isEmpty else { return [] }
+        var ordered: [UUID] = []
+        for item in store.topLevelOrder {
+            switch item {
+            case .workspace(let wsID):
+                if matches(workspaceID: wsID, needle: needle) {
+                    ordered.append(wsID)
+                }
+            case .group(let gID):
+                guard let group = store.groups[id: gID] else { continue }
+                for childID in group.childOrder where matches(workspaceID: childID, needle: needle) {
+                    ordered.append(childID)
+                }
+            }
+        }
+        return ordered
+    }
+
+    private func matches(workspaceID: UUID, needle: String) -> Bool {
+        guard let workspace = store.workspaces[id: workspaceID] else { return false }
+        if workspace.name.lowercased().contains(needle) { return true }
+        return workspace.labels.contains { $0.lowercased().contains(needle) }
+    }
+
+    private var filteredListBody: some View {
+        WithPerceptionTracking {
+            VStack(spacing: 0) {
+                selectionHeader
+
+                ScrollView {
+                    let ids = filteredWorkspaceIDs
+                    if ids.isEmpty {
+                        VStack(spacing: 4) {
+                            Text("No matches")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.secondary)
+                            Text("Try a different filter or clear the field.")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
+                        .accessibilityIdentifier("sidebar.filter.empty")
+                    } else {
+                        LazyVStack(spacing: 0) {
+                            ForEach(ids, id: \.self) { workspaceID in
+                                filteredWorkspaceRow(workspaceID: workspaceID)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .padding(.trailing, 8)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func filteredWorkspaceRow(workspaceID: UUID) -> some View {
+        if let workspaceStore = store.scope(state: \.workspaces[id: workspaceID], action: \.workspaces[id: workspaceID]) {
+            let aggregateStatus = aggregateGitStatus(for: workspaceStore.state)
+            let waiting = workspaceStore.panes.count(where: { $0.status == .waitingForInput })
+            let running = workspaceStore.panes.contains { $0.status == .running }
+            let parentGroupName = store.state.groupID(forWorkspace: workspaceID)
+                .flatMap { store.groups[id: $0]?.name }
+
+            VStack(alignment: .leading, spacing: 0) {
+                WorkspaceRowView(
+                    name: workspaceStore.name,
+                    color: workspaceStore.color,
+                    paneCount: workspaceStore.panes.count,
+                    repoCount: workspaceStore.repoAssociations.count,
+                    gitStatus: aggregateStatus,
+                    isActive: workspaceID == store.activeWorkspaceID,
+                    // Negative index suppresses the `⌘N` badge in
+                    // `WorkspaceRowView` (the badge is gated on `index <
+                    // 9 && index >= 0`). The filter walks workspaces
+                    // inside collapsed groups too, where the badge would
+                    // either be wrong or meaningless, so we hide it
+                    // wholesale in filtered rows.
+                    index: -1,
+                    waitingPaneCount: waiting,
+                    hasRunningPanes: running,
+                    isSelected: store.selectedWorkspaceIDs.contains(workspaceID),
+                    leadingInset: 0,
+                    labels: workspaceStore.labels
+                )
+
+                if let parentGroupName {
+                    Text("in \(parentGroupName)")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, 20)
+                        .padding(.bottom, 2)
+                }
+            }
+            .padding(.horizontal, 8)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                let modifiers = NSEvent.modifierFlags
+                if modifiers.contains(.command) || modifiers.contains(.shift) {
+                    // In the filtered view, both Cmd+click and
+                    // Shift+click toggle the row's selection. The
+                    // unfiltered list uses Shift for range select, but
+                    // the underlying `.rangeSelectWorkspace` reducer
+                    // builds its range from `state.visibleWorkspaceOrder`
+                    // — which skips collapsed groups and includes
+                    // workspaces not in the filter. Reusing it here
+                    // would select rows the user can't see and miss
+                    // rows in collapsed groups. Treat Shift as toggle
+                    // until a filter-aware range action exists.
+                    store.send(.toggleWorkspaceSelection(workspaceID))
+                } else {
+                    store.send(.clearWorkspaceSelection)
+                    store.send(.setActiveWorkspace(workspaceID))
+                    // Drop the filter once the user has clicked through
+                    // to a workspace — the filter UI is a find-then-go
+                    // interaction, not a persistent view.
+                    filterText = ""
+                    isFilterFieldFocused = false
+                }
+            }
+            .contextMenu {
+                contextMenuContents(workspaceID: workspaceID, workspaceStore: workspaceStore)
+            }
+        }
+    }
+
     @ViewBuilder
     private var selectionHeader: some View {
         let count = store.selectedWorkspaceIDs.count
@@ -555,6 +769,17 @@ struct WorkspaceListView: View {
                     Button(color.displayName) {
                         workspaceStore.send(.setColor(color))
                     }
+                }
+            }
+            // Edit labels — opens the inspector so the user can find
+            // the label editor. Without this entry, the labels feature
+            // is buried behind: open inspector → scroll past
+            // Workspace + Repos → find "Labels". One click here
+            // bypasses the hunt.
+            Button("Edit Labels...") {
+                store.send(.setActiveWorkspace(workspaceID))
+                if !store.isInspectorVisible {
+                    store.send(.toggleInspector)
                 }
             }
             moveToGroupMenu(workspaceID: workspaceID)
@@ -772,7 +997,8 @@ struct WorkspaceListView: View {
                 // Use a single interpolated value so the depth change
                 // slides smoothly. 24pt matches the old layout's
                 // 16pt Spacer + 8pt HStack spacing.
-                leadingInset: effectiveDepth > 0 ? 24 : 0
+                leadingInset: effectiveDepth > 0 ? 24 : 0,
+                labels: workspaceStore.labels
             )
             .padding(.horizontal, 8)
             .background(
