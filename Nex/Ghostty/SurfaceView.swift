@@ -238,11 +238,13 @@ final class SurfaceView: NSView, @preconcurrency NSTextInputClient {
     }
 
     override func keyDown(with event: NSEvent) {
+        let action = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
+        let translationEvent = translationEvent(for: event)
         let markedTextBefore = hasMarkedText()
 
         keyTextAccumulator = []
         defer { keyTextAccumulator = nil }
-        interpretKeyEvents([event])
+        interpretKeyEvents([translationEvent])
 
         let accumulated = keyTextAccumulator ?? []
 
@@ -251,7 +253,11 @@ final class SurfaceView: NSView, @preconcurrency NSTextInputClient {
             // with composing=false. This handles US International dead-key failure,
             // where AppKit fires insertText twice (e.g. "'" then "s") in a single keyDown.
             for text in accumulated {
-                var key = Self.keyEvent(from: event, action: GHOSTTY_ACTION_PRESS)
+                var key = Self.keyEvent(
+                    from: event,
+                    action: action,
+                    translationFlags: translationEvent.modifierFlags
+                )
                 key.composing = false
                 text.withCString { ptr in
                     key.text = ptr
@@ -262,9 +268,20 @@ final class SurfaceView: NSView, @preconcurrency NSTextInputClient {
             // No committed text. Either a pure preedit update, a bare key (arrow, enter),
             // or a composing keypress. `composing` is true if we're still in preedit now,
             // or if marked text existed before and was cleared by this event.
-            var key = Self.keyEvent(from: event, action: GHOSTTY_ACTION_PRESS)
+            var key = Self.keyEvent(
+                from: event,
+                action: action,
+                translationFlags: translationEvent.modifierFlags
+            )
             key.composing = hasMarkedText() || markedTextBefore
-            _ = ghosttySurface?.sendKey(key)
+            if let text = Self.ghosttyCharacters(from: translationEvent) {
+                text.withCString { ptr in
+                    key.text = ptr
+                    _ = ghosttySurface?.sendKey(key)
+                }
+            } else {
+                _ = ghosttySurface?.sendKey(key)
+            }
         }
     }
 
@@ -287,7 +304,25 @@ final class SurfaceView: NSView, @preconcurrency NSTextInputClient {
         if hasMarkedText() { return }
 
         let mods = Self.mods(from: event)
-        let action = (mods.rawValue & mod != 0) ? GHOSTTY_ACTION_PRESS : GHOSTTY_ACTION_RELEASE
+        var action = GHOSTTY_ACTION_RELEASE
+        if mods.rawValue & mod != 0 {
+            let sidePressed: Bool = switch event.keyCode {
+            case 0x3C:
+                event.modifierFlags.rawValue & UInt(NX_DEVICERSHIFTKEYMASK) != 0
+            case 0x3E:
+                event.modifierFlags.rawValue & UInt(NX_DEVICERCTLKEYMASK) != 0
+            case 0x3D:
+                event.modifierFlags.rawValue & UInt(NX_DEVICERALTKEYMASK) != 0
+            case 0x36:
+                event.modifierFlags.rawValue & UInt(NX_DEVICERCMDKEYMASK) != 0
+            default:
+                true
+            }
+
+            if sidePressed {
+                action = GHOSTTY_ACTION_PRESS
+            }
+        }
 
         var key = ghostty_input_key_s()
         key.action = action
@@ -555,6 +590,43 @@ final class SurfaceView: NSView, @preconcurrency NSTextInputClient {
 
     // MARK: - Helpers
 
+    private func translationEvent(for event: NSEvent) -> NSEvent {
+        guard let surface = ghosttySurface?.surface else { return event }
+
+        let translationMods = Self.eventModifierFlags(
+            fromMods: ghostty_surface_key_translation_mods(
+                surface,
+                Self.mods(from: event)
+            )
+        )
+
+        // Preserve hidden modifier bits that matter for AppKit/dead-key handling,
+        // only toggling the visible modifiers ghostty asked us to translate with.
+        var modifierFlags = event.modifierFlags
+        for flag in [NSEvent.ModifierFlags.shift, .control, .option, .command] {
+            if translationMods.contains(flag) {
+                modifierFlags.insert(flag)
+            } else {
+                modifierFlags.remove(flag)
+            }
+        }
+
+        guard modifierFlags != event.modifierFlags else { return event }
+
+        return NSEvent.keyEvent(
+            with: event.type,
+            location: event.locationInWindow,
+            modifierFlags: modifierFlags,
+            timestamp: event.timestamp,
+            windowNumber: event.windowNumber,
+            context: nil,
+            characters: event.characters(byApplyingModifiers: modifierFlags) ?? "",
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers ?? "",
+            isARepeat: event.isARepeat,
+            keyCode: event.keyCode
+        ) ?? event
+    }
+
     static func mods(from event: NSEvent) -> ghostty_input_mods_e {
         mods(fromFlags: event.modifierFlags)
     }
@@ -566,10 +638,48 @@ final class SurfaceView: NSView, @preconcurrency NSTextInputClient {
         if flags.contains(.option) { raw |= GHOSTTY_MODS_ALT.rawValue }
         if flags.contains(.command) { raw |= GHOSTTY_MODS_SUPER.rawValue }
         if flags.contains(.capsLock) { raw |= GHOSTTY_MODS_CAPS.rawValue }
+
+        let rawFlags = flags.rawValue
+        if rawFlags & UInt(NX_DEVICERSHIFTKEYMASK) != 0 { raw |= GHOSTTY_MODS_SHIFT_RIGHT.rawValue }
+        if rawFlags & UInt(NX_DEVICERCTLKEYMASK) != 0 { raw |= GHOSTTY_MODS_CTRL_RIGHT.rawValue }
+        if rawFlags & UInt(NX_DEVICERALTKEYMASK) != 0 { raw |= GHOSTTY_MODS_ALT_RIGHT.rawValue }
+        if rawFlags & UInt(NX_DEVICERCMDKEYMASK) != 0 { raw |= GHOSTTY_MODS_SUPER_RIGHT.rawValue }
+
         return ghostty_input_mods_e(rawValue: raw)
     }
 
-    static func keyEvent(from event: NSEvent, action: ghostty_input_action_e) -> ghostty_input_key_s {
+    static func eventModifierFlags(fromMods mods: ghostty_input_mods_e) -> NSEvent.ModifierFlags {
+        var flags = NSEvent.ModifierFlags(rawValue: 0)
+        if mods.rawValue & GHOSTTY_MODS_SHIFT.rawValue != 0 { flags.insert(.shift) }
+        if mods.rawValue & GHOSTTY_MODS_CTRL.rawValue != 0 { flags.insert(.control) }
+        if mods.rawValue & GHOSTTY_MODS_ALT.rawValue != 0 { flags.insert(.option) }
+        if mods.rawValue & GHOSTTY_MODS_SUPER.rawValue != 0 { flags.insert(.command) }
+        if mods.rawValue & GHOSTTY_MODS_CAPS.rawValue != 0 { flags.insert(.capsLock) }
+        return flags
+    }
+
+    static func ghosttyCharacters(from event: NSEvent) -> String? {
+        guard let characters = event.characters else { return nil }
+
+        if characters.count == 1,
+           let scalar = characters.unicodeScalars.first {
+            if scalar.value < 0x20 {
+                return event.characters(byApplyingModifiers: event.modifierFlags.subtracting(.control))
+            }
+
+            if scalar.value >= 0xF700, scalar.value <= 0xF8FF {
+                return nil
+            }
+        }
+
+        return characters
+    }
+
+    static func keyEvent(
+        from event: NSEvent,
+        action: ghostty_input_action_e,
+        translationFlags: NSEvent.ModifierFlags? = nil
+    ) -> ghostty_input_key_s {
         var key = ghostty_input_key_s()
         key.action = action
         key.mods = mods(from: event)
@@ -580,7 +690,7 @@ final class SurfaceView: NSView, @preconcurrency NSTextInputClient {
         // consumed_mods tells ghostty which modifiers were already applied by the
         // platform's text input system. Control and command never contribute to text
         // translation, so exclude them — everything else (shift, option, caps) is consumed.
-        let consumedFlags = event.modifierFlags.subtracting([.control, .command])
+        let consumedFlags = (translationFlags ?? event.modifierFlags).subtracting([.control, .command])
         key.consumed_mods = mods(fromFlags: consumedFlags)
 
         // Unshifted codepoint: the character with no modifiers applied.
