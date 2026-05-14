@@ -315,11 +315,11 @@ struct MarkdownPaneView: NSViewRepresentable {
             ) { [weak self] note in
                 guard let self,
                       let target = note.userInfo?["paneID"] as? UUID,
-                      target == paneID,
                       let raw = note.userInfo?["kind"] as? String,
                       let kind = MarkdownCopyKind(rawValue: raw)
                 else { return }
                 MainActor.assumeIsolated {
+                    guard target == self.paneID else { return }
                     switch kind {
                     case .markdown:
                         self.copyAsMarkdown()
