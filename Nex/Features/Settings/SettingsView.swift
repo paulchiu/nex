@@ -33,6 +33,13 @@ struct SettingsView: View {
                 minHeight: 440, idealHeight: 520, maxHeight: .infinity
             )
             .background(WindowResizabilityModifier())
+            // Listen here too: the main WindowGroup (and ContentView's
+            // observer) may be closed while the Settings scene stays
+            // open. Without this, the dialog's "Don't ask again" tick
+            // would leave the toggle stale until next launch (issue #129).
+            .onReceive(NotificationCenter.default.publisher(for: QuitGate.confirmQuitChangedNotification)) { _ in
+                store.send(.settings(.refreshConfirmQuitWhenActive))
+            }
         }
     }
 }
@@ -151,6 +158,16 @@ private struct GeneralSettingsView: View {
                                 .frame(width: 55, alignment: .trailing)
                         }
                     }
+                }
+
+                Section("Quit") {
+                    Toggle("Confirm before quitting", isOn: Binding(
+                        get: { settingsStore.confirmQuitWhenActive },
+                        set: { settingsStore.send(.setConfirmQuitWhenActive($0)) }
+                    ))
+                    Text("Show a confirmation dialog on Cmd+Q. When agents are running or waiting for input, the dialog calls them out so an accidental quit doesn't lose work.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Network") {
