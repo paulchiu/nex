@@ -341,7 +341,7 @@ struct MarkdownCommentTests {
 
         #expect(source.contains("ns.setActiveComment = function(id, options)"))
         #expect(source.contains("ns.clearSelection = function()"))
-        #expect(source.contains("ns.showError = function(message)"))
+        #expect(!source.contains("ns.showError = function(message)"))
         #expect(!source.contains("function onPopoverKeyDown(event)"))
     }
 

@@ -183,6 +183,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         private var reviewPopover: NSPopover?
         private let reviewPopoverDelegate = ReviewPopoverDelegate()
         private var openReviewPopoverPurpose: MarkdownReviewPopoverView.Purpose?
+        private var reviewErrorDismissWorkItem: DispatchWorkItem?
         private var activeCommentID: String?
 
         func loadFile() {
@@ -430,6 +431,8 @@ struct MarkdownPaneView: NSViewRepresentable {
             guard reviewPopover != nil else {
                 openReviewPopoverPurpose = nil
                 reviewPopoverDelegate.onClose = nil
+                reviewErrorDismissWorkItem?.cancel()
+                reviewErrorDismissWorkItem = nil
                 return
             }
             reviewPopover?.close()
@@ -536,6 +539,24 @@ struct MarkdownPaneView: NSViewRepresentable {
             purpose: MarkdownReviewPopoverView.Purpose,
             onClose: @escaping () -> Void
         ) {
+            showReviewPopover(
+                content,
+                viewAnchorRect: webViewAnchorRect(from: anchorRect),
+                preferredEdge: preferredEdge,
+                contentSize: contentSize,
+                purpose: purpose,
+                onClose: onClose
+            )
+        }
+
+        private func showReviewPopover(
+            _ content: some View,
+            viewAnchorRect: NSRect,
+            preferredEdge: NSRectEdge,
+            contentSize: NSSize,
+            purpose: MarkdownReviewPopoverView.Purpose,
+            onClose: @escaping () -> Void
+        ) {
             guard let webView else { return }
             closeReviewPopover()
 
@@ -552,7 +573,7 @@ struct MarkdownPaneView: NSViewRepresentable {
             reviewPopover = popover
             openReviewPopoverPurpose = purpose
             popover.show(
-                relativeTo: webViewAnchorRect(from: anchorRect),
+                relativeTo: viewAnchorRect,
                 of: webView,
                 preferredEdge: preferredEdge
             )
@@ -628,10 +649,37 @@ struct MarkdownPaneView: NSViewRepresentable {
         }
 
         private func showReviewError(_ message: String) {
-            let escaped = MarkdownFindScript.encodeNeedle(message)
-            webView?.evaluateJavaScript(
-                "window.__nexMarkdownReview && window.__nexMarkdownReview.showError(\(escaped));"
+            guard let webView else { return }
+            let margin: CGFloat = 12
+            let anchorRect = NSRect(
+                x: max(0, webView.bounds.width - margin),
+                y: webView.isFlipped ? margin : max(0, webView.bounds.height - margin),
+                width: 1,
+                height: 1
             )
+            let view = MarkdownReviewPopoverView(
+                purpose: .error(message: message),
+                onCancel: {}
+            )
+            showReviewPopover(
+                view,
+                viewAnchorRect: anchorRect,
+                preferredEdge: webView.isFlipped ? .maxY : .minY,
+                contentSize: NSSize(width: 280, height: 52),
+                purpose: .error(message: message),
+                onClose: { [weak self] in
+                    self?.reviewErrorDismissWorkItem?.cancel()
+                    self?.reviewErrorDismissWorkItem = nil
+                }
+            )
+
+            let workItem = DispatchWorkItem { [weak self] in
+                Task { @MainActor in
+                    self?.closeReviewPopover()
+                }
+            }
+            reviewErrorDismissWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.4, execute: workItem)
         }
 
         // MARK: - Find-in-page (called by MarkdownFindController)

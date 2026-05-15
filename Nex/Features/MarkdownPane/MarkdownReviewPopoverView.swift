@@ -2,10 +2,11 @@ import AppKit
 import SwiftUI
 
 struct MarkdownReviewPopoverView: View {
-    enum Purpose {
+    enum Purpose: Equatable {
         case add
         case edit
         case delete
+        case error(message: String)
     }
 
     let purpose: Purpose
@@ -52,6 +53,8 @@ struct MarkdownReviewPopoverView: View {
             editorBody(title: "Edit comment", primaryTitle: "Save", selectAllOnAppear: true)
         case .delete:
             deleteBody
+        case let .error(message):
+            errorBody(message: message)
         }
     }
 
@@ -114,6 +117,18 @@ struct MarkdownReviewPopoverView: View {
                 .keyboardShortcut(.cancelAction)
             Button("Delete", role: .destructive, action: onDelete)
         }
+    }
+
+    private func errorBody(message: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Text(message.isEmpty ? "Markdown update failed" : message)
+                .font(.subheadline)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .frame(width: 280, alignment: .leading)
     }
 
     private func submit() {

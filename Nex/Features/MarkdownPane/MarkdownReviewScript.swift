@@ -464,18 +464,6 @@ enum MarkdownReviewScript {
         delete ns.pendingTasks[taskID];
       };
 
-      ns.showError = function(message) {
-        removePopover();
-        var pop = document.createElement('div');
-        pop.className = 'nex-review-popover';
-        pop.textContent = message || 'Markdown update failed';
-        document.body.appendChild(pop);
-        pop.style.top = '12px';
-        pop.style.right = '12px';
-        ns.popover = pop;
-        setTimeout(removePopover, 2400);
-      };
-
       document.addEventListener('mouseup', onMouseUp, true);
       document.addEventListener('click', onClick, true);
       document.addEventListener('keydown', onKeyDown, true);
