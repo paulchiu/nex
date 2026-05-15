@@ -419,6 +419,8 @@ struct MarkdownHTMLRendererTests {
         #expect(html.contains("<main class=\"nex-markdown-main\">"))
         #expect(html.contains("grid-template-columns: minmax(0, 1fr) minmax(112px, 32%);"))
         #expect(html.contains("border-left: 1px solid #d1d9e0;"))
+        #expect(html.contains("min-height: calc(100vh - 40px);"))
+        #expect(html.contains(".\(MarkdownDOMClass.commentRail).nex-comment-rail-positioned .nex-comment-card"))
     }
 
     @Test func commentRailCardsExposeActivationAndEditControls() {

@@ -67,6 +67,10 @@ enum MarkdownReviewScript {
         return !!el.closest('.\(MarkdownDOMClass.commentRail), .nex-review-popover');
       }
 
+      function isCommandEnter(event) {
+        return event.metaKey && (event.key === 'Enter' || event.key === 'NumpadEnter');
+      }
+
       function closestBlock(node) {
         var el = elementForNode(node);
         return el ? el.closest('[data-nex-block-id]') : null;
@@ -125,8 +129,7 @@ enum MarkdownReviewScript {
         pop.style.top = top + 'px';
         pop.style.left = left + 'px';
 
-        cancel.addEventListener('click', removePopover);
-        add.addEventListener('click', function() {
+        function submitComment() {
           var comment = String(textarea.value || '').trim();
           if (!comment) { textarea.focus(); return; }
           post({
@@ -139,6 +142,14 @@ enum MarkdownReviewScript {
           removePopover();
           var sel = window.getSelection();
           if (sel) sel.removeAllRanges();
+        }
+
+        cancel.addEventListener('click', removePopover);
+        add.addEventListener('click', submitComment);
+        textarea.addEventListener('keydown', function(event) {
+          if (!isCommandEnter(event)) return;
+          event.preventDefault();
+          submitComment();
         });
 
         ns.popover = pop;
@@ -173,8 +184,7 @@ enum MarkdownReviewScript {
         pop.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - 130)) + 'px';
         pop.style.left = Math.max(8, Math.min(rect.left - 292, window.innerWidth - 300)) + 'px';
 
-        cancel.addEventListener('click', removePopover);
-        save.addEventListener('click', function() {
+        function submitEdit() {
           var comment = String(textarea.value || '').trim();
           if (!comment) { textarea.focus(); return; }
           post({
@@ -183,6 +193,14 @@ enum MarkdownReviewScript {
             comment: comment
           });
           removePopover();
+        }
+
+        cancel.addEventListener('click', removePopover);
+        save.addEventListener('click', submitEdit);
+        textarea.addEventListener('keydown', function(event) {
+          if (!isCommandEnter(event)) return;
+          event.preventDefault();
+          submitEdit();
         });
 
         ns.popover = pop;
@@ -407,6 +425,71 @@ enum MarkdownReviewScript {
         }
       }
 
+      function targetForCommentCard(card) {
+        var id = card.getAttribute('data-nex-comment-id');
+        var blockID = card.getAttribute('data-nex-comment-block-id');
+        if (!id) return null;
+
+        var highlight = document.querySelector('[data-nex-comment-highlight-id="' + CSS.escape(id) + '"]');
+        if (highlight) return highlight;
+        if (!blockID) return null;
+        return document.querySelector('[data-nex-block-id="' + CSS.escape(blockID) + '"]');
+      }
+
+      function positionCommentCards() {
+        var rail = document.querySelector('.\(MarkdownDOMClass.commentRail)');
+        var main = document.querySelector('.nex-markdown-main');
+        if (!rail || !main) return;
+
+        if (window.matchMedia && window.matchMedia('(max-width: 320px)').matches) {
+          rail.classList.remove('nex-comment-rail-positioned');
+          rail.style.minHeight = '';
+          var mobileCards = rail.querySelectorAll('.nex-comment-card');
+          for (var m = 0; m < mobileCards.length; m++) {
+            mobileCards[m].style.top = '';
+          }
+          return;
+        }
+
+        var bodyStyle = window.getComputedStyle(document.body);
+        var verticalPadding = parseFloat(bodyStyle.paddingTop || '0') + parseFloat(bodyStyle.paddingBottom || '0');
+        var viewportHeight = Math.max(0, window.innerHeight - verticalPadding);
+        var baseHeight = Math.max(main.scrollHeight, main.getBoundingClientRect().height, viewportHeight);
+        rail.style.minHeight = baseHeight + 'px';
+        rail.classList.add('nex-comment-rail-positioned');
+
+        var railRect = rail.getBoundingClientRect();
+        var cards = Array.prototype.slice.call(rail.querySelectorAll('.nex-comment-card'));
+        var items = [];
+        for (var i = 0; i < cards.length; i++) {
+          var card = cards[i];
+          var target = targetForCommentCard(card);
+          var y = 0;
+          if (target) {
+            y = target.getBoundingClientRect().top - railRect.top;
+          }
+          items.push({ card: card, y: Math.max(0, y) });
+        }
+
+        items.sort(function(a, b) { return a.y - b.y; });
+        var cursor = 0;
+        for (var j = 0; j < items.length; j++) {
+          var item = items[j];
+          var top = Math.max(item.y, cursor);
+          item.card.style.top = top + 'px';
+          cursor = top + item.card.offsetHeight + 8;
+        }
+
+        if (cursor > baseHeight) {
+          rail.style.minHeight = cursor + 'px';
+        }
+      }
+
+      function refreshCommentLayout() {
+        refineCommentHighlights();
+        positionCommentCards();
+      }
+
       ns.setCommentMode = function(enabled) {
         ns.commentMode = !!enabled;
         if (document.body) {
@@ -440,10 +523,11 @@ enum MarkdownReviewScript {
       document.addEventListener('mouseup', onMouseUp, true);
       document.addEventListener('click', onClick, true);
       document.addEventListener('change', onTaskChange, true);
+      window.addEventListener('resize', positionCommentCards);
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', refineCommentHighlights, { once: true });
+        document.addEventListener('DOMContentLoaded', refreshCommentLayout, { once: true });
       } else {
-        refineCommentHighlights();
+        refreshCommentLayout();
       }
     })();
     """

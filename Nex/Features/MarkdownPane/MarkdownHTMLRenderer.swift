@@ -596,16 +596,20 @@ enum MarkdownRenderer {
             box-shadow: 0 0 0 1px rgba(242, 204, 96, 0.65);
         }
         .\(MarkdownDOMClass.commentRail) {
-            position: sticky;
-            top: 12px;
-            max-height: calc(100vh - 24px);
-            overflow: auto;
+            position: relative;
+            align-self: stretch;
+            min-height: calc(100vh - 40px);
+            overflow: visible;
             padding-left: 10px;
             border-left: 1px solid #d1d9e0;
             display: grid;
             gap: 8px;
+            align-content: start;
         }
         .dark .\(MarkdownDOMClass.commentRail) { border-left-color: #3d444d; }
+        .\(MarkdownDOMClass.commentRail).nex-comment-rail-positioned {
+            display: block;
+        }
         .nex-comment-card {
             border-left: 3px solid #d29922;
             background: rgba(255, 212, 0, 0.08);
@@ -613,6 +617,11 @@ enum MarkdownRenderer {
             border-radius: 6px;
             cursor: pointer;
             position: relative;
+        }
+        .\(MarkdownDOMClass.commentRail).nex-comment-rail-positioned .nex-comment-card {
+            position: absolute;
+            left: 10px;
+            right: 0;
         }
         .dark .nex-comment-card {
             border-left-color: #e3b341;
@@ -693,12 +702,19 @@ enum MarkdownRenderer {
             .\(MarkdownDOMClass.commentRail) {
                 position: static;
                 max-height: none;
+                min-height: 0;
                 overflow: visible;
                 margin-top: 24px;
                 padding-top: 12px;
                 padding-left: 0;
                 border-left: none;
                 border-top: 1px solid #d1d9e0;
+            }
+            .\(MarkdownDOMClass.commentRail).nex-comment-rail-positioned .nex-comment-card {
+                position: relative;
+                left: auto;
+                right: auto;
+                top: auto !important;
             }
             .dark .\(MarkdownDOMClass.commentRail) {
                 border-top-color: #3d444d;

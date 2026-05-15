@@ -140,4 +140,24 @@ struct MarkdownCommentTests {
             Issue.record("expected blank update comment payload to be rejected")
         }
     }
+
+    @Test func reviewScriptSubmitsCommentTextareaOnCommandEnter() {
+        let source = MarkdownReviewScript.source
+
+        #expect(source.contains("function isCommandEnter(event)"))
+        #expect(source.contains("event.metaKey"))
+        #expect(source.contains("event.key === 'Enter' || event.key === 'NumpadEnter'"))
+        #expect(source.contains("textarea.addEventListener('keydown'"))
+        #expect(source.contains("submitComment();"))
+    }
+
+    @Test func reviewScriptPositionsCommentCardsByAnchor() {
+        let source = MarkdownReviewScript.source
+
+        #expect(source.contains("function positionCommentCards()"))
+        #expect(source.contains("targetForCommentCard(card)"))
+        #expect(source.contains("target.getBoundingClientRect().top - railRect.top"))
+        #expect(source.contains("nex-comment-rail-positioned"))
+        #expect(source.contains("window.addEventListener('resize', positionCommentCards)"))
+    }
 }
