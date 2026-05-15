@@ -17,6 +17,18 @@ struct MarkdownReviewPopoverView: View {
     @State private var draft: String
     @State private var validationMessage: String?
 
+    struct DeleteConfirmationKeyboardContract: Equatable {
+        let cancelHasDefaultAction: Bool
+        let cancelHasCancelAction: Bool
+        let deleteHasDefaultAction: Bool
+    }
+
+    static let deleteConfirmationKeyboardContract = DeleteConfirmationKeyboardContract(
+        cancelHasDefaultAction: true,
+        cancelHasCancelAction: true,
+        deleteHasDefaultAction: false
+    )
+
     init(
         purpose: Purpose,
         initialText: String = "",
@@ -88,16 +100,20 @@ struct MarkdownReviewPopoverView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack {
-                Spacer()
-                Button("Cancel", action: onCancel)
-                    .keyboardShortcut(.defaultAction)
-                    .keyboardShortcut(.cancelAction)
-                Button("Delete", role: .destructive, action: onDelete)
-            }
+            deleteButtonRow
         }
         .padding(12)
         .frame(width: 292)
+    }
+
+    private var deleteButtonRow: some View {
+        HStack {
+            Spacer()
+            Button("Cancel", action: onCancel)
+                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut(.cancelAction)
+            Button("Delete", role: .destructive, action: onDelete)
+        }
     }
 
     private func submit() {
@@ -185,27 +201,31 @@ private struct MarkdownCommentTextView: NSViewRepresentable {
             text.wrappedValue = textView.string
         }
     }
+}
 
-    final class KeyHandlingTextView: NSTextView {
-        var onCommandEnter: (() -> Void)?
-        var onEscape: (() -> Void)?
+class KeyHandlingTextView: NSTextView {
+    var onCommandEnter: (() -> Void)?
+    var onEscape: (() -> Void)?
 
-        override func keyDown(with event: NSEvent) {
-            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            let characters = event.charactersIgnoringModifiers
+    override func keyDown(with event: NSEvent) {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let characters = event.charactersIgnoringModifiers
 
-            if flags.contains(.command),
-               characters == "\r" || characters == "\n" {
-                onCommandEnter?()
-                return
-            }
-
-            if event.keyCode == 53 {
-                onEscape?()
-                return
-            }
-
-            super.keyDown(with: event)
+        if flags.contains(.command),
+           characters == "\r" || characters == "\n" {
+            onCommandEnter?()
+            return
         }
+
+        if event.keyCode == 53 {
+            onEscape?()
+            return
+        }
+
+        forwardUnhandledKeyDown(with: event)
+    }
+
+    func forwardUnhandledKeyDown(with event: NSEvent) {
+        super.keyDown(with: event)
     }
 }
