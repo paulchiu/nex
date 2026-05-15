@@ -181,6 +181,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         nonisolated(unsafe) var fileDescriptor: Int32 = -1
         private var copyObserver: NSObjectProtocol?
         private var reviewPopover: NSPopover?
+        private let reviewPopoverDelegate = ReviewPopoverDelegate()
         private var activeCommentID: String?
 
         func loadFile() {
@@ -426,7 +427,6 @@ struct MarkdownPaneView: NSViewRepresentable {
 
         func closeReviewPopover() {
             reviewPopover?.close()
-            reviewPopover = nil
         }
 
         private func showAddCommentPopover(
@@ -438,19 +438,16 @@ struct MarkdownPaneView: NSViewRepresentable {
                 purpose: .add,
                 onSubmit: { [weak self] comment in
                     Task { @MainActor in
-                        self?.closeReviewPopover()
                         self?.handleReviewPayload(.addComment(
                             selectedText: selectedText,
                             blockID: blockID,
                             comment: comment
                         ))
-                        self?.clearWebSelection()
                     }
                 },
                 onCancel: { [weak self] in
                     Task { @MainActor in
                         self?.closeReviewPopover()
-                        self?.clearWebSelection()
                     }
                 }
             )
@@ -458,7 +455,10 @@ struct MarkdownPaneView: NSViewRepresentable {
                 view,
                 anchorRect: anchorRect,
                 preferredEdge: .maxY,
-                contentSize: NSSize(width: 312, height: 176)
+                contentSize: NSSize(width: 312, height: 176),
+                onClose: { [weak self] in
+                    self?.clearWebSelection()
+                }
             )
         }
 
@@ -472,7 +472,6 @@ struct MarkdownPaneView: NSViewRepresentable {
                 initialText: initialText,
                 onSubmit: { [weak self] comment in
                     Task { @MainActor in
-                        self?.closeReviewPopover()
                         self?.handleReviewPayload(.updateComment(
                             commentID: commentID,
                             comment: comment
@@ -489,7 +488,8 @@ struct MarkdownPaneView: NSViewRepresentable {
                 view,
                 anchorRect: anchorRect,
                 preferredEdge: .minX,
-                contentSize: NSSize(width: 312, height: 176)
+                contentSize: NSSize(width: 312, height: 176),
+                onClose: {}
             )
         }
 
@@ -501,7 +501,6 @@ struct MarkdownPaneView: NSViewRepresentable {
                 purpose: .delete,
                 onDelete: { [weak self] in
                     Task { @MainActor in
-                        self?.closeReviewPopover()
                         self?.handleReviewPayload(.deleteComment(commentID: commentID))
                     }
                 },
@@ -515,7 +514,8 @@ struct MarkdownPaneView: NSViewRepresentable {
                 view,
                 anchorRect: anchorRect,
                 preferredEdge: .minX,
-                contentSize: NSSize(width: 292, height: 118)
+                contentSize: NSSize(width: 292, height: 118),
+                onClose: {}
             )
         }
 
@@ -523,7 +523,8 @@ struct MarkdownPaneView: NSViewRepresentable {
             _ content: some View,
             anchorRect: MarkdownReviewPayload.AnchorRect,
             preferredEdge: NSRectEdge,
-            contentSize: NSSize
+            contentSize: NSSize,
+            onClose: @escaping () -> Void
         ) {
             guard let webView else { return }
             closeReviewPopover()
@@ -532,6 +533,11 @@ struct MarkdownPaneView: NSViewRepresentable {
             popover.behavior = .transient
             popover.contentSize = contentSize
             popover.contentViewController = NSHostingController(rootView: content)
+            reviewPopoverDelegate.onClose = { [weak self] in
+                self?.reviewPopover = nil
+                onClose()
+            }
+            popover.delegate = reviewPopoverDelegate
             reviewPopover = popover
             popover.show(
                 relativeTo: webViewAnchorRect(from: anchorRect),
@@ -808,6 +814,16 @@ struct MarkdownPaneView: NSViewRepresentable {
                     pasteboard.setData(rtf, forType: .rtf)
                 }
                 pasteboard.setString(html, forType: .html)
+            }
+        }
+
+        private final class ReviewPopoverDelegate: NSObject, NSPopoverDelegate {
+            var onClose: (() -> Void)?
+
+            func popoverDidClose(_: Notification) {
+                let onClose = onClose
+                self.onClose = nil
+                onClose?()
             }
         }
     }
