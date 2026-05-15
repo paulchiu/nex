@@ -466,7 +466,8 @@ struct MarkdownHTMLRendererTests {
 
         #expect(html.contains("--nex-comment-accent: #3366cc;"))
         #expect(html.contains("--nex-comment-card-bg: rgba(51, 102, 204, 0.08);"))
-        #expect(html.contains("border-left: 3px solid var(--nex-comment-accent);"))
+        #expect(html.contains("border: 1px solid var(--nex-comment-accent);"))
+        #expect(!html.contains("box-shadow: 0 0 0 1px var(--nex-comment-ring), inset 4px 0 0 var(--nex-comment-accent-strong);"))
         #expect(html.contains("background: var(--nex-comment-card-active-bg);"))
         #expect(!html.contains("rgba(255, 212, 0"))
         #expect(!html.contains("#d29922"))

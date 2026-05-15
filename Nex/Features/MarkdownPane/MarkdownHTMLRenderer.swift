@@ -735,12 +735,13 @@ enum MarkdownRenderer {
             display: block;
         }
         .nex-comment-card {
-            border-left: 3px solid var(--nex-comment-accent);
+            border: 1px solid var(--nex-comment-accent);
             background: var(--nex-comment-card-bg);
             padding: 8px;
             border-radius: 6px;
             cursor: pointer;
             position: relative;
+            box-sizing: border-box;
         }
         .\(MarkdownDOMClass.commentRail).nex-comment-rail-positioned .nex-comment-card {
             position: absolute;
@@ -749,10 +750,9 @@ enum MarkdownRenderer {
         }
         .nex-comment-card:focus-visible,
         .nex-comment-card.\(MarkdownDOMClass.commentCardActive) {
-            outline: 2px solid var(--nex-comment-accent-strong);
-            outline-offset: 2px;
+            border-color: var(--nex-comment-accent-strong);
+            outline: none;
             background: var(--nex-comment-card-active-bg);
-            box-shadow: 0 0 0 1px var(--nex-comment-ring), inset 4px 0 0 var(--nex-comment-accent-strong);
         }
         .nex-comment-card-header {
             display: flex;
@@ -825,7 +825,7 @@ enum MarkdownRenderer {
             white-space: pre-wrap;
         }
         .nex-comment-card-malformed {
-            border-left-color: #cf222e;
+            border-color: #cf222e;
             background: rgba(207, 34, 46, 0.08);
         }
         @media (max-width: 320px) {
