@@ -291,7 +291,8 @@ enum MarkdownRenderer {
         let bgCSS = cssBackground(color: backgroundColor, opacity: backgroundOpacity)
         let isDark = isDarkBackground(color: backgroundColor)
         return wrapInHTMLDocument(
-            fmHTML + bodyHTML + commentRailHTML,
+            fmHTML + bodyHTML,
+            commentRailHTML: commentRailHTML,
             backgroundCSS: bgCSS,
             isDark: isDark,
             baseFontSize: baseFontSize
@@ -334,11 +335,15 @@ enum MarkdownRenderer {
 
     private static func wrapInHTMLDocument(
         _ body: String,
+        commentRailHTML: String,
         backgroundCSS: String,
         isDark: Bool,
         baseFontSize: Double
     ) -> String {
-        """
+        let layoutClass = commentRailHTML.isEmpty
+            ? "nex-review-layout"
+            : "nex-review-layout nex-has-comment-rail"
+        return """
         <!DOCTYPE html>
         <html class="\(isDark ? "dark" : "light")">
         <head>
@@ -349,8 +354,11 @@ enum MarkdownRenderer {
         </style>
         </head>
         <body>
-        <div id="content">
+        <div id="content" class="\(layoutClass)">
+        <main class="nex-markdown-main">
         \(body)
+        </main>
+        \(commentRailHTML)
         </div>
         </body>
         </html>
@@ -383,6 +391,18 @@ enum MarkdownRenderer {
             \(backgroundCSS)
         }
         .dark body { color: #e6edf3; }
+        .nex-review-layout {
+            width: 100%;
+        }
+        .nex-review-layout.nex-has-comment-rail {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(112px, 32%);
+            gap: 10px;
+            align-items: start;
+        }
+        .nex-markdown-main {
+            min-width: 0;
+        }
         h1, h2, h3, h4, h5, h6 {
             margin-top: 1.5em;
             margin-bottom: 0.5em;
@@ -551,17 +571,20 @@ enum MarkdownRenderer {
             background: rgba(227, 179, 65, 0.40);
         }
         .\(MarkdownDOMClass.commentRail) {
-            margin-top: 24px;
-            padding-top: 12px;
-            border-top: 1px solid #d1d9e0;
+            position: sticky;
+            top: 12px;
+            max-height: calc(100vh - 24px);
+            overflow: auto;
+            padding-left: 10px;
+            border-left: 1px solid #d1d9e0;
             display: grid;
             gap: 8px;
         }
-        .dark .\(MarkdownDOMClass.commentRail) { border-top-color: #3d444d; }
+        .dark .\(MarkdownDOMClass.commentRail) { border-left-color: #3d444d; }
         .nex-comment-card {
             border-left: 3px solid #d29922;
             background: rgba(255, 212, 0, 0.08);
-            padding: 8px 10px;
+            padding: 8px;
             border-radius: 6px;
         }
         .dark .nex-comment-card {
@@ -582,6 +605,24 @@ enum MarkdownRenderer {
         .nex-comment-card-malformed {
             border-left-color: #cf222e;
             background: rgba(207, 34, 46, 0.08);
+        }
+        @media (max-width: 320px) {
+            .nex-review-layout.nex-has-comment-rail {
+                grid-template-columns: minmax(0, 1fr);
+            }
+            .\(MarkdownDOMClass.commentRail) {
+                position: static;
+                max-height: none;
+                overflow: visible;
+                margin-top: 24px;
+                padding-top: 12px;
+                padding-left: 0;
+                border-left: none;
+                border-top: 1px solid #d1d9e0;
+            }
+            .dark .\(MarkdownDOMClass.commentRail) {
+                border-top-color: #3d444d;
+            }
         }
         """
     }

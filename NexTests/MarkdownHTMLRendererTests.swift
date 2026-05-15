@@ -399,6 +399,28 @@ struct MarkdownHTMLRendererTests {
         #expect(html.contains(MarkdownDOMClass.commentBlock))
     }
 
+    @Test func commentRailRendersBesideMarkdownMainContent() {
+        let markdown = """
+        Paragraph.
+
+        <!-- nex-comment
+        id: "nex-test"
+        createdAt: "2026-05-15T00:00:00Z"
+        anchorStrategy: "nearest-block"
+        anchorText: |-
+          Paragraph.
+        comment: |-
+          Side rail.
+        -->
+        """
+        let html = MarkdownRenderer.renderToHTML(markdown)
+
+        #expect(html.contains("<div id=\"content\" class=\"nex-review-layout nex-has-comment-rail\">"))
+        #expect(html.contains("<main class=\"nex-markdown-main\">"))
+        #expect(html.contains("grid-template-columns: minmax(0, 1fr) minmax(112px, 32%);"))
+        #expect(html.contains("border-left: 1px solid #d1d9e0;"))
+    }
+
     @Test func commentRailAbsentWhenNoCommentsExist() {
         let html = MarkdownRenderer.renderToHTML("Paragraph.")
         #expect(!html.contains("class=\"\(MarkdownDOMClass.commentRail)\""))
