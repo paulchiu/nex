@@ -234,13 +234,13 @@ enum MarkdownTaskMarkerBuilder {
 
         for line in lines {
             let trimmed = line.text.trimmingCharacters(in: .whitespaces)
-            if isFenceLine(line.text) {
-                inFence.toggle()
-            }
             if commentRanges.contains(where: { $0.overlaps(line.fullRange) }) {
                 inCommentRange = true
             } else {
                 inCommentRange = false
+            }
+            if !inCommentRange, isFenceLine(line.text) {
+                inFence.toggle()
             }
             guard !inFence, !inCommentRange, !trimmed.hasPrefix(">"),
                   let markerRange = taskMarkerRange(in: source, line: line)
@@ -306,7 +306,22 @@ enum MarkdownTaskMarkerBuilder {
 
     private static func isFenceLine(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        return trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~")
+        return leadingMarkdownIndent(line) < 4 &&
+            (trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~"))
+    }
+
+    private static func leadingMarkdownIndent(_ line: String) -> Int {
+        var indent = 0
+        for character in line {
+            if character == " " {
+                indent += 1
+            } else if character == "\t" {
+                indent += 4
+            } else {
+                break
+            }
+        }
+        return indent
     }
 }
 

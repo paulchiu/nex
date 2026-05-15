@@ -77,6 +77,29 @@ struct MarkdownCommentTests {
         #expect(scan.comments[0].comment == "note -- with --> marker")
     }
 
+    @Test func parsesCRLFCommentBlockWithoutInjectedBlankLines() {
+        let markdown = [
+            "Paragraph.",
+            "",
+            "<!-- nex-comment",
+            "id: \"nex-crlf\"",
+            "createdAt: \"2026-05-15T00:00:00Z\"",
+            "anchorStrategy: \"exact-selection\"",
+            "anchorText: |-",
+            "  Paragraph.",
+            "comment: |-",
+            "  Tighten this claim.",
+            "-->",
+            ""
+        ].joined(separator: "\r\n")
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments.count == 1)
+        #expect(scan.comments[0].anchorText == "Paragraph.")
+        #expect(scan.comments[0].comment == "Tighten this claim.")
+    }
+
     @Test func commentInsideFenceIsNotParsed() {
         let markdown = """
         ```
@@ -90,6 +113,22 @@ struct MarkdownCommentTests {
 
         #expect(scan.comments.isEmpty)
         #expect(scan.cleanedMarkdown.contains("<!-- nex-comment"))
+    }
+
+    @Test func indentedCommentLookalikeIsNotParsed() {
+        let markdown = """
+            <!-- nex-comment
+            id: "code"
+            -->
+
+        Paragraph.
+        """
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments.isEmpty)
+        #expect(scan.cleanedMarkdown.contains("<!-- nex-comment"))
+        #expect(scan.cleanedMarkdown.contains("id: \"code\""))
     }
 
     @Test func inlineAdjacentCommentLookalikeIsNotStripped() {
@@ -151,6 +190,23 @@ struct MarkdownCommentTests {
         #expect(source.contains("submitComment();"))
     }
 
+    @Test func reviewScriptDismissesPopoversAndKeepsDeleteCancelFocused() {
+        let source = MarkdownReviewScript.source
+
+        #expect(source.contains("function onPopoverKeyDown(event)"))
+        #expect(source.contains("event.key !== 'Escape'"))
+        #expect(source.contains("pop.addEventListener('keydown', onPopoverKeyDown)"))
+        #expect(source.contains("if (ns.popover && !ns.popover.contains(target)) removePopover();"))
+        #expect(source.contains("cancel.focus();"))
+        #expect(!source.contains("del.focus();"))
+    }
+
+    @Test func reviewScriptClampsAddCommentPopoverToViewport() {
+        let source = MarkdownReviewScript.source
+
+        #expect(source.contains("Math.min(info.rect.bottom + 8, window.innerHeight - pop.offsetHeight - 8)"))
+    }
+
     @Test func reviewScriptPositionsCommentCardsByAnchor() {
         let source = MarkdownReviewScript.source
 
@@ -158,6 +214,35 @@ struct MarkdownCommentTests {
         #expect(source.contains("targetForCommentCard(card)"))
         #expect(source.contains("target.getBoundingClientRect().top - railRect.top"))
         #expect(source.contains("nex-comment-rail-positioned"))
-        #expect(source.contains("window.addEventListener('resize', positionCommentCards)"))
+        #expect(source.contains("window.addEventListener('resize', scheduleCommentLayout)"))
+        #expect(source.contains("new ResizeObserver(scheduleCommentLayout)"))
+        #expect(source.contains("document.fonts.ready.then(scheduleCommentLayout)"))
+        #expect(source.contains("window.addEventListener('load', scheduleCommentLayout)"))
+    }
+
+    @Test func reviewScriptActivatesFocusedCommentCardsFromKeyboard() {
+        let source = MarkdownReviewScript.source
+
+        #expect(source.contains("function onKeyDown(event)"))
+        #expect(source.contains("event.key !== 'Enter'"))
+        #expect(source.contains("event.key !== ' '"))
+        #expect(source.contains("setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });"))
+        #expect(source.contains("document.addEventListener('keydown', onKeyDown, true)"))
+    }
+
+    @Test func reviewScriptCanHighlightAnchorTextAcrossInlineNodes() {
+        let source = MarkdownReviewScript.source
+
+        #expect(source.contains("function uniqueTextRange(nodes, anchor)"))
+        #expect(source.contains("function wrapTextRange(range, id)"))
+        #expect(source.contains("function wrapTextNodeSegment(node, start, end, id)"))
+        #expect(!source.contains("nodes[n].nodeValue.indexOf(anchor)"))
+    }
+
+    @Test func findScriptStillSearchesCommentHighlightedText() {
+        let source = MarkdownFindScript.source
+
+        #expect(source.contains("classList.contains('\(MarkdownDOMClass.commentRail)')"))
+        #expect(!source.contains("classList.contains('\(MarkdownDOMClass.commentHighlight)')"))
     }
 }

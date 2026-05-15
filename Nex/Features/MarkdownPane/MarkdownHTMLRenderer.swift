@@ -728,6 +728,8 @@ enum MarkdownRenderer {
             display: grid;
             gap: 8px;
             align-content: start;
+            -webkit-user-select: none;
+            user-select: none;
         }
         .dark .\(MarkdownDOMClass.commentRail) { border-left-color: #3d444d; }
         .\(MarkdownDOMClass.commentRail).nex-comment-rail-positioned {

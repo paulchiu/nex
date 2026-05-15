@@ -86,6 +86,28 @@ struct MarkdownSourceMutationTests {
         #expect(context.taskMarkers[0].sourceLine == 3)
     }
 
+    @Test func taskMarkerScanIgnoresFenceTextInsideCommentBlocks() {
+        let markdown = """
+        Paragraph.
+
+        <!-- nex-comment
+        id: "nex-fence"
+        createdAt: "2026-05-15T00:00:00Z"
+        anchorStrategy: "nearest-block"
+        anchorText: |-
+          Paragraph.
+        comment: |-
+          ```
+        -->
+
+        - [ ] real
+        """
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+
+        #expect(context.taskMarkers.count == 1)
+        #expect(context.taskMarkers[0].sourceLine == 13)
+    }
+
     @Test func updatesCommentTextInPlacePreservingAnchor() throws {
         let markdown = """
         Paragraph.

@@ -143,7 +143,7 @@ enum MarkdownCommentParser {
                 inFence.toggle()
             }
 
-            if !inFence, trimmed == "<!-- nex-comment" {
+            if !inFence, leadingMarkdownIndent(line.text) < 4, trimmed == "<!-- nex-comment" {
                 let start = line.fullRange.lowerBound
                 var end = line.fullRange.upperBound
                 var commentLineCount = 1
@@ -216,10 +216,7 @@ enum MarkdownCommentParser {
         in source: String,
         range: Range<String.Index>
     ) -> MarkdownComment? {
-        var rawLines = String(source[range]).components(separatedBy: .newlines)
-        while rawLines.last == "" {
-            rawLines.removeLast()
-        }
+        let rawLines = MarkdownSourceLine.lines(in: source, range: range).map(\.text)
         guard rawLines.first?.trimmingCharacters(in: .whitespacesAndNewlines) == "<!-- nex-comment",
               rawLines.last?.trimmingCharacters(in: .whitespacesAndNewlines) == "-->"
         else { return nil }
@@ -330,6 +327,21 @@ enum MarkdownCommentParser {
 
     private static func isFenceLine(_ line: String) -> Bool {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
-        return trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~")
+        return leadingMarkdownIndent(line) < 4 &&
+            (trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~"))
+    }
+
+    private static func leadingMarkdownIndent(_ line: String) -> Int {
+        var indent = 0
+        for character in line {
+            if character == " " {
+                indent += 1
+            } else if character == "\t" {
+                indent += 4
+            } else {
+                break
+            }
+        }
+        return indent
     }
 }

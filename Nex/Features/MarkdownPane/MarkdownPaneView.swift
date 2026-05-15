@@ -401,7 +401,7 @@ struct MarkdownPaneView: NSViewRepresentable {
                 output.append(contentsOf: [0xEF, 0xBB, 0xBF])
             }
             output.append(data)
-            try output.write(to: URL(fileURLWithPath: filePath), options: [])
+            try output.write(to: URL(fileURLWithPath: filePath), options: .atomic)
         }
 
         private func confirmTask(_ taskID: String) {

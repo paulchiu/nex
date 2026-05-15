@@ -452,6 +452,26 @@ struct MarkdownHTMLRendererTests {
         #expect(html.contains(MarkdownDOMClass.commentHighlightActive))
     }
 
+    @Test func commentRailTextIsNotSelectable() {
+        let markdown = """
+        Paragraph.
+
+        <!-- nex-comment
+        id: "nex-test"
+        createdAt: "2026-05-15T00:00:00Z"
+        anchorStrategy: "exact-selection"
+        anchorText: |-
+          Paragraph.
+        comment: |-
+          Side rail.
+        -->
+        """
+        let html = MarkdownRenderer.renderToHTML(markdown)
+
+        #expect(html.contains("-webkit-user-select: none;"))
+        #expect(html.contains("user-select: none;"))
+    }
+
     @Test func commentStylesUseThemeAccentVariables() {
         let markdown = """
         Paragraph.

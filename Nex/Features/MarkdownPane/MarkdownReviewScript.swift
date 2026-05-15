@@ -11,6 +11,8 @@ enum MarkdownReviewScript {
       ns.pendingTasks = {};
       ns.popover = null;
       ns.activeCommentID = null;
+      ns.layoutFrame = null;
+      ns.resizeObserver = null;
 
       var styleEl = document.createElement('style');
       styleEl.textContent = (
@@ -71,6 +73,13 @@ enum MarkdownReviewScript {
         return event.metaKey && (event.key === 'Enter' || event.key === 'NumpadEnter');
       }
 
+      function onPopoverKeyDown(event) {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        removePopover();
+      }
+
       function closestBlock(node) {
         var el = elementForNode(node);
         return el ? el.closest('[data-nex-block-id]') : null;
@@ -107,6 +116,7 @@ enum MarkdownReviewScript {
         removePopover();
         var pop = document.createElement('div');
         pop.className = 'nex-review-popover';
+        pop.addEventListener('keydown', onPopoverKeyDown);
         var textarea = document.createElement('textarea');
         textarea.placeholder = 'Comment';
         var actions = document.createElement('div');
@@ -124,7 +134,7 @@ enum MarkdownReviewScript {
         pop.appendChild(actions);
         document.body.appendChild(pop);
 
-        var top = Math.max(8, info.rect.bottom + 8);
+        var top = Math.max(8, Math.min(info.rect.bottom + 8, window.innerHeight - pop.offsetHeight - 8));
         var left = Math.max(8, Math.min(info.rect.left, window.innerWidth - 300));
         pop.style.top = top + 'px';
         pop.style.left = left + 'px';
@@ -162,6 +172,7 @@ enum MarkdownReviewScript {
         setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });
         var pop = document.createElement('div');
         pop.className = 'nex-review-popover';
+        pop.addEventListener('keydown', onPopoverKeyDown);
         var textarea = document.createElement('textarea');
         var body = card.querySelector('[data-nex-comment-body]');
         textarea.value = body ? String(body.textContent || '') : '';
@@ -181,7 +192,7 @@ enum MarkdownReviewScript {
         document.body.appendChild(pop);
 
         var rect = card.getBoundingClientRect();
-        pop.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - 130)) + 'px';
+        pop.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - pop.offsetHeight - 8)) + 'px';
         pop.style.left = Math.max(8, Math.min(rect.left - 292, window.innerWidth - 300)) + 'px';
 
         function submitEdit() {
@@ -214,6 +225,7 @@ enum MarkdownReviewScript {
         setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });
         var pop = document.createElement('div');
         pop.className = 'nex-review-popover';
+        pop.addEventListener('keydown', onPopoverKeyDown);
         var message = document.createElement('div');
         message.textContent = 'Delete this comment?';
         var actions = document.createElement('div');
@@ -232,7 +244,7 @@ enum MarkdownReviewScript {
         document.body.appendChild(pop);
 
         var rect = card.getBoundingClientRect();
-        pop.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - 100)) + 'px';
+        pop.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - pop.offsetHeight - 8)) + 'px';
         pop.style.left = Math.max(8, Math.min(rect.left - 292, window.innerWidth - 300)) + 'px';
 
         cancel.addEventListener('click', removePopover);
@@ -245,7 +257,7 @@ enum MarkdownReviewScript {
         });
 
         ns.popover = pop;
-        del.focus();
+        cancel.focus();
       }
 
       function removeActiveComment() {
@@ -298,6 +310,7 @@ enum MarkdownReviewScript {
       function onClick(event) {
         var target = elementForNode(event.target);
         if (!target) return;
+        if (ns.popover && !ns.popover.contains(target)) removePopover();
 
         var edit = target.closest('[data-nex-comment-edit]');
         if (edit) {
@@ -325,6 +338,16 @@ enum MarkdownReviewScript {
         if (highlight) {
           setActiveComment(highlight.getAttribute('data-nex-comment-highlight-id'), { scrollCard: true });
         }
+      }
+
+      function onKeyDown(event) {
+        var target = elementForNode(event.target);
+        if (!target || target.closest('button, textarea, input, select, a')) return;
+        var card = closestCommentCard(target);
+        if (!card) return;
+        if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+        event.preventDefault();
+        setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });
       }
 
       function onMouseUp(event) {
@@ -396,33 +419,57 @@ enum MarkdownReviewScript {
           if (!block || block.querySelector('[data-nex-comment-highlight-id="' + CSS.escape(id) + '"]')) {
             continue;
           }
-          var nodes = textNodesFor(block);
-          var target = null;
-          var targetIndex = -1;
-          var count = 0;
-          for (var n = 0; n < nodes.length; n++) {
-            var idx = nodes[n].nodeValue.indexOf(anchor);
-            if (idx >= 0) {
-              count += 1;
-              target = nodes[n];
-              targetIndex = idx;
-            }
-          }
-          if (count !== 1 || !target) continue;
-          var text = target.nodeValue;
-          var before = text.slice(0, targetIndex);
-          var match = text.slice(targetIndex, targetIndex + anchor.length);
-          var after = text.slice(targetIndex + anchor.length);
-          var span = document.createElement('span');
-          span.className = '\(MarkdownDOMClass.commentHighlight)';
-          span.setAttribute('data-nex-comment-highlight-id', id);
-          span.appendChild(document.createTextNode(match));
-          var parent = target.parentNode;
-          if (before) parent.insertBefore(document.createTextNode(before), target);
-          parent.insertBefore(span, target);
-          if (after) parent.insertBefore(document.createTextNode(after), target);
-          parent.removeChild(target);
+          var range = uniqueTextRange(textNodesFor(block), anchor);
+          if (!range) continue;
+          wrapTextRange(range, id);
         }
+      }
+
+      function uniqueTextRange(nodes, anchor) {
+        var text = '';
+        var segments = [];
+        for (var i = 0; i < nodes.length; i++) {
+          var value = nodes[i].nodeValue || '';
+          segments.push({ node: nodes[i], start: text.length, end: text.length + value.length });
+          text += value;
+        }
+        var start = text.indexOf(anchor);
+        if (start < 0) return null;
+        if (text.indexOf(anchor, start + anchor.length) >= 0) return null;
+        return { start: start, end: start + anchor.length, segments: segments };
+      }
+
+      function wrapTextRange(range, id) {
+        for (var i = 0; i < range.segments.length; i++) {
+          var segment = range.segments[i];
+          var start = Math.max(range.start, segment.start) - segment.start;
+          var end = Math.min(range.end, segment.end) - segment.start;
+          if (start < end) {
+            wrapTextNodeSegment(segment.node, start, end, id);
+          }
+        }
+      }
+
+      function wrapTextNodeSegment(node, start, end, id) {
+        var text = node.nodeValue || '';
+        var parent = node.parentNode;
+        if (!parent) return;
+        var before = text.slice(0, start);
+        var match = text.slice(start, end);
+        var after = text.slice(end);
+        if (!match) return;
+        if (before) parent.insertBefore(document.createTextNode(before), node);
+        parent.insertBefore(commentHighlightElement(match, id), node);
+        if (after) parent.insertBefore(document.createTextNode(after), node);
+        parent.removeChild(node);
+      }
+
+      function commentHighlightElement(text, id) {
+        var span = document.createElement('span');
+        span.className = '\(MarkdownDOMClass.commentHighlight)';
+        span.setAttribute('data-nex-comment-highlight-id', id);
+        span.appendChild(document.createTextNode(text));
+        return span;
       }
 
       function targetForCommentCard(card) {
@@ -490,6 +537,32 @@ enum MarkdownReviewScript {
         positionCommentCards();
       }
 
+      function scheduleCommentLayout() {
+        if (ns.layoutFrame !== null) return;
+        ns.layoutFrame = requestAnimationFrame(function() {
+          ns.layoutFrame = null;
+          refreshCommentLayout();
+        });
+      }
+
+      function watchLateLayoutChanges() {
+        var main = document.querySelector('.nex-markdown-main');
+        if (!main) return;
+        if (window.ResizeObserver) {
+          ns.resizeObserver = new ResizeObserver(scheduleCommentLayout);
+          ns.resizeObserver.observe(main);
+        }
+        var images = main.querySelectorAll('img');
+        for (var i = 0; i < images.length; i++) {
+          if (images[i].complete) continue;
+          images[i].addEventListener('load', scheduleCommentLayout, { once: true });
+          images[i].addEventListener('error', scheduleCommentLayout, { once: true });
+        }
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(scheduleCommentLayout);
+        }
+      }
+
       ns.setCommentMode = function(enabled) {
         ns.commentMode = !!enabled;
         if (document.body) {
@@ -522,12 +595,18 @@ enum MarkdownReviewScript {
 
       document.addEventListener('mouseup', onMouseUp, true);
       document.addEventListener('click', onClick, true);
+      document.addEventListener('keydown', onKeyDown, true);
       document.addEventListener('change', onTaskChange, true);
-      window.addEventListener('resize', positionCommentCards);
+      window.addEventListener('resize', scheduleCommentLayout);
+      window.addEventListener('load', scheduleCommentLayout);
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', refreshCommentLayout, { once: true });
+        document.addEventListener('DOMContentLoaded', function() {
+          refreshCommentLayout();
+          watchLateLayoutChanges();
+        }, { once: true });
       } else {
         refreshCommentLayout();
+        watchLateLayoutChanges();
       }
     })();
     """
