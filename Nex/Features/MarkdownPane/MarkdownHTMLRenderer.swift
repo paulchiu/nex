@@ -312,7 +312,7 @@ enum MarkdownRenderer {
             let blockID = context.commentBlockIDs[comment.id] ?? ""
             let malformedClass = comment.isMalformed ? " nex-comment-card-malformed" : ""
             let editButton = comment.isMalformed ? "" : """
-            <button type="button" class="nex-comment-action" data-nex-comment-edit aria-label="Edit comment">Edit</button>
+            <button type="button" class="nex-comment-action" data-nex-comment-edit aria-label="Edit comment" title="Edit comment">\(commentEditIcon)</button>
             """
             cards += """
             <article class="nex-comment-card\(malformedClass)" tabindex="0" data-nex-comment-id="\(escapeHTML(comment.id))" data-nex-comment-block-id="\(escapeHTML(blockID))" data-nex-anchor-text="\(escapeHTMLAttribute(comment.anchorText))">
@@ -320,7 +320,7 @@ enum MarkdownRenderer {
             <div class="nex-comment-card-label">Comment</div>
             <div class="nex-comment-actions">
             \(editButton)
-            <button type="button" class="nex-comment-action nex-comment-delete" data-nex-comment-delete aria-label="Delete comment">Delete</button>
+            <button type="button" class="nex-comment-action nex-comment-delete" data-nex-comment-delete aria-label="Delete comment" title="Delete comment">\(commentDeleteIcon)</button>
             </div>
             </header>
             <p data-nex-comment-body>\(escapeHTML(comment.comment))</p>
@@ -333,6 +333,21 @@ enum MarkdownRenderer {
         \(cards)</aside>
         """
     }
+
+    private static let commentEditIcon = """
+    <svg class="nex-comment-action-icon" aria-hidden="true" viewBox="0 0 16 16" focusable="false">
+    <path d="M3.5 11.5 3 13l1.5-.5 7.35-7.35a1.15 1.15 0 0 0-1.63-1.63L3.5 10.25v1.25Z"/>
+    <path d="m9.5 4.25 2.25 2.25"/>
+    </svg>
+    """
+
+    private static let commentDeleteIcon = """
+    <svg class="nex-comment-action-icon" aria-hidden="true" viewBox="0 0 16 16" focusable="false">
+    <path d="M5.25 4.5V3.75A1.25 1.25 0 0 1 6.5 2.5h3a1.25 1.25 0 0 1 1.25 1.25v.75"/>
+    <path d="M3.75 4.5h8.5"/>
+    <path d="m5 6 .45 6.25a1.25 1.25 0 0 0 1.25 1.15h2.6a1.25 1.25 0 0 0 1.25-1.15L11 6"/>
+    </svg>
+    """
 
     private static func isDarkBackground(color: NSColor) -> Bool {
         let rgb = color.usingColorSpace(.sRGB) ?? color
@@ -754,19 +769,29 @@ enum MarkdownRenderer {
         .dark .nex-comment-card-label { color: #9198a1; }
         .nex-comment-actions {
             display: flex;
-            gap: 4px;
+            gap: 3px;
             margin-left: auto;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 120ms ease;
+        }
+        .nex-comment-card:hover .nex-comment-actions,
+        .nex-comment-card:focus-within .nex-comment-actions {
+            opacity: 1;
+            pointer-events: auto;
         }
         .nex-comment-action {
             border: 1px solid #d1d9e0;
             border-radius: 4px;
-            background: rgba(255, 255, 255, 0.55);
+            background: rgba(255, 255, 255, 0.42);
             color: #57606a;
             cursor: pointer;
-            font: inherit;
-            font-size: 0.72em;
-            line-height: 1.2;
-            padding: 1px 4px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            padding: 0;
         }
         .nex-comment-action:hover,
         .nex-comment-action:focus-visible {
@@ -784,6 +809,15 @@ enum MarkdownRenderer {
             border-color: #3d444d;
             background: rgba(110, 118, 129, 0.22);
             color: #e6edf3;
+        }
+        .nex-comment-action-icon {
+            width: 12px;
+            height: 12px;
+            fill: none;
+            stroke: currentColor;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 1.45;
         }
         .nex-comment-card p {
             margin: 0;

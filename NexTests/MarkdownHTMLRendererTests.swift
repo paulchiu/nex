@@ -441,8 +441,13 @@ struct MarkdownHTMLRendererTests {
 
         #expect(html.contains("tabindex=\"0\" data-nex-comment-id=\"nex-test\""))
         #expect(html.contains("data-nex-comment-block-id=\"block-1\""))
-        #expect(html.contains("data-nex-comment-edit"))
-        #expect(html.contains("data-nex-comment-delete"))
+        #expect(html.contains("data-nex-comment-edit aria-label=\"Edit comment\""))
+        #expect(html.contains("data-nex-comment-delete aria-label=\"Delete comment\""))
+        #expect(html.contains("class=\"nex-comment-action-icon\""))
+        #expect(html.contains(".nex-comment-card:hover .nex-comment-actions"))
+        #expect(html.contains("pointer-events: none;"))
+        #expect(!html.contains(">Edit</button>"))
+        #expect(!html.contains(">Delete</button>"))
         #expect(html.contains(MarkdownDOMClass.commentCardActive))
         #expect(html.contains(MarkdownDOMClass.commentHighlightActive))
     }
