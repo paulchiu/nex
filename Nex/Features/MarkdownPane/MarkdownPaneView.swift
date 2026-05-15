@@ -182,6 +182,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         private var copyObserver: NSObjectProtocol?
         private var reviewPopover: NSPopover?
         private let reviewPopoverDelegate = ReviewPopoverDelegate()
+        private var openReviewPopoverPurpose: MarkdownReviewPopoverView.Purpose?
         private var activeCommentID: String?
 
         func loadFile() {
@@ -315,7 +316,7 @@ struct MarkdownPaneView: NSViewRepresentable {
             webView.evaluateJavaScript(
                 "window.__nexMarkdownReview && window.__nexMarkdownReview.setCommentMode(\(enabled));"
             )
-            if !commentModeEnabled {
+            if !commentModeEnabled, openReviewPopoverPurpose == .add {
                 closeReviewPopover()
             }
         }
@@ -426,6 +427,11 @@ struct MarkdownPaneView: NSViewRepresentable {
         }
 
         func closeReviewPopover() {
+            guard reviewPopover != nil else {
+                openReviewPopoverPurpose = nil
+                reviewPopoverDelegate.onClose = nil
+                return
+            }
             reviewPopover?.close()
         }
 
@@ -456,6 +462,7 @@ struct MarkdownPaneView: NSViewRepresentable {
                 anchorRect: anchorRect,
                 preferredEdge: .maxY,
                 contentSize: NSSize(width: 312, height: 176),
+                purpose: .add,
                 onClose: { [weak self] in
                     self?.clearWebSelection()
                 }
@@ -489,6 +496,7 @@ struct MarkdownPaneView: NSViewRepresentable {
                 anchorRect: anchorRect,
                 preferredEdge: .minX,
                 contentSize: NSSize(width: 312, height: 176),
+                purpose: .edit,
                 onClose: {}
             )
         }
@@ -515,6 +523,7 @@ struct MarkdownPaneView: NSViewRepresentable {
                 anchorRect: anchorRect,
                 preferredEdge: .minX,
                 contentSize: NSSize(width: 292, height: 118),
+                purpose: .delete,
                 onClose: {}
             )
         }
@@ -524,6 +533,7 @@ struct MarkdownPaneView: NSViewRepresentable {
             anchorRect: MarkdownReviewPayload.AnchorRect,
             preferredEdge: NSRectEdge,
             contentSize: NSSize,
+            purpose: MarkdownReviewPopoverView.Purpose,
             onClose: @escaping () -> Void
         ) {
             guard let webView else { return }
@@ -535,10 +545,12 @@ struct MarkdownPaneView: NSViewRepresentable {
             popover.contentViewController = NSHostingController(rootView: content)
             reviewPopoverDelegate.onClose = { [weak self] in
                 self?.reviewPopover = nil
+                self?.openReviewPopoverPurpose = nil
                 onClose()
             }
             popover.delegate = reviewPopoverDelegate
             reviewPopover = popover
+            openReviewPopoverPurpose = purpose
             popover.show(
                 relativeTo: webViewAnchorRect(from: anchorRect),
                 of: webView,
