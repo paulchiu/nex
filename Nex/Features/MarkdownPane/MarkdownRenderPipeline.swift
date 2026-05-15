@@ -26,6 +26,7 @@ enum MarkdownRenderPipeline {
             taskMarkers: taskMarkers,
             sourceBlocks: sourceBlocks,
             cleanedMarkdown: scan.cleanedMarkdown,
+            document: document,
             sourceMap: sourceMap,
             bodyOffset: sourceMap.bodyOffset,
             commentsByBlockID: placement.commentsByBlockID,

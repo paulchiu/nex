@@ -1,4 +1,5 @@
 import Foundation
+import Markdown
 
 enum MarkdownDOMClass {
     static let commentBlock = "nex-comment-block"
@@ -52,6 +53,7 @@ struct MarkdownRenderContext {
     var taskMarkers: [MarkdownTaskMarker]
     var sourceBlocks: [MarkdownSourceBlock]
     var cleanedMarkdown: String
+    var document: Document
     var sourceMap: MarkdownSourceMap
     var bodyOffset: MarkdownBodyOffset
     var commentsByBlockID: [String: [MarkdownComment]]

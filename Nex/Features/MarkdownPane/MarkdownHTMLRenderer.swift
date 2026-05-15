@@ -288,9 +288,8 @@ enum MarkdownRenderer {
     ) -> String {
         let yaml = MarkdownRenderPipeline.frontMatter(in: markdown)
         let context = MarkdownRenderPipeline.makeContext(markdown)
-        let document = Document(parsing: context.cleanedMarkdown)
         var visitor = MarkdownHTMLRenderer(context: context)
-        let bodyHTML = visitor.visit(document)
+        let bodyHTML = visitor.visit(context.document)
         let fmHTML = yaml.map(FrontMatterRenderer.render) ?? ""
         let commentRailHTML = renderCommentRail(context)
         let bgCSS = cssBackground(color: backgroundColor, opacity: backgroundOpacity)
