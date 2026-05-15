@@ -9,17 +9,12 @@ enum MarkdownReviewScript {
       window.__nexMarkdownReview = ns;
       ns.commentMode = false;
       ns.pendingTasks = {};
-      ns.popover = null;
       ns.activeCommentID = null;
       ns.layoutFrame = null;
       ns.resizeObserver = null;
 
       var styleEl = document.createElement('style');
-      styleEl.textContent = (
-        "body.nex-comment-mode { cursor: text; }" +
-        ".nex-review-popover { position: fixed; z-index: 2147483647; max-width: 280px; border: 1px solid #d1d9e0; border-radius: 8px; background: #fff; color: #1f2328; box-shadow: 0 12px 30px rgba(0,0,0,.18); padding: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; }" +
-        ".dark .nex-review-popover { background: #161b22; color: #e6edf3; border-color: #3d444d; }"
-      );
+      styleEl.textContent = "body.nex-comment-mode { cursor: text; }";
 
       function injectStyle() {
         if (document.head) {
@@ -40,13 +35,6 @@ enum MarkdownReviewScript {
         if (h) h.postMessage(payload);
       }
 
-      function removePopover() {
-        if (ns.popover && ns.popover.parentNode) {
-          ns.popover.parentNode.removeChild(ns.popover);
-        }
-        ns.popover = null;
-      }
-
       function elementForNode(node) {
         if (!node) return null;
         return node.nodeType === 1 ? node : node.parentElement;
@@ -60,7 +48,7 @@ enum MarkdownReviewScript {
       function isReviewChrome(node) {
         var el = elementForNode(node);
         if (!el) return false;
-        return !!el.closest('.\(MarkdownDOMClass.commentRail), .nex-review-popover');
+        return !!el.closest('.\(MarkdownDOMClass.commentRail)');
       }
 
       function closestBlock(node) {
@@ -149,7 +137,6 @@ enum MarkdownReviewScript {
       function onClick(event) {
         var target = elementForNode(event.target);
         if (!target) return;
-        if (ns.popover && !ns.popover.contains(target)) removePopover();
 
         var edit = target.closest('[data-nex-comment-edit]');
         if (edit) {
@@ -219,7 +206,6 @@ enum MarkdownReviewScript {
 
       function onMouseUp(event) {
         if (!ns.commentMode) return;
-        if (ns.popover && ns.popover.contains(event.target)) return;
         if (isReviewChrome(event.target)) return;
         setTimeout(function() {
           var info = selectionInfo();
@@ -442,7 +428,6 @@ enum MarkdownReviewScript {
         if (document.body) {
           document.body.classList.toggle('nex-comment-mode', ns.commentMode);
         }
-        if (!ns.commentMode) removePopover();
       };
 
       ns.setActiveComment = function(id, options) {

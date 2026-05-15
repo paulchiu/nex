@@ -331,9 +331,6 @@ struct MarkdownCommentTests {
         #expect(source.contains("type: 'requestDeleteComment'"))
         #expect(source.contains("function rectPayload(rect)"))
         #expect(!source.contains("document.createElement('textarea')"))
-        #expect(!source.contains("function showPopover"))
-        #expect(!source.contains("function showEditPopover"))
-        #expect(!source.contains("function showDeletePopover"))
     }
 
     @Test func reviewScriptExposesSwiftCommentStateAdapters() {
@@ -341,8 +338,6 @@ struct MarkdownCommentTests {
 
         #expect(source.contains("ns.setActiveComment = function(id, options)"))
         #expect(source.contains("ns.clearSelection = function()"))
-        #expect(!source.contains("ns.showError = function(message)"))
-        #expect(!source.contains("function onPopoverKeyDown(event)"))
     }
 
     @Test func reviewScriptPostsSelectionGeometryToSwift() {
