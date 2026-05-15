@@ -44,6 +44,7 @@ struct PaneGridView: View {
     @State private var resizeHideTask: Task<Void, Never>?
     @State private var focusHoverTask: Task<Void, Never>?
     @State private var diffRefreshTokens: [UUID: UInt64] = [:]
+    @State private var markdownCommentModes: [UUID: Bool] = [:]
 
     var body: some View {
         if layout.isEmpty {
@@ -88,7 +89,14 @@ struct PaneGridView: View {
             // Prevent implicit animations from interfering with
             // NSView re-parenting during layout transitions.
             .transaction { $0.animation = nil }
+            .onChange(of: commentModeEligiblePaneIDs) { _, eligibleIDs in
+                markdownCommentModes = markdownCommentModes.filter { eligibleIDs.contains($0.key) }
+            }
         }
+    }
+
+    private var commentModeEligiblePaneIDs: Set<UUID> {
+        Set(panes.filter { $0.type == .markdown && !$0.isEditing }.map(\.id))
     }
 
     private func paneView(pane: Pane, frame: CGRect) -> some View {
@@ -99,16 +107,28 @@ struct PaneGridView: View {
                 onFocus: { onFocusPane(pane.id) },
                 onSplitHorizontal: { onSplitPane(pane.id, .horizontal) },
                 onSplitVertical: { onSplitPane(pane.id, .vertical) },
-                onClose: { onClosePane(pane.id) },
+                onClose: {
+                    markdownCommentModes[pane.id] = nil
+                    onClosePane(pane.id)
+                },
                 isZoomed: isZoomed,
                 onToggleZoom: onToggleZoom,
                 isEditing: pane.isEditing,
-                onToggleEdit: pane.type == .markdown ? { onToggleMarkdownEdit(pane.id) } : nil,
+                onToggleEdit: pane.type == .markdown
+                    ? {
+                        markdownCommentModes[pane.id] = nil
+                        onToggleMarkdownEdit(pane.id)
+                    }
+                    : nil,
                 onCopyMarkdown: pane.type == .markdown
                     ? { postMarkdownCopy(pane.id, kind: .markdown) }
                     : nil,
                 onCopyRichText: pane.type == .markdown
                     ? { postMarkdownCopy(pane.id, kind: .richText) }
+                    : nil,
+                isCommentMode: markdownCommentModes[pane.id] ?? false,
+                onToggleCommentMode: pane.type == .markdown && !pane.isEditing
+                    ? { markdownCommentModes[pane.id, default: false].toggle() }
                     : nil,
                 onRefreshDiff: pane.type == .diff
                     ? { diffRefreshTokens[pane.id, default: 0] &+= 1 }
@@ -185,7 +205,8 @@ struct PaneGridView: View {
                         isFocused: pane.id == focusedPaneID,
                         backgroundColor: ghosttyConfig.backgroundColor,
                         backgroundOpacity: ghosttyConfig.backgroundOpacity,
-                        fontSize: pane.markdownFontSize
+                        fontSize: pane.markdownFontSize,
+                        commentModeEnabled: markdownCommentModes[pane.id] ?? false
                     )
                 }
             case .scratchpad:

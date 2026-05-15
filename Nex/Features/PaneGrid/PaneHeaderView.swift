@@ -17,6 +17,8 @@ struct PaneHeaderView: View {
     var onToggleEdit: (() -> Void)?
     var onCopyMarkdown: (() -> Void)?
     var onCopyRichText: (() -> Void)?
+    var isCommentMode: Bool = false
+    var onToggleCommentMode: (() -> Void)?
     var onRefreshDiff: (() -> Void)?
     var onDragChanged: ((CGPoint) -> Void)?
     var onDragEnded: (() -> Void)?
@@ -106,6 +108,19 @@ struct PaneHeaderView: View {
 
             if pane.type == .markdown, !isEditing,
                let onCopyMarkdown, let onCopyRichText {
+                if let onToggleCommentMode {
+                    Button(action: onToggleCommentMode) {
+                        Image(systemName: "text.bubble")
+                            .font(.system(size: 10))
+                            .foregroundStyle(isCommentMode ? Color.accentColor : .secondary)
+                            .frame(width: 20, height: 20)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(isCommentMode ? 1.0 : 0.6)
+                    .help("Comment mode")
+                }
+
                 Button(action: {
                     showCopyMenu(
                         onCopyMarkdown: onCopyMarkdown,

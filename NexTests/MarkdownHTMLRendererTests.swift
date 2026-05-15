@@ -71,7 +71,7 @@ struct MarkdownHTMLRendererTests {
     @Test func plainTextWithoutURLUnchanged() {
         let html = MarkdownRenderer.renderToHTML("Just some plain text with no links.")
         #expect(!html.contains("<a "))
-        #expect(html.contains("<p>Just some plain text with no links.</p>"))
+        #expect(html.contains(">Just some plain text with no links.</p>"))
     }
 
     @Test func trailingPunctuationNotPartOfURL() {
@@ -134,12 +134,12 @@ struct MarkdownHTMLRendererTests {
 
     @Test func headingRendered() {
         let html = MarkdownRenderer.renderToHTML("# Title")
-        #expect(html.contains("<h1>Title</h1>"))
+        #expect(html.contains(">Title</h1>"))
     }
 
     @Test func paragraphRendered() {
         let html = MarkdownRenderer.renderToHTML("Hello world")
-        #expect(html.contains("<p>Hello world</p>"))
+        #expect(html.contains(">Hello world</p>"))
     }
 
     // MARK: - Front matter
@@ -149,14 +149,14 @@ struct MarkdownHTMLRendererTests {
         #expect(html.contains("<table class=\"frontmatter\">"))
         #expect(html.contains("<th scope=\"row\">title</th>"))
         #expect(html.contains("<td>Hello</td>"))
-        #expect(html.contains("<h1>Body</h1>"))
+        #expect(html.contains(">Body</h1>"))
     }
 
     @Test func frontMatterStrippedFromBody() {
         let html = MarkdownRenderer.renderToHTML("---\ntitle: Hello\n---\nAfter")
         // The literal "title: Hello" must not appear as body text.
         #expect(!html.contains("<p>title: Hello</p>"))
-        #expect(html.contains("<p>After</p>"))
+        #expect(html.contains(">After</p>"))
     }
 
     @Test func frontMatterInlineArrayBecomesCommaList() {
@@ -211,7 +211,7 @@ struct MarkdownHTMLRendererTests {
         let html = MarkdownRenderer.renderToHTML("---\r\ntitle: x\r\n---\r\n# Body")
         #expect(html.contains("<table class=\"frontmatter\">"))
         #expect(html.contains("<td>x</td>"))
-        #expect(html.contains("<h1>Body</h1>"))
+        #expect(html.contains(">Body</h1>"))
     }
 
     @Test func frontMatterLeadingBOMTolerated() {
@@ -230,13 +230,13 @@ struct MarkdownHTMLRendererTests {
         // a thematic break (hr) followed by body content.
         let html = MarkdownRenderer.renderToHTML("---\ntitle: x\n# Heading")
         #expect(!html.contains("class=\"frontmatter\""))
-        #expect(html.contains("<hr>"))
+        #expect(html.contains("<hr data-nex-block-id="))
     }
 
     @Test func frontMatterEmptyMappingEmitsNothing() {
         let html = MarkdownRenderer.renderToHTML("---\n---\n# Body")
         #expect(!html.contains("class=\"frontmatter\""))
-        #expect(html.contains("<h1>Body</h1>"))
+        #expect(html.contains(">Body</h1>"))
     }
 
     @Test func frontMatterExceedingSizeCapTreatedAsAbsent() {
@@ -324,7 +324,7 @@ struct MarkdownHTMLRendererTests {
         // The table is emitted with the key row (value is empty or "null").
         #expect(html.contains("<table class=\"frontmatter\">"))
         #expect(html.contains("<th scope=\"row\">key</th>"))
-        #expect(html.contains("<h1>Body</h1>"))
+        #expect(html.contains(">Body</h1>"))
     }
 
     @Test func frontMatterSizeCapBailsMidScan() {
@@ -373,5 +373,54 @@ struct MarkdownHTMLRendererTests {
         let html = MarkdownRenderer.renderToHTML(yaml)
         #expect(html.contains("<td>hello</td>"))
         #expect(!html.contains("<td>b</td>"))
+    }
+
+    // MARK: - Nex comments
+
+    @Test func nexCommentBlockHiddenFromRenderedMarkdown() {
+        let markdown = """
+        Paragraph.
+
+        <!-- nex-comment
+        id: "nex-test"
+        createdAt: "2026-05-15T00:00:00Z"
+        anchorStrategy: "exact-selection"
+        anchorText: |-
+          Paragraph.
+        comment: |-
+          Needs evidence.
+        -->
+        """
+        let html = MarkdownRenderer.renderToHTML(markdown)
+
+        #expect(!html.contains("<!-- nex-comment"))
+        #expect(html.contains("class=\"\(MarkdownDOMClass.commentRail)\""))
+        #expect(html.contains("Needs evidence."))
+        #expect(html.contains(MarkdownDOMClass.commentBlock))
+    }
+
+    @Test func commentRailAbsentWhenNoCommentsExist() {
+        let html = MarkdownRenderer.renderToHTML("Paragraph.")
+        #expect(!html.contains("class=\"\(MarkdownDOMClass.commentRail)\""))
+    }
+
+    @Test func commentTextIsEscapedInRail() {
+        let markdown = """
+        Paragraph.
+
+        <!-- nex-comment
+        id: "nex-test"
+        createdAt: "2026-05-15T00:00:00Z"
+        anchorStrategy: "nearest-block"
+        anchorText: |-
+          Paragraph.
+        comment: |-
+          <script>alert(1)</script>
+        -->
+        """
+        let html = MarkdownRenderer.renderToHTML(markdown)
+
+        #expect(!html.contains("<script>alert(1)</script>"))
+        #expect(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"))
     }
 }

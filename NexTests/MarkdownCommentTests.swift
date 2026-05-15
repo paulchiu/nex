@@ -1,0 +1,103 @@
+import Foundation
+@testable import Nex
+import Testing
+
+struct MarkdownCommentTests {
+    @Test func parsesValidCommentBlock() {
+        let markdown = """
+        Paragraph.
+
+        <!-- nex-comment
+        id: "nex-test"
+        createdAt: "2026-05-15T00:00:00Z"
+        anchorStrategy: "exact-selection"
+        anchorText: |-
+          Paragraph.
+        comment: |-
+          Tighten this claim.
+        -->
+        """
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments.count == 1)
+        #expect(scan.comments[0].id == "nex-test")
+        #expect(scan.comments[0].anchorStrategy == .exactSelection)
+        #expect(scan.comments[0].anchorText == "Paragraph.")
+        #expect(scan.comments[0].comment == "Tighten this claim.")
+        #expect(!scan.cleanedMarkdown.contains("<!-- nex-comment"))
+    }
+
+    @Test func malformedCommentIsHiddenAndRecordedSafely() {
+        let markdown = """
+        A.
+
+        <!-- nex-comment
+        id: "broken"
+        -->
+        """
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments.count == 1)
+        #expect(scan.comments[0].isMalformed)
+        #expect(scan.comments[0].comment == "Malformed Nex comment")
+        #expect(!scan.cleanedMarkdown.contains("<!-- nex-comment"))
+    }
+
+    @Test func unknownHTMLCommentRemainsMarkdown() {
+        let markdown = "A.\n\n<!-- ordinary -->\n"
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments.isEmpty)
+        #expect(scan.cleanedMarkdown.contains("<!-- ordinary -->"))
+    }
+
+    @Test func commentFieldsEscapeDashDashRoundTrip() {
+        let empty = ""
+        let original = MarkdownComment(
+            id: "nex-test",
+            createdAt: Date(timeIntervalSince1970: 0),
+            anchorStrategy: .exactSelection,
+            anchorText: "a -- b --> c",
+            comment: "note -- with --> marker",
+            markerRange: empty.startIndex ..< empty.startIndex
+        )
+        let serialized = MarkdownCommentParser.serialize(original, lineEnding: "\n")
+        let middle = serialized.components(separatedBy: "\n").dropFirst().dropLast().joined(separator: "\n")
+
+        #expect(!middle.contains("--"))
+
+        let markdown = "A.\n\n\(serialized)\n"
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments[0].anchorText == "a -- b --> c")
+        #expect(scan.comments[0].comment == "note -- with --> marker")
+    }
+
+    @Test func commentInsideFenceIsNotParsed() {
+        let markdown = """
+        ```
+        <!-- nex-comment
+        id: "nope"
+        -->
+        ```
+        """
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments.isEmpty)
+        #expect(scan.cleanedMarkdown.contains("<!-- nex-comment"))
+    }
+
+    @Test func inlineAdjacentCommentLookalikeIsNotStripped() {
+        let markdown = "Paragraph <!-- nex-comment still prose -->\n"
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments.isEmpty)
+        #expect(scan.cleanedMarkdown == markdown)
+    }
+}

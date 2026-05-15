@@ -1,0 +1,75 @@
+import Foundation
+
+enum MarkdownSourceMutationError: Error, Equatable {
+    case unknownBlock(String)
+    case unknownTask(String)
+    case invalidTaskMarker(String)
+}
+
+struct MarkdownTaskToggleResult {
+    var markdown: String
+    var previousChecked: Bool
+}
+
+enum MarkdownSourceMutations {
+    static func insertComment(
+        in markdown: String,
+        blockID: String,
+        selectedText: String,
+        anchorStrategy: MarkdownAnchorStrategy,
+        commentText: String,
+        createdAt: Date = Date()
+    ) throws -> String {
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+        guard let block = context.sourceBlocks.first(where: { $0.id == blockID }) else {
+            throw MarkdownSourceMutationError.unknownBlock(blockID)
+        }
+
+        let lineEnding = MarkdownSourceMap.dominantLineEnding(in: markdown)
+        let comment = MarkdownComment(
+            id: makeCommentID(createdAt: createdAt),
+            createdAt: createdAt,
+            anchorStrategy: anchorStrategy,
+            anchorText: selectedText.trimmingCharacters(in: .whitespacesAndNewlines),
+            comment: commentText.trimmingCharacters(in: .whitespacesAndNewlines),
+            markerRange: markdown.startIndex ..< markdown.startIndex
+        )
+        let blockText = MarkdownCommentParser.serialize(comment, lineEnding: lineEnding)
+        let insertion = block.insertionIndex
+        let prefix = markdown[..<insertion]
+        let suffix = markdown[insertion...]
+        let leading = prefix.hasSuffix(lineEnding) ? lineEnding : lineEnding + lineEnding
+        let trailing = suffix.hasPrefix(lineEnding) || suffix.isEmpty ? lineEnding : lineEnding + lineEnding
+        return String(prefix) + leading + blockText + trailing + String(suffix)
+    }
+
+    static func toggleTaskCheckbox(
+        in markdown: String,
+        taskID: String,
+        checked: Bool
+    ) throws -> MarkdownTaskToggleResult {
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+        guard let marker = context.taskMarkers.first(where: { $0.id == taskID }) else {
+            throw MarkdownSourceMutationError.unknownTask(taskID)
+        }
+        let current = String(markdown[marker.markerRange])
+        guard current == "[ ]" || current == "[x]" || current == "[X]" else {
+            throw MarkdownSourceMutationError.invalidTaskMarker(taskID)
+        }
+
+        var updated = markdown
+        updated.replaceSubrange(marker.markerRange, with: checked ? "[x]" : "[ ]")
+        return MarkdownTaskToggleResult(markdown: updated, previousChecked: marker.checked)
+    }
+
+    private static func makeCommentID(createdAt: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        let stamp = formatter.string(from: createdAt)
+        let suffix = UUID().uuidString.prefix(8).lowercased()
+        return "nex-\(stamp)-\(suffix)"
+    }
+}

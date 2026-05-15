@@ -20,6 +20,13 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
 
     private var isInTableHead = false
     private var skipAutolinkDepth = 0
+    private var context: MarkdownRenderContext?
+    private var blockCursor = 0
+    private var taskCursor = 0
+
+    init(context: MarkdownRenderContext? = nil) {
+        self.context = context
+    }
 
     mutating func defaultVisit(_ markup: any Markup) -> String {
         markup.children.map { visit($0) }.joined()
@@ -30,13 +37,15 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
     }
 
     mutating func visitHeading(_ heading: Heading) -> String {
+        let block = nextBlock()
         let content = heading.children.map { visit($0) }.joined()
-        return "<h\(heading.level)>\(content)</h\(heading.level)>\n"
+        return "<h\(heading.level)\(blockAttributes(for: block))>\(content)</h\(heading.level)>\n"
     }
 
     mutating func visitParagraph(_ paragraph: Paragraph) -> String {
+        let block = nextBlock()
         let content = paragraph.children.map { visit($0) }.joined()
-        return "<p>\(content)</p>\n"
+        return "<p\(blockAttributes(for: block))>\(content)</p>\n"
     }
 
     mutating func visitText(_ text: Text) -> String {
@@ -66,10 +75,11 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
     }
 
     mutating func visitCodeBlock(_ codeBlock: CodeBlock) -> String {
+        let block = nextBlock()
         let lang = codeBlock.language ?? ""
         let langAttr = lang.isEmpty ? "" : " class=\"language-\(escapeHTML(lang))\""
         let code = escapeHTML(codeBlock.code)
-        return "<pre><code\(langAttr)>\(code)</code></pre>\n"
+        return "<pre\(blockAttributes(for: block))><code\(langAttr)>\(code)</code></pre>\n"
     }
 
     mutating func visitUnorderedList(_ list: UnorderedList) -> String {
@@ -85,14 +95,21 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
     }
 
     mutating func visitListItem(_ item: ListItem) -> String {
+        let block = nextBlock()
+        let taskMarker = item.checkbox == nil ? nil : nextTaskMarker()
         let content = item.children.map { visit($0) }.joined()
         if let checkbox = item.checkbox {
-            let attrs = checkbox == .checked ? " checked disabled" : " disabled"
-            return "<li class=\"task-list-item\">"
-                + "<input type=\"checkbox\" class=\"task-list-item-checkbox\"\(attrs)> "
+            let checkedAttr = checkbox == .checked ? " checked" : ""
+            let inputAttrs = if let taskMarker {
+                " data-nex-task-id=\"\(escapeHTML(taskMarker.id))\"\(checkedAttr)"
+            } else {
+                "\(checkedAttr) disabled"
+            }
+            return "<li\(blockAttributes(for: block, classes: ["task-list-item"]))>"
+                + "<input type=\"checkbox\" class=\"task-list-item-checkbox\"\(inputAttrs)> "
                 + "\(content)</li>\n"
         }
-        return "<li>\(content)</li>\n"
+        return "<li\(blockAttributes(for: block))>\(content)</li>\n"
     }
 
     mutating func visitLink(_ link: Link) -> String {
@@ -113,12 +130,14 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
     }
 
     mutating func visitBlockQuote(_ blockQuote: BlockQuote) -> String {
+        let block = nextBlock()
         let content = blockQuote.children.map { visit($0) }.joined()
-        return "<blockquote>\n\(content)</blockquote>\n"
+        return "<blockquote\(blockAttributes(for: block))>\n\(content)</blockquote>\n"
     }
 
     mutating func visitThematicBreak(_: ThematicBreak) -> String {
-        "<hr>\n"
+        let block = nextBlock()
+        return "<hr\(blockAttributes(for: block))>\n"
     }
 
     mutating func visitSoftBreak(_: SoftBreak) -> String {
@@ -140,8 +159,9 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
     // MARK: - GFM Tables
 
     mutating func visitTable(_ table: Table) -> String {
+        let block = nextBlock()
         let content = table.children.map { visit($0) }.joined()
-        return "<table>\n\(content)</table>\n"
+        return "<table\(blockAttributes(for: block))>\n\(content)</table>\n"
     }
 
     mutating func visitTableHead(_ head: Table.Head) -> String {
@@ -162,12 +182,48 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
     }
 
     mutating func visitTableCell(_ cell: Table.Cell) -> String {
+        let block = nextBlock()
         let content = cell.children.map { visit($0) }.joined()
         let tag = isInTableHead ? "th" : "td"
-        return "<\(tag)>\(content)</\(tag)>"
+        return "<\(tag)\(blockAttributes(for: block))>\(content)</\(tag)>"
     }
 
     // MARK: - Helpers
+
+    private mutating func nextBlock() -> MarkdownSourceBlock? {
+        guard let context, blockCursor < context.sourceBlocks.count else { return nil }
+        let block = context.sourceBlocks[blockCursor]
+        blockCursor += 1
+        return block
+    }
+
+    private mutating func nextTaskMarker() -> MarkdownTaskMarker? {
+        guard let context, taskCursor < context.taskMarkers.count else { return nil }
+        let marker = context.taskMarkers[taskCursor]
+        taskCursor += 1
+        return marker
+    }
+
+    private func blockAttributes(
+        for block: MarkdownSourceBlock?,
+        classes: [String] = []
+    ) -> String {
+        guard let block else {
+            if classes.isEmpty { return "" }
+            return " class=\"\(classes.joined(separator: " "))\""
+        }
+
+        var allClasses = classes
+        if let context, context.commentsByBlockID[block.id]?.isEmpty == false {
+            allClasses.append(MarkdownDOMClass.commentBlock)
+        }
+
+        var attributes = " data-nex-block-id=\"\(escapeHTML(block.id))\""
+        if !allClasses.isEmpty {
+            attributes = " class=\"\(allClasses.joined(separator: " "))\"" + attributes
+        }
+        return attributes
+    }
 
     private func escapeHTML(_ text: String) -> String {
         text.replacingOccurrences(of: "&", with: "&amp;")
@@ -225,19 +281,41 @@ enum MarkdownRenderer {
         backgroundOpacity: Double = 1.0,
         baseFontSize: Double = 14
     ) -> String {
-        let (yaml, body) = FrontMatterExtractor.extract(markdown)
-        let document = Document(parsing: body)
-        var visitor = MarkdownHTMLRenderer()
+        let yaml = MarkdownRenderPipeline.frontMatter(in: markdown)
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+        let document = Document(parsing: context.cleanedMarkdown)
+        var visitor = MarkdownHTMLRenderer(context: context)
         let bodyHTML = visitor.visit(document)
         let fmHTML = yaml.map(FrontMatterRenderer.render) ?? ""
+        let commentRailHTML = renderCommentRail(context)
         let bgCSS = cssBackground(color: backgroundColor, opacity: backgroundOpacity)
         let isDark = isDarkBackground(color: backgroundColor)
         return wrapInHTMLDocument(
-            fmHTML + bodyHTML,
+            fmHTML + bodyHTML + commentRailHTML,
             backgroundCSS: bgCSS,
             isDark: isDark,
             baseFontSize: baseFontSize
         )
+    }
+
+    private static func renderCommentRail(_ context: MarkdownRenderContext) -> String {
+        guard !context.comments.isEmpty else { return "" }
+        var cards = ""
+        for comment in context.comments {
+            let blockID = context.commentBlockIDs[comment.id] ?? ""
+            let malformedClass = comment.isMalformed ? " nex-comment-card-malformed" : ""
+            cards += """
+            <article class="nex-comment-card\(malformedClass)" data-nex-comment-id="\(escapeHTML(comment.id))" data-nex-block-id="\(escapeHTML(blockID))" data-nex-anchor-text="\(escapeHTMLAttribute(comment.anchorText))">
+            <div class="nex-comment-card-label">Comment</div>
+            <p>\(escapeHTML(comment.comment))</p>
+            </article>
+
+            """
+        }
+        return """
+        <aside class="\(MarkdownDOMClass.commentRail)" aria-label="Comments">
+        \(cards)</aside>
+        """
     }
 
     private static func isDarkBackground(color: NSColor) -> Bool {
@@ -280,6 +358,17 @@ enum MarkdownRenderer {
     }
 
     // MARK: - Stylesheet
+
+    private static func escapeHTML(_ text: String) -> String {
+        text.replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+    }
+
+    private static func escapeHTMLAttribute(_ text: String) -> String {
+        escapeHTML(text).replacingOccurrences(of: "\n", with: "&#10;")
+    }
 
     private static func css(backgroundCSS: String, baseFontSize: Double) -> String {
         let codeFontSize = max(baseFontSize - 1, 6)
@@ -362,8 +451,9 @@ enum MarkdownRenderer {
             background: transparent;
             margin: 0 0.4em 0.15em -1.4em;
             vertical-align: middle;
-            cursor: default;
+            cursor: pointer;
         }
+        li.task-list-item > input.task-list-item-checkbox:disabled { cursor: default; }
         .dark li.task-list-item > input.task-list-item-checkbox {
             border-color: #7d8590;
         }
@@ -441,6 +531,58 @@ enum MarkdownRenderer {
             margin: 0 0 1.5em;
         }
         .dark pre.frontmatter-raw { border-left-color: #3d444d; }
+        .\(MarkdownDOMClass.commentBlock) {
+            background: rgba(255, 212, 0, 0.10);
+            box-shadow: inset 3px 0 0 #d29922;
+            padding-left: 8px;
+            margin-left: -8px;
+        }
+        .dark .\(MarkdownDOMClass.commentBlock) {
+            background: rgba(210, 153, 34, 0.16);
+            box-shadow: inset 3px 0 0 #e3b341;
+        }
+        .\(MarkdownDOMClass.commentHighlight) {
+            background: rgba(255, 212, 0, 0.38);
+            border-radius: 2px;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
+        }
+        .dark .\(MarkdownDOMClass.commentHighlight) {
+            background: rgba(227, 179, 65, 0.40);
+        }
+        .\(MarkdownDOMClass.commentRail) {
+            margin-top: 24px;
+            padding-top: 12px;
+            border-top: 1px solid #d1d9e0;
+            display: grid;
+            gap: 8px;
+        }
+        .dark .\(MarkdownDOMClass.commentRail) { border-top-color: #3d444d; }
+        .nex-comment-card {
+            border-left: 3px solid #d29922;
+            background: rgba(255, 212, 0, 0.08);
+            padding: 8px 10px;
+            border-radius: 6px;
+        }
+        .dark .nex-comment-card {
+            border-left-color: #e3b341;
+            background: rgba(210, 153, 34, 0.14);
+        }
+        .nex-comment-card-label {
+            color: #656d76;
+            font-size: 0.78em;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .dark .nex-comment-card-label { color: #9198a1; }
+        .nex-comment-card p {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+        .nex-comment-card-malformed {
+            border-left-color: #cf222e;
+            background: rgba(207, 34, 46, 0.08);
+        }
         """
     }
 }

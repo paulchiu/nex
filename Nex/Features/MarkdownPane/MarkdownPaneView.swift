@@ -25,6 +25,7 @@ struct MarkdownPaneView: NSViewRepresentable {
     var backgroundColor: NSColor = .windowBackgroundColor
     var backgroundOpacity: Double = 1.0
     var fontSize: Double = Pane.defaultMarkdownFontSize
+    var commentModeEnabled: Bool = false
     @Environment(\.sidebarTextEditingActive) private var sidebarTextEditingActive
 
     func makeCoordinator() -> Coordinator {
@@ -38,6 +39,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         let handler = context.coordinator
         config.userContentController.add(handler, name: "scrollHandler")
         config.userContentController.add(handler, name: "nexFind")
+        config.userContentController.add(handler, name: "nexMarkdownReview")
         config.userContentController.addUserScript(WKUserScript(
             source: """
             window.addEventListener('scroll', function() {
@@ -51,6 +53,11 @@ struct MarkdownPaneView: NSViewRepresentable {
         ))
         config.userContentController.addUserScript(WKUserScript(
             source: MarkdownFindScript.source,
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        ))
+        config.userContentController.addUserScript(WKUserScript(
+            source: MarkdownReviewScript.source,
             injectionTime: .atDocumentEnd,
             forMainFrameOnly: true
         ))
@@ -68,6 +75,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         context.coordinator.backgroundColor = backgroundColor
         context.coordinator.backgroundOpacity = backgroundOpacity
         context.coordinator.fontSize = fontSize
+        context.coordinator.commentModeEnabled = commentModeEnabled
         context.coordinator.loadFile()
         context.coordinator.startWatching()
         context.coordinator.startObservingCopyRequests()
@@ -93,6 +101,10 @@ struct MarkdownPaneView: NSViewRepresentable {
             context.coordinator.fontSize = fontSize
             context.coordinator.renderCurrentContent()
         }
+        if context.coordinator.commentModeEnabled != commentModeEnabled {
+            context.coordinator.commentModeEnabled = commentModeEnabled
+            context.coordinator.applyCommentMode()
+        }
         // Only claim on a real false→true transition so re-renders caused
         // by unrelated state changes (e.g., the user typing in the command
         // palette's TextField) don't yank first responder back.
@@ -117,6 +129,12 @@ struct MarkdownPaneView: NSViewRepresentable {
         if let id = coordinator.paneID {
             MarkdownFindController.shared.unregister(paneID: id)
         }
+        if let webView = coordinator.webView {
+            let controller = webView.configuration.userContentController
+            controller.removeScriptMessageHandler(forName: "scrollHandler")
+            controller.removeScriptMessageHandler(forName: "nexFind")
+            controller.removeScriptMessageHandler(forName: "nexMarkdownReview")
+        }
         coordinator.webView = nil
     }
 
@@ -130,8 +148,11 @@ struct MarkdownPaneView: NSViewRepresentable {
         var backgroundColor: NSColor = .windowBackgroundColor
         var backgroundOpacity: Double = 1.0
         var fontSize: Double = Pane.defaultMarkdownFontSize
+        var commentModeEnabled: Bool = false
         var lastIsFocused: Bool = false
         private var currentContent: String = ""
+        private var hasLeadingBOM = false
+        private var inFlightTaskIDs: Set<String> = []
         /// Tracks whether the last `loadFile` actually read the file. When
         /// false, `currentContent` is the synthetic "Failed to load…"
         /// blockquote and the copy actions should bail.
@@ -151,11 +172,19 @@ struct MarkdownPaneView: NSViewRepresentable {
             let content: String
             let loaded: Bool
             do {
-                content = try String(contentsOfFile: filePath, encoding: .utf8)
+                let data = try Data(contentsOf: URL(fileURLWithPath: filePath))
+                let bom = Data([0xEF, 0xBB, 0xBF])
+                hasLeadingBOM = data.starts(with: bom)
+                let bodyData = hasLeadingBOM ? data.dropFirst(3) : data[...]
+                guard let decoded = String(data: Data(bodyData), encoding: .utf8) else {
+                    throw CocoaError(.fileReadInapplicableStringEncoding)
+                }
+                content = decoded
                 loaded = true
             } catch {
                 content = "> Failed to load file: \(filePath)\n>\n> \(error.localizedDescription)"
                 loaded = false
+                hasLeadingBOM = false
             }
 
             // Set the load-success flag before the unchanged-content
@@ -222,9 +251,103 @@ struct MarkdownPaneView: NSViewRepresentable {
                     object: nil,
                     userInfo: ["paneID": paneID, "total": total, "current": current]
                 )
+            case "nexMarkdownReview":
+                guard let payload = MarkdownReviewPayload.parse(message.body) else { return }
+                handleReviewPayload(payload)
             default:
                 break
             }
+        }
+
+        // MARK: - Markdown review actions
+
+        func applyCommentMode() {
+            guard let webView else { return }
+            let enabled = commentModeEnabled ? "true" : "false"
+            webView.evaluateJavaScript(
+                "window.__nexMarkdownReview && window.__nexMarkdownReview.setCommentMode(\(enabled));"
+            )
+        }
+
+        private func handleReviewPayload(_ payload: MarkdownReviewPayload) {
+            guard didLoadSuccessfully else { return }
+
+            switch payload {
+            case let .addComment(selectedText, blockID, anchorStrategy, comment):
+                let previous = currentContent
+                do {
+                    let updated = try MarkdownSourceMutations.insertComment(
+                        in: previous,
+                        blockID: blockID,
+                        selectedText: selectedText,
+                        anchorStrategy: anchorStrategy,
+                        commentText: comment
+                    )
+                    currentContent = updated
+                    renderAndReload(content: updated)
+                    try writeCurrentContentToDisk()
+                } catch {
+                    currentContent = previous
+                    renderAndReload(content: previous)
+                    showReviewError("Could not add comment")
+                }
+
+            case let .toggleTask(taskID, checked):
+                guard !inFlightTaskIDs.contains(taskID) else { return }
+                inFlightTaskIDs.insert(taskID)
+                let previous = currentContent
+                var previousChecked = !checked
+                do {
+                    let result = try MarkdownSourceMutations.toggleTaskCheckbox(
+                        in: currentContent,
+                        taskID: taskID,
+                        checked: checked
+                    )
+                    previousChecked = result.previousChecked
+                    currentContent = result.markdown
+                    try writeCurrentContentToDisk()
+                    confirmTask(taskID)
+                } catch {
+                    currentContent = previous
+                    revertTask(taskID, checked: previousChecked)
+                    showReviewError("Could not update task")
+                }
+                inFlightTaskIDs.remove(taskID)
+            }
+        }
+
+        private func writeCurrentContentToDisk() throws {
+            guard let data = currentContent.data(using: .utf8) else {
+                throw CocoaError(.fileWriteInapplicableStringEncoding)
+            }
+            var output = Data()
+            if hasLeadingBOM {
+                output.append(contentsOf: [0xEF, 0xBB, 0xBF])
+            }
+            output.append(data)
+            try output.write(to: URL(fileURLWithPath: filePath), options: [])
+        }
+
+        private func confirmTask(_ taskID: String) {
+            let task = MarkdownFindScript.encodeNeedle(taskID)
+            webView?.evaluateJavaScript(
+                "window.__nexMarkdownReview && window.__nexMarkdownReview.confirmTask(\(task));"
+            )
+        }
+
+        private func revertTask(_ taskID: String, checked: Bool) {
+            let task = MarkdownFindScript.encodeNeedle(taskID)
+            let value = checked ? "true" : "false"
+            webView?.evaluateJavaScript(
+                "window.__nexMarkdownReview && window.__nexMarkdownReview.revertTask(\(task), \(value));"
+            )
+        }
+
+        private func showReviewError(_ message: String) {
+            let escaped = MarkdownFindScript.encodeNeedle(message)
+            webView?.evaluateJavaScript(
+                "window.__nexMarkdownReview && window.__nexMarkdownReview.showError(\(escaped));"
+            )
         }
 
         // MARK: - Find-in-page (called by MarkdownFindController)
@@ -261,6 +384,7 @@ struct MarkdownPaneView: NSViewRepresentable {
             }
             // The reload wiped any active find marks. Re-apply if a needle is still set.
             MarkdownFindController.shared.reapply(paneID: paneID)
+            applyCommentMode()
         }
 
         func startWatching() {
@@ -393,7 +517,7 @@ struct MarkdownPaneView: NSViewRepresentable {
                 if (!content) { return document.body.innerHTML; }
                 var clone = content.cloneNode(true);
                 var fm = clone.querySelectorAll(
-                    '.frontmatter, .frontmatter-raw, .frontmatter-nested'
+                    '.frontmatter, .frontmatter-raw, .frontmatter-nested, .\(MarkdownDOMClass.commentRail)'
                 );
                 for (var i = 0; i < fm.length; i++) {
                     fm[i].parentNode.removeChild(fm[i]);
