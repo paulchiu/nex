@@ -1,4 +1,5 @@
 import ComposableArchitecture
+import Darwin
 import Sparkle
 import SwiftUI
 
@@ -46,6 +47,11 @@ struct NexApp: App {
                     // so the first ⌘E press on a markdown pane doesn't stall
                     // the reducer while we shell out to read $EDITOR.
                     EditorService.liveValue.warmUp()
+
+                    // Nex is a truecolor terminal. When launched from agent
+                    // hosts, inherited NO_COLOR disables color-aware TUIs such
+                    // as Claude Code even though the terminal renders color.
+                    unsetenv("NO_COLOR")
 
                     GhosttyApp.shared.start()
 
