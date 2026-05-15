@@ -108,8 +108,43 @@ enum MarkdownSourceMutations {
         }
 
         var updated = markdown
-        updated.replaceSubrange(comment.markerRange, with: "")
+        let lineEnding = MarkdownSourceMap.dominantLineEnding(in: markdown)
+        let start = startByTrimmingInsertedBlankLine(
+            before: comment.markerRange.lowerBound,
+            in: markdown,
+            lineEnding: lineEnding
+        )
+        updated.replaceSubrange(start ..< comment.markerRange.upperBound, with: "")
         return updated
+    }
+
+    private static func startByTrimmingInsertedBlankLine(
+        before index: String.Index,
+        in markdown: String,
+        lineEnding: String
+    ) -> String.Index {
+        let length = lineEnding.utf8.count
+        guard let previous = utf8Index(index, offsetBy: -length, in: markdown),
+              String(markdown[previous ..< index]) == lineEnding,
+              let beforePrevious = utf8Index(previous, offsetBy: -length, in: markdown),
+              String(markdown[beforePrevious ..< previous]) == lineEnding
+        else { return index }
+        return previous
+    }
+
+    private static func utf8Index(
+        _ index: String.Index,
+        offsetBy offset: Int,
+        in markdown: String
+    ) -> String.Index? {
+        guard let utf8Index = index.samePosition(in: markdown.utf8),
+              let target = markdown.utf8.index(
+                  utf8Index,
+                  offsetBy: offset,
+                  limitedBy: offset < 0 ? markdown.utf8.startIndex : markdown.utf8.endIndex
+              )
+        else { return nil }
+        return String.Index(target, within: markdown)
     }
 
     private static func makeCommentID(createdAt: Date) -> String {

@@ -178,5 +178,7 @@ struct MarkdownSourceMutationTests {
         #expect(!updated.contains("Remove me."))
         #expect(updated.contains("Before."))
         #expect(updated.contains("After."))
+        #expect(updated.contains("Before.\n\nAfter."))
+        #expect(!updated.contains("Before.\n\n\nAfter."))
     }
 }
