@@ -565,7 +565,11 @@ struct MarkdownPaneView: NSViewRepresentable {
             let maxX = max(0, webView.bounds.width - width)
             let maxY = max(0, webView.bounds.height - height)
             let x = min(max(0, CGFloat(rect.x)), maxX)
-            let y = min(max(0, webView.bounds.height - CGFloat(rect.y) - height), maxY)
+            let y: CGFloat = if webView.isFlipped {
+                min(max(0, CGFloat(rect.y)), maxY)
+            } else {
+                min(max(0, webView.bounds.height - CGFloat(rect.y) - height), maxY)
+            }
             return NSRect(x: x, y: y, width: width, height: height)
         }
 
