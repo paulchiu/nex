@@ -401,7 +401,9 @@ struct MarkdownPaneView: NSViewRepresentable {
                 output.append(contentsOf: [0xEF, 0xBB, 0xBF])
             }
             output.append(data)
-            try output.write(to: URL(fileURLWithPath: filePath), options: .atomic)
+            // Write in place so the file watcher stays attached to the
+            // current inode while comment/task mutations are saved.
+            try output.write(to: URL(fileURLWithPath: filePath))
         }
 
         private func confirmTask(_ taskID: String) {
