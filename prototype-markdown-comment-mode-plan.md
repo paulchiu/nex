@@ -81,47 +81,37 @@ Key findings:
 
 ## Proposed source format
 
-Store comments as one YAML-ish HTML comment block after the selected source block. Even for an exact rendered-text selection, the source marker is block-adjacent for the prototype; exactness is recovered in the preview by matching `anchorText` inside that rendered block.
+Store comments as one minimal HTML comment block after the selected source block. Even for an exact rendered-text selection, the source marker is block-adjacent for the prototype; exactness is recovered in the preview by matching the opener's anchor text inside that rendered block.
 
 ```markdown
 This is the selected sentence.
 
-<!-- nex-comment
-id: "nex-20260515-103122-a83f"
-createdAt: "2026-05-15T10:31:22Z"
-anchorStrategy: "exact-selection"
-anchorText: |-
-  This is the selected sentence.
-comment: |-
-  This needs a stronger decision statement.
+<!--nx "This is the selected sentence."
+This needs a stronger decision statement.
 -->
 ```
 
 Fallback nearest-block comments use the same format:
 
 ```markdown
-<!-- nex-comment
-id: "nex-20260515-103500-b44e"
-createdAt: "2026-05-15T10:35:00Z"
-anchorStrategy: "nearest-block"
-anchorText: |-
-  selected rendered text that did not map exactly
-comment: |-
-  This applies to the nearby paragraph.
+<!--nx "selected rendered text that did not map exactly"
+This applies to the nearby paragraph.
 -->
 ```
 
 Notes:
 
-* Keep all comment fields plain text.
-* Do not store hash fields in the prototype. `anchorHash` and `sourceBlockHash` can return later only with a defined canonicalization and stale-comment behavior.
-* Writer output must be blank-line-delimited: one blank line before `<!-- nex-comment`, and the closing `-->` on its own line. This keeps Nex-authored comments block-level and avoids inline HTML ambiguity.
-* Recognize only line-isolated Nex comment blocks outside fenced code blocks. A literal `<!-- nex-comment` inside a code fence or inline after paragraph text is not parsed as Nex metadata and must not be stripped from the source model.
-* Escape `--` reversibly inside `anchorText` and `comment` before serialization, because `--` is invalid inside HTML comments. Use this ASCII-only field escape:
+* Keep the opener anchor and comment body plain text.
+* Store only the anchor and comment body on disk. Do not store `id`, `createdAt`, `anchorStrategy`, `anchorHash`, or `sourceBlockHash`.
+* Derive `id` at read time from the placed block ordinal, anchor text, and comment body. Derive `anchorStrategy` at read time: the strategy is `exact-selection` only when the anchor is a unique substring of the placed block's rendered text; otherwise it is `nearest-block`.
+* The opener is `<!--nx "` plus a JSON-style quoted anchor and a closing `"`, followed by the line ending. Escape anchor `\` as `\\`, `"` as `\"`, and newlines as `\n`.
+* Writer output must be blank-line-delimited: one blank line before `<!--nx "`, and the closing `-->` on its own line. This keeps Nex-authored comments block-level and avoids inline HTML ambiguity.
+* Recognize only line-isolated Nex comment blocks outside fenced code blocks. A literal `<!--nx "` inside a code fence or inline after paragraph text is not parsed as Nex metadata and must not be stripped from the source model.
+* Escape `--` reversibly inside the comment body before serialization, because `--` is invalid inside HTML comments. Use this ASCII-only field escape:
   * On write, replace `\` with `\\`, then replace every `--` with `-\u002D`.
   * On read, replace `-\u002D` with `--`, then replace `\\` with `\`.
   * Serializer tests must assert the final HTML comment body contains no raw `--` except the closing delimiter.
-* Use Yams if convenient, since the app already depends on it. If the parser is too strict for malformed blocks, fail closed: hide the raw Nex comment and render a small "Malformed Nex comment" card rather than exposing source syntax.
+* If the parser sees a malformed Nex comment block, fail closed: hide the raw Nex comment and render a small "Malformed Nex comment" card rather than exposing source syntax.
 * Unknown HTML comments should keep current behavior.
 
 ## Recommended architecture
