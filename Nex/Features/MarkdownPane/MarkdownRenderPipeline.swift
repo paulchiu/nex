@@ -24,6 +24,9 @@ enum MarkdownRenderPipeline {
         return MarkdownRenderContext(
             comments: scan.comments,
             taskMarkers: taskMarkers,
+            taskMarkersByItemRange: taskMarkers.reduce(into: [:]) { result, marker in
+                result[marker.itemRange] = marker
+            },
             sourceBlocks: sourceBlocks,
             cleanedMarkdown: scan.cleanedMarkdown,
             document: document,

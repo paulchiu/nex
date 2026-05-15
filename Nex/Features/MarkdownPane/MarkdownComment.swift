@@ -51,6 +51,7 @@ struct MarkdownBodyOffset {
 struct MarkdownRenderContext {
     var comments: [MarkdownComment]
     var taskMarkers: [MarkdownTaskMarker]
+    var taskMarkersByItemRange: [Range<String.Index>: MarkdownTaskMarker]
     var sourceBlocks: [MarkdownSourceBlock]
     var cleanedMarkdown: String
     var document: Document

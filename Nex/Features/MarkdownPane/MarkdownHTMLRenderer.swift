@@ -201,7 +201,7 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
               let sourceRange = item.range,
               let itemRange = context.sourceMap.range(for: sourceRange)
         else { return nil }
-        return context.taskMarkers.first { $0.itemRange == itemRange }
+        return context.taskMarkersByItemRange[itemRange]
     }
 
     private func blockAttributes(
