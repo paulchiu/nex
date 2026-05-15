@@ -218,6 +218,40 @@ struct MarkdownCommentTests {
         #expect(comment == "New note.")
     }
 
+    @Test func parsesRequestAddCommentReviewPayload() {
+        let payload = MarkdownReviewPayload.parse([
+            "type": "requestAddComment",
+            "selectedText": "Selected text.",
+            "blockID": "block-1",
+            "rect": ["x": 10, "y": 20, "width": 30, "height": 12]
+        ])
+
+        guard case let .requestAddComment(selectedText, blockID, anchorRect) = payload else {
+            Issue.record("expected requestAddComment payload")
+            return
+        }
+        #expect(selectedText == "Selected text.")
+        #expect(blockID == "block-1")
+        #expect(anchorRect == .init(x: 10, y: 20, width: 30, height: 12))
+    }
+
+    @Test func parsesRequestEditCommentReviewPayload() {
+        let payload = MarkdownReviewPayload.parse([
+            "type": "requestEditComment",
+            "commentID": "nex-test",
+            "comment": "Existing note.",
+            "rect": ["x": 11.5, "y": 21.5, "width": 31.5, "height": 13.5]
+        ])
+
+        guard case let .requestEditComment(commentID, comment, anchorRect) = payload else {
+            Issue.record("expected requestEditComment payload")
+            return
+        }
+        #expect(commentID == "nex-test")
+        #expect(comment == "Existing note.")
+        #expect(anchorRect == .init(x: 11.5, y: 21.5, width: 31.5, height: 13.5))
+    }
+
     @Test func parsesUpdateCommentReviewPayload() {
         let payload = MarkdownReviewPayload.parse([
             "type": "updateComment",
@@ -246,6 +280,37 @@ struct MarkdownCommentTests {
         #expect(commentID == "nex-test")
     }
 
+    @Test func parsesRequestDeleteCommentReviewPayload() {
+        let payload = MarkdownReviewPayload.parse([
+            "type": "requestDeleteComment",
+            "commentID": "nex-test",
+            "rect": ["x": 1, "y": 2, "width": 3, "height": 4]
+        ])
+
+        guard case let .requestDeleteComment(commentID, anchorRect) = payload else {
+            Issue.record("expected requestDeleteComment payload")
+            return
+        }
+        #expect(commentID == "nex-test")
+        #expect(anchorRect == .init(x: 1, y: 2, width: 3, height: 4))
+    }
+
+    @Test func parsesActivateCommentReviewPayload() {
+        let payload = MarkdownReviewPayload.parse([
+            "type": "activateComment",
+            "commentID": "nex-test",
+            "scrollTarget": true
+        ])
+
+        guard case let .activateComment(commentID, scrollTarget, scrollCard) = payload else {
+            Issue.record("expected activateComment payload")
+            return
+        }
+        #expect(commentID == "nex-test")
+        #expect(scrollTarget)
+        #expect(!scrollCard)
+    }
+
     @Test func rejectsBlankUpdateCommentReviewPayload() {
         let payload = MarkdownReviewPayload.parse([
             "type": "updateComment",
@@ -258,31 +323,34 @@ struct MarkdownCommentTests {
         }
     }
 
-    @Test func reviewScriptSubmitsCommentTextareaOnCommandEnter() {
+    @Test func reviewScriptRequestsSwiftOwnedCommentPopovers() {
         let source = MarkdownReviewScript.source
 
-        #expect(source.contains("function isCommandEnter(event)"))
-        #expect(source.contains("event.metaKey"))
-        #expect(source.contains("event.key === 'Enter' || event.key === 'NumpadEnter'"))
-        #expect(source.contains("textarea.addEventListener('keydown'"))
-        #expect(source.contains("submitComment();"))
+        #expect(source.contains("type: 'requestAddComment'"))
+        #expect(source.contains("type: 'requestEditComment'"))
+        #expect(source.contains("type: 'requestDeleteComment'"))
+        #expect(source.contains("function rectPayload(rect)"))
+        #expect(!source.contains("document.createElement('textarea')"))
+        #expect(!source.contains("function showPopover"))
+        #expect(!source.contains("function showEditPopover"))
+        #expect(!source.contains("function showDeletePopover"))
     }
 
-    @Test func reviewScriptDismissesPopoversAndKeepsDeleteCancelFocused() {
+    @Test func reviewScriptExposesSwiftCommentStateAdapters() {
         let source = MarkdownReviewScript.source
 
-        #expect(source.contains("function onPopoverKeyDown(event)"))
-        #expect(source.contains("event.key !== 'Escape'"))
-        #expect(source.contains("pop.addEventListener('keydown', onPopoverKeyDown)"))
-        #expect(source.contains("if (ns.popover && !ns.popover.contains(target)) removePopover();"))
-        #expect(source.contains("cancel.focus();"))
-        #expect(!source.contains("del.focus();"))
+        #expect(source.contains("ns.setActiveComment = function(id, options)"))
+        #expect(source.contains("ns.clearSelection = function()"))
+        #expect(source.contains("ns.showError = function(message)"))
+        #expect(!source.contains("function onPopoverKeyDown(event)"))
     }
 
-    @Test func reviewScriptClampsAddCommentPopoverToViewport() {
+    @Test func reviewScriptPostsSelectionGeometryToSwift() {
         let source = MarkdownReviewScript.source
 
-        #expect(source.contains("Math.min(info.rect.bottom + 8, window.innerHeight - pop.offsetHeight - 8)"))
+        #expect(source.contains("rect: rectPayload(range.getBoundingClientRect())"))
+        #expect(source.contains("rect: rectPayload(editCard.getBoundingClientRect())"))
+        #expect(source.contains("rect: rectPayload(deleteCard.getBoundingClientRect())"))
     }
 
     @Test func reviewScriptPositionsCommentCardsByAnchor() {
@@ -304,7 +372,8 @@ struct MarkdownCommentTests {
         #expect(source.contains("function onKeyDown(event)"))
         #expect(source.contains("event.key !== 'Enter'"))
         #expect(source.contains("event.key !== ' '"))
-        #expect(source.contains("setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });"))
+        #expect(source.contains("type: 'activateComment'"))
+        #expect(source.contains("scrollTarget: true"))
         #expect(source.contains("document.addEventListener('keydown', onKeyDown, true)"))
     }
 

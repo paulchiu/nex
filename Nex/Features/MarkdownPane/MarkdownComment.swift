@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Markdown
 
@@ -54,14 +55,33 @@ struct MarkdownRenderContext {
 }
 
 enum MarkdownReviewPayload {
+    struct AnchorRect: Equatable {
+        var x: Double
+        var y: Double
+        var width: Double
+        var height: Double
+
+        var cgRect: CGRect {
+            CGRect(x: x, y: y, width: width, height: height)
+        }
+    }
+
+    case requestAddComment(
+        selectedText: String,
+        blockID: String,
+        anchorRect: AnchorRect
+    )
     case addComment(
         selectedText: String,
         blockID: String,
         comment: String
     )
     case toggleTask(taskID: String, checked: Bool)
+    case requestEditComment(commentID: String, comment: String, anchorRect: AnchorRect)
     case updateComment(commentID: String, comment: String)
+    case requestDeleteComment(commentID: String, anchorRect: AnchorRect)
     case deleteComment(commentID: String)
+    case activateComment(commentID: String, scrollTarget: Bool, scrollCard: Bool)
 
     static func parse(_ body: Any) -> MarkdownReviewPayload? {
         guard let payload = body as? [String: Any],
@@ -69,6 +89,19 @@ enum MarkdownReviewPayload {
         else { return nil }
 
         switch type {
+        case "requestAddComment":
+            guard let selectedText = payload["selectedText"] as? String,
+                  let blockID = payload["blockID"] as? String,
+                  let anchorRect = parseAnchorRect(payload["rect"]),
+                  !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  !blockID.isEmpty
+            else { return nil }
+            return .requestAddComment(
+                selectedText: selectedText,
+                blockID: blockID,
+                anchorRect: anchorRect
+            )
+
         case "addComment":
             guard let selectedText = payload["selectedText"] as? String,
                   let blockID = payload["blockID"] as? String,
@@ -92,6 +125,18 @@ enum MarkdownReviewPayload {
             else { return nil }
             return .toggleTask(taskID: taskID, checked: checked)
 
+        case "requestEditComment":
+            guard let commentID = payload["commentID"] as? String,
+                  let comment = payload["comment"] as? String,
+                  let anchorRect = parseAnchorRect(payload["rect"]),
+                  !commentID.isEmpty
+            else { return nil }
+            return .requestEditComment(
+                commentID: commentID,
+                comment: comment,
+                anchorRect: anchorRect
+            )
+
         case "updateComment":
             guard let commentID = payload["commentID"] as? String,
                   let comment = payload["comment"] as? String,
@@ -101,15 +146,50 @@ enum MarkdownReviewPayload {
             guard !trimmedComment.isEmpty else { return nil }
             return .updateComment(commentID: commentID, comment: trimmedComment)
 
+        case "requestDeleteComment":
+            guard let commentID = payload["commentID"] as? String,
+                  let anchorRect = parseAnchorRect(payload["rect"]),
+                  !commentID.isEmpty
+            else { return nil }
+            return .requestDeleteComment(commentID: commentID, anchorRect: anchorRect)
+
         case "deleteComment":
             guard let commentID = payload["commentID"] as? String,
                   !commentID.isEmpty
             else { return nil }
             return .deleteComment(commentID: commentID)
 
+        case "activateComment":
+            guard let commentID = payload["commentID"] as? String,
+                  !commentID.isEmpty
+            else { return nil }
+            return .activateComment(
+                commentID: commentID,
+                scrollTarget: payload["scrollTarget"] as? Bool ?? false,
+                scrollCard: payload["scrollCard"] as? Bool ?? false
+            )
+
         default:
             return nil
         }
+    }
+
+    private static func parseAnchorRect(_ raw: Any?) -> AnchorRect? {
+        guard let rect = raw as? [String: Any],
+              let x = doubleValue(rect["x"]),
+              let y = doubleValue(rect["y"]),
+              let width = doubleValue(rect["width"]),
+              let height = doubleValue(rect["height"])
+        else { return nil }
+        return AnchorRect(x: x, y: y, width: width, height: height)
+    }
+
+    private static func doubleValue(_ raw: Any?) -> Double? {
+        if let value = raw as? Double { return value }
+        if let value = raw as? CGFloat { return Double(value) }
+        if let value = raw as? Int { return Double(value) }
+        if let value = raw as? NSNumber { return value.doubleValue }
+        return nil
     }
 }
 

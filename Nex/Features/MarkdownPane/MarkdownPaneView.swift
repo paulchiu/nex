@@ -139,6 +139,7 @@ struct MarkdownPaneView: NSViewRepresentable {
     static func dismantleNSView(_: PaneFocusView, coordinator: Coordinator) {
         coordinator.stopWatching()
         coordinator.stopObservingCopyRequests()
+        coordinator.closeReviewPopover()
         if let id = coordinator.paneID {
             MarkdownFindController.shared.unregister(paneID: id)
         }
@@ -179,6 +180,8 @@ struct MarkdownPaneView: NSViewRepresentable {
         nonisolated(unsafe) var fileWatcher: DispatchSourceFileSystemObject?
         nonisolated(unsafe) var fileDescriptor: Int32 = -1
         private var copyObserver: NSObjectProtocol?
+        private var reviewPopover: NSPopover?
+        private var activeCommentID: String?
 
         func loadFile() {
             guard !filePath.isEmpty else { return }
@@ -235,6 +238,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         }
 
         private func renderAndReload(content: String) {
+            closeReviewPopover()
             renderToken &+= 1
             let token = renderToken
             let html = MarkdownRenderer.renderToHTML(
@@ -310,12 +314,22 @@ struct MarkdownPaneView: NSViewRepresentable {
             webView.evaluateJavaScript(
                 "window.__nexMarkdownReview && window.__nexMarkdownReview.setCommentMode(\(enabled));"
             )
+            if !commentModeEnabled {
+                closeReviewPopover()
+            }
         }
 
         private func handleReviewPayload(_ payload: MarkdownReviewPayload) {
             guard didLoadSuccessfully else { return }
 
             switch payload {
+            case let .requestAddComment(selectedText, blockID, anchorRect):
+                showAddCommentPopover(
+                    selectedText: selectedText,
+                    blockID: blockID,
+                    anchorRect: anchorRect
+                )
+
             case let .addComment(selectedText, blockID, comment):
                 let previous = currentContent
                 do {
@@ -334,6 +348,14 @@ struct MarkdownPaneView: NSViewRepresentable {
                     showReviewError("Could not add comment")
                 }
 
+            case let .requestEditComment(commentID, comment, anchorRect):
+                activateComment(commentID, scrollTarget: true, scrollCard: false)
+                showEditCommentPopover(
+                    commentID: commentID,
+                    initialText: comment,
+                    anchorRect: anchorRect
+                )
+
             case let .updateComment(commentID, comment):
                 let previous = currentContent
                 do {
@@ -351,6 +373,10 @@ struct MarkdownPaneView: NSViewRepresentable {
                     showReviewError("Could not update comment")
                 }
 
+            case let .requestDeleteComment(commentID, anchorRect):
+                activateComment(commentID, scrollTarget: true, scrollCard: false)
+                showDeleteCommentPopover(commentID: commentID, anchorRect: anchorRect)
+
             case let .deleteComment(commentID):
                 let previous = currentContent
                 do {
@@ -366,6 +392,13 @@ struct MarkdownPaneView: NSViewRepresentable {
                     renderAndReload(content: previous)
                     showReviewError("Could not delete comment")
                 }
+
+            case let .activateComment(commentID, scrollTarget, scrollCard):
+                activateComment(
+                    commentID,
+                    scrollTarget: scrollTarget,
+                    scrollCard: scrollCard
+                )
 
             case let .toggleTask(taskID, checked):
                 guard !inFlightTaskIDs.contains(taskID) else { return }
@@ -389,6 +422,158 @@ struct MarkdownPaneView: NSViewRepresentable {
                 }
                 inFlightTaskIDs.remove(taskID)
             }
+        }
+
+        func closeReviewPopover() {
+            reviewPopover?.close()
+            reviewPopover = nil
+        }
+
+        private func showAddCommentPopover(
+            selectedText: String,
+            blockID: String,
+            anchorRect: MarkdownReviewPayload.AnchorRect
+        ) {
+            let view = MarkdownReviewPopoverView(
+                purpose: .add,
+                onSubmit: { [weak self] comment in
+                    Task { @MainActor in
+                        self?.closeReviewPopover()
+                        self?.handleReviewPayload(.addComment(
+                            selectedText: selectedText,
+                            blockID: blockID,
+                            comment: comment
+                        ))
+                        self?.clearWebSelection()
+                    }
+                },
+                onCancel: { [weak self] in
+                    Task { @MainActor in
+                        self?.closeReviewPopover()
+                        self?.clearWebSelection()
+                    }
+                }
+            )
+            showReviewPopover(
+                view,
+                anchorRect: anchorRect,
+                preferredEdge: .maxY,
+                contentSize: NSSize(width: 312, height: 176)
+            )
+        }
+
+        private func showEditCommentPopover(
+            commentID: String,
+            initialText: String,
+            anchorRect: MarkdownReviewPayload.AnchorRect
+        ) {
+            let view = MarkdownReviewPopoverView(
+                purpose: .edit,
+                initialText: initialText,
+                onSubmit: { [weak self] comment in
+                    Task { @MainActor in
+                        self?.closeReviewPopover()
+                        self?.handleReviewPayload(.updateComment(
+                            commentID: commentID,
+                            comment: comment
+                        ))
+                    }
+                },
+                onCancel: { [weak self] in
+                    Task { @MainActor in
+                        self?.closeReviewPopover()
+                    }
+                }
+            )
+            showReviewPopover(
+                view,
+                anchorRect: anchorRect,
+                preferredEdge: .minX,
+                contentSize: NSSize(width: 312, height: 176)
+            )
+        }
+
+        private func showDeleteCommentPopover(
+            commentID: String,
+            anchorRect: MarkdownReviewPayload.AnchorRect
+        ) {
+            let view = MarkdownReviewPopoverView(
+                purpose: .delete,
+                onDelete: { [weak self] in
+                    Task { @MainActor in
+                        self?.closeReviewPopover()
+                        self?.handleReviewPayload(.deleteComment(commentID: commentID))
+                    }
+                },
+                onCancel: { [weak self] in
+                    Task { @MainActor in
+                        self?.closeReviewPopover()
+                    }
+                }
+            )
+            showReviewPopover(
+                view,
+                anchorRect: anchorRect,
+                preferredEdge: .minX,
+                contentSize: NSSize(width: 292, height: 118)
+            )
+        }
+
+        private func showReviewPopover(
+            _ content: some View,
+            anchorRect: MarkdownReviewPayload.AnchorRect,
+            preferredEdge: NSRectEdge,
+            contentSize: NSSize
+        ) {
+            guard let webView else { return }
+            closeReviewPopover()
+
+            let popover = NSPopover()
+            popover.behavior = .transient
+            popover.contentSize = contentSize
+            popover.contentViewController = NSHostingController(rootView: content)
+            reviewPopover = popover
+            popover.show(
+                relativeTo: webViewAnchorRect(from: anchorRect),
+                of: webView,
+                preferredEdge: preferredEdge
+            )
+        }
+
+        private func webViewAnchorRect(from rect: MarkdownReviewPayload.AnchorRect) -> NSRect {
+            guard let webView else { return .zero }
+            let width = max(1, CGFloat(rect.width))
+            let height = max(1, CGFloat(rect.height))
+            let maxX = max(0, webView.bounds.width - width)
+            let maxY = max(0, webView.bounds.height - height)
+            let x = min(max(0, CGFloat(rect.x)), maxX)
+            let y = min(max(0, webView.bounds.height - CGFloat(rect.y) - height), maxY)
+            return NSRect(x: x, y: y, width: width, height: height)
+        }
+
+        private func activateComment(
+            _ commentID: String,
+            scrollTarget: Bool,
+            scrollCard: Bool
+        ) {
+            activeCommentID = commentID
+            let id = MarkdownFindScript.encodeNeedle(commentID)
+            let target = scrollTarget ? "true" : "false"
+            let card = scrollCard ? "true" : "false"
+            webView?.evaluateJavaScript(
+                "window.__nexMarkdownReview && window.__nexMarkdownReview.setActiveComment(\(id), { scrollTarget: \(target), scrollCard: \(card) });"
+            )
+        }
+
+        private func reapplyActiveComment() {
+            guard let activeCommentID else { return }
+            activateComment(activeCommentID, scrollTarget: false, scrollCard: false)
+        }
+
+        private func clearWebSelection() {
+            webView?.evaluateJavaScript(
+                "window.__nexMarkdownReview && window.__nexMarkdownReview.clearSelection();"
+            )
         }
 
         private func writeCurrentContentToDisk() throws {
@@ -462,6 +647,7 @@ struct MarkdownPaneView: NSViewRepresentable {
             // The reload wiped any active find marks. Re-apply if a needle is still set.
             MarkdownFindController.shared.reapply(paneID: paneID)
             applyCommentMode()
+            reapplyActiveComment()
         }
 
         func startWatching() {

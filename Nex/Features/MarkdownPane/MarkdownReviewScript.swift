@@ -17,14 +17,8 @@ enum MarkdownReviewScript {
       var styleEl = document.createElement('style');
       styleEl.textContent = (
         "body.nex-comment-mode { cursor: text; }" +
-        ".nex-review-popover { position: fixed; z-index: 2147483647; width: 280px; border: 1px solid #d1d9e0; border-radius: 8px; background: #fff; color: #1f2328; box-shadow: 0 12px 30px rgba(0,0,0,.18); padding: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; }" +
-        ".dark .nex-review-popover { background: #161b22; color: #e6edf3; border-color: #3d444d; }" +
-        ".nex-review-popover textarea { box-sizing: border-box; width: 100%; min-height: 76px; resize: vertical; border: 1px solid #d1d9e0; border-radius: 6px; padding: 6px; font: inherit; color: inherit; background: transparent; }" +
-        ".dark .nex-review-popover textarea { border-color: #3d444d; }" +
-        ".nex-review-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }" +
-        ".nex-review-actions button { border: 1px solid #d1d9e0; border-radius: 5px; background: #f6f8fa; color: inherit; padding: 3px 8px; font: inherit; cursor: pointer; }" +
-        ".dark .nex-review-actions button { border-color: #3d444d; background: #21262d; }" +
-        ".nex-review-actions button.primary { background: #0969da; border-color: #0969da; color: #fff; }"
+        ".nex-review-popover { position: fixed; z-index: 2147483647; max-width: 280px; border: 1px solid #d1d9e0; border-radius: 8px; background: #fff; color: #1f2328; box-shadow: 0 12px 30px rgba(0,0,0,.18); padding: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; }" +
+        ".dark .nex-review-popover { background: #161b22; color: #e6edf3; border-color: #3d444d; }"
       );
 
       function injectStyle() {
@@ -69,20 +63,18 @@ enum MarkdownReviewScript {
         return !!el.closest('.\(MarkdownDOMClass.commentRail), .nex-review-popover');
       }
 
-      function isCommandEnter(event) {
-        return event.metaKey && (event.key === 'Enter' || event.key === 'NumpadEnter');
-      }
-
-      function onPopoverKeyDown(event) {
-        if (event.key !== 'Escape') return;
-        event.preventDefault();
-        event.stopPropagation();
-        removePopover();
-      }
-
       function closestBlock(node) {
         var el = elementForNode(node);
         return el ? el.closest('[data-nex-block-id]') : null;
+      }
+
+      function rectPayload(rect) {
+        return {
+          x: rect.left,
+          y: rect.top,
+          width: rect.width,
+          height: rect.height
+        };
       }
 
       function selectionInfo() {
@@ -103,155 +95,8 @@ enum MarkdownReviewScript {
         return {
           selectedText: selectedText,
           blockID: block.getAttribute('data-nex-block-id'),
-          rect: range.getBoundingClientRect()
+          rect: rectPayload(range.getBoundingClientRect())
         };
-      }
-
-      function showPopover(info) {
-        removePopover();
-        var pop = document.createElement('div');
-        pop.className = 'nex-review-popover';
-        pop.addEventListener('keydown', onPopoverKeyDown);
-        var textarea = document.createElement('textarea');
-        textarea.placeholder = 'Comment';
-        var actions = document.createElement('div');
-        actions.className = 'nex-review-actions';
-        var cancel = document.createElement('button');
-        cancel.type = 'button';
-        cancel.textContent = 'Cancel';
-        var add = document.createElement('button');
-        add.type = 'button';
-        add.className = 'primary';
-        add.textContent = 'Add';
-        actions.appendChild(cancel);
-        actions.appendChild(add);
-        pop.appendChild(textarea);
-        pop.appendChild(actions);
-        document.body.appendChild(pop);
-
-        var top = Math.max(8, Math.min(info.rect.bottom + 8, window.innerHeight - pop.offsetHeight - 8));
-        var left = Math.max(8, Math.min(info.rect.left, window.innerWidth - 300));
-        pop.style.top = top + 'px';
-        pop.style.left = left + 'px';
-
-        function submitComment() {
-          var comment = String(textarea.value || '').trim();
-          if (!comment) { textarea.focus(); return; }
-          post({
-            type: 'addComment',
-            selectedText: info.selectedText,
-            blockID: info.blockID,
-            comment: comment
-          });
-          removePopover();
-          var sel = window.getSelection();
-          if (sel) sel.removeAllRanges();
-        }
-
-        cancel.addEventListener('click', removePopover);
-        add.addEventListener('click', submitComment);
-        textarea.addEventListener('keydown', function(event) {
-          if (!isCommandEnter(event)) return;
-          event.preventDefault();
-          submitComment();
-        });
-
-        ns.popover = pop;
-        textarea.focus();
-      }
-
-      function showEditPopover(card) {
-        if (!card) return;
-        removePopover();
-        setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });
-        var pop = document.createElement('div');
-        pop.className = 'nex-review-popover';
-        pop.addEventListener('keydown', onPopoverKeyDown);
-        var textarea = document.createElement('textarea');
-        var body = card.querySelector('[data-nex-comment-body]');
-        textarea.value = body ? String(body.textContent || '') : '';
-        var actions = document.createElement('div');
-        actions.className = 'nex-review-actions';
-        var cancel = document.createElement('button');
-        cancel.type = 'button';
-        cancel.textContent = 'Cancel';
-        var save = document.createElement('button');
-        save.type = 'button';
-        save.className = 'primary';
-        save.textContent = 'Save';
-        actions.appendChild(cancel);
-        actions.appendChild(save);
-        pop.appendChild(textarea);
-        pop.appendChild(actions);
-        document.body.appendChild(pop);
-
-        var rect = card.getBoundingClientRect();
-        pop.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - pop.offsetHeight - 8)) + 'px';
-        pop.style.left = Math.max(8, Math.min(rect.left - 292, window.innerWidth - 300)) + 'px';
-
-        function submitEdit() {
-          var comment = String(textarea.value || '').trim();
-          if (!comment) { textarea.focus(); return; }
-          post({
-            type: 'updateComment',
-            commentID: card.getAttribute('data-nex-comment-id'),
-            comment: comment
-          });
-          removePopover();
-        }
-
-        cancel.addEventListener('click', removePopover);
-        save.addEventListener('click', submitEdit);
-        textarea.addEventListener('keydown', function(event) {
-          if (!isCommandEnter(event)) return;
-          event.preventDefault();
-          submitEdit();
-        });
-
-        ns.popover = pop;
-        textarea.focus();
-        textarea.select();
-      }
-
-      function showDeletePopover(card) {
-        if (!card) return;
-        removePopover();
-        setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });
-        var pop = document.createElement('div');
-        pop.className = 'nex-review-popover';
-        pop.addEventListener('keydown', onPopoverKeyDown);
-        var message = document.createElement('div');
-        message.textContent = 'Delete this comment?';
-        var actions = document.createElement('div');
-        actions.className = 'nex-review-actions';
-        var cancel = document.createElement('button');
-        cancel.type = 'button';
-        cancel.textContent = 'Cancel';
-        var del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'primary';
-        del.textContent = 'Delete';
-        actions.appendChild(cancel);
-        actions.appendChild(del);
-        pop.appendChild(message);
-        pop.appendChild(actions);
-        document.body.appendChild(pop);
-
-        var rect = card.getBoundingClientRect();
-        pop.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - pop.offsetHeight - 8)) + 'px';
-        pop.style.left = Math.max(8, Math.min(rect.left - 292, window.innerWidth - 300)) + 'px';
-
-        cancel.addEventListener('click', removePopover);
-        del.addEventListener('click', function() {
-          post({
-            type: 'deleteComment',
-            commentID: card.getAttribute('data-nex-comment-id')
-          });
-          removePopover();
-        });
-
-        ns.popover = pop;
-        cancel.focus();
       }
 
       function removeActiveComment() {
@@ -310,7 +155,16 @@ enum MarkdownReviewScript {
         if (edit) {
           event.preventDefault();
           event.stopPropagation();
-          showEditPopover(closestCommentCard(edit));
+          var editCard = closestCommentCard(edit);
+          if (editCard) {
+            var body = editCard.querySelector('[data-nex-comment-body]');
+            post({
+              type: 'requestEditComment',
+              commentID: editCard.getAttribute('data-nex-comment-id'),
+              comment: body ? String(body.textContent || '') : '',
+              rect: rectPayload(editCard.getBoundingClientRect())
+            });
+          }
           return;
         }
 
@@ -318,19 +172,34 @@ enum MarkdownReviewScript {
         if (del) {
           event.preventDefault();
           event.stopPropagation();
-          showDeletePopover(closestCommentCard(del));
+          var deleteCard = closestCommentCard(del);
+          if (deleteCard) {
+            post({
+              type: 'requestDeleteComment',
+              commentID: deleteCard.getAttribute('data-nex-comment-id'),
+              rect: rectPayload(deleteCard.getBoundingClientRect())
+            });
+          }
           return;
         }
 
         var card = closestCommentCard(target);
         if (card) {
-          setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });
+          post({
+            type: 'activateComment',
+            commentID: card.getAttribute('data-nex-comment-id'),
+            scrollTarget: true
+          });
           return;
         }
 
         var highlight = target.closest('[data-nex-comment-highlight-id]');
         if (highlight) {
-          setActiveComment(highlight.getAttribute('data-nex-comment-highlight-id'), { scrollCard: true });
+          post({
+            type: 'activateComment',
+            commentID: highlight.getAttribute('data-nex-comment-highlight-id'),
+            scrollCard: true
+          });
         }
       }
 
@@ -341,7 +210,11 @@ enum MarkdownReviewScript {
         if (!card) return;
         if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
         event.preventDefault();
-        setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });
+        post({
+          type: 'activateComment',
+          commentID: card.getAttribute('data-nex-comment-id'),
+          scrollTarget: true
+        });
       }
 
       function onMouseUp(event) {
@@ -350,7 +223,14 @@ enum MarkdownReviewScript {
         if (isReviewChrome(event.target)) return;
         setTimeout(function() {
           var info = selectionInfo();
-          if (info) showPopover(info);
+          if (info) {
+            post({
+              type: 'requestAddComment',
+              selectedText: info.selectedText,
+              blockID: info.blockID,
+              rect: info.rect
+            });
+          }
         }, 0);
       }
 
@@ -563,6 +443,15 @@ enum MarkdownReviewScript {
           document.body.classList.toggle('nex-comment-mode', ns.commentMode);
         }
         if (!ns.commentMode) removePopover();
+      };
+
+      ns.setActiveComment = function(id, options) {
+        setActiveComment(id, options || {});
+      };
+
+      ns.clearSelection = function() {
+        var sel = window.getSelection();
+        if (sel) sel.removeAllRanges();
       };
 
       ns.revertTask = function(taskID, checked) {
