@@ -258,10 +258,10 @@ struct MarkdownCommentTests {
         #expect(!source.contains("nodes[n].nodeValue.indexOf(anchor)"))
     }
 
-    @Test func findScriptStillSearchesCommentHighlightedText() {
+    @Test func findScriptSkipsCommentHighlightedText() {
         let source = MarkdownFindScript.source
 
         #expect(source.contains("classList.contains('\(MarkdownDOMClass.commentRail)')"))
-        #expect(!source.contains("classList.contains('\(MarkdownDOMClass.commentHighlight)')"))
+        #expect(source.contains("classList.contains('\(MarkdownDOMClass.commentHighlight)')"))
     }
 }

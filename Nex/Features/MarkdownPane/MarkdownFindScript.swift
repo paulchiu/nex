@@ -73,6 +73,7 @@ enum MarkdownFindScript {
           var tag = p.tagName;
           if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') return true;
           if (p.classList && p.classList.contains('nex-find-match')) return true;
+          if (p.classList && p.classList.contains('\(MarkdownDOMClass.commentHighlight)')) return true;
           if (p.classList && p.classList.contains('\(MarkdownDOMClass.commentRail)')) return true;
           p = p.parentNode;
         }
