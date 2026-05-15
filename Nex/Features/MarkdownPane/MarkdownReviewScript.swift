@@ -96,18 +96,13 @@ enum MarkdownReviewScript {
           return null;
         }
         var startBlock = closestBlock(range.startContainer);
-        var endBlock = closestBlock(range.endContainer);
         var commonBlock = closestBlock(range.commonAncestorContainer);
         var block = commonBlock || startBlock;
         if (!block) return null;
         if (isReviewChrome(block)) return null;
-        var strategy = (startBlock && endBlock && startBlock === endBlock && commonBlock)
-          ? 'exact-selection'
-          : 'nearest-block';
         return {
           selectedText: selectedText,
           blockID: block.getAttribute('data-nex-block-id'),
-          anchorStrategy: strategy,
           rect: range.getBoundingClientRect()
         };
       }
@@ -146,7 +141,6 @@ enum MarkdownReviewScript {
             type: 'addComment',
             selectedText: info.selectedText,
             blockID: info.blockID,
-            anchorStrategy: info.anchorStrategy,
             comment: comment
           });
           removePopover();

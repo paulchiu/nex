@@ -316,14 +316,13 @@ struct MarkdownPaneView: NSViewRepresentable {
             guard didLoadSuccessfully else { return }
 
             switch payload {
-            case let .addComment(selectedText, blockID, anchorStrategy, comment):
+            case let .addComment(selectedText, blockID, comment):
                 let previous = currentContent
                 do {
                     let updated = try MarkdownSourceMutations.insertComment(
                         in: previous,
                         blockID: blockID,
                         selectedText: selectedText,
-                        anchorStrategy: anchorStrategy,
                         commentText: comment
                     )
                     currentContent = updated

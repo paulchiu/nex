@@ -11,14 +11,8 @@ enum MarkdownDOMClass {
     static let findMatch = "nex-find-match"
 }
 
-enum MarkdownAnchorStrategy: String {
-    case exactSelection = "exact-selection"
-    case nearestBlock = "nearest-block"
-}
-
 struct MarkdownComment {
     var id: String
-    var anchorStrategy: MarkdownAnchorStrategy
     var anchorText: String
     var comment: String
     var markerRange: Range<String.Index>
@@ -38,7 +32,6 @@ struct MarkdownSourceBlock {
     var ordinal: Int
     var sourceRange: Range<String.Index>?
     var insertionIndex: String.Index
-    var renderedText: String
 }
 
 struct MarkdownBodyOffset {
@@ -64,7 +57,6 @@ enum MarkdownReviewPayload {
     case addComment(
         selectedText: String,
         blockID: String,
-        anchorStrategy: MarkdownAnchorStrategy,
         comment: String
     )
     case toggleTask(taskID: String, checked: Bool)
@@ -80,8 +72,6 @@ enum MarkdownReviewPayload {
         case "addComment":
             guard let selectedText = payload["selectedText"] as? String,
                   let blockID = payload["blockID"] as? String,
-                  let rawStrategy = payload["anchorStrategy"] as? String,
-                  let strategy = MarkdownAnchorStrategy(rawValue: rawStrategy),
                   let comment = payload["comment"] as? String
             else { return nil }
             let trimmedComment = comment.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -92,7 +82,6 @@ enum MarkdownReviewPayload {
             return .addComment(
                 selectedText: selectedText,
                 blockID: blockID,
-                anchorStrategy: strategy,
                 comment: trimmedComment
             )
 
@@ -233,7 +222,6 @@ enum MarkdownCommentParser {
 
         return MarkdownComment(
             id: "",
-            anchorStrategy: .nearestBlock,
             anchorText: anchor,
             comment: comment,
             markerRange: range
@@ -246,7 +234,6 @@ enum MarkdownCommentParser {
     ) -> MarkdownComment {
         MarkdownComment(
             id: "malformed-\(ordinal)",
-            anchorStrategy: .nearestBlock,
             anchorText: "",
             comment: "Malformed Nex comment",
             markerRange: range,

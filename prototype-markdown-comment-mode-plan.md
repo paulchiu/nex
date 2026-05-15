@@ -25,8 +25,8 @@ This is not a replacement for edit mode. True tracked edits, threaded discussion
 ## User decisions
 
 * Comments are created from the **rendered preview**, not raw editor mode.
-* Exact/simple rendered selections should anchor precisely.
-* Ambiguous selections should still be allowed and attach to the nearest source block.
+* Simple rendered selections should refine to an inline highlight when the selected text is unique inside the commented block.
+* Ambiguous or multi-block selections should still be allowed and retain the whole-block highlight.
 * Comments are visible in the viewer as a highlight plus a distinct comment UI. A rail should appear only when the document has comments.
 * Comment text is plain text only.
 * No author, no resolve state, no threads.
@@ -81,7 +81,7 @@ Key findings:
 
 ## Proposed source format
 
-Store comments as one minimal HTML comment block after the selected source block. Even for an exact rendered-text selection, the source marker is block-adjacent for the prototype; exactness is recovered in the preview by matching the opener's anchor text inside that rendered block.
+Store comments as one minimal HTML comment block after the selected source block. The source marker is always block-adjacent for the prototype; inline precision is recovered in the preview by matching the opener's anchor text inside that rendered block.
 
 ```markdown
 This is the selected sentence.
@@ -91,7 +91,7 @@ This needs a stronger decision statement.
 -->
 ```
 
-Fallback nearest-block comments use the same format:
+Selections that span multiple rendered blocks use the same format and attach to the range start block:
 
 ```markdown
 <!--nx "selected rendered text that did not map exactly"
@@ -102,8 +102,8 @@ This applies to the nearby paragraph.
 Notes:
 
 * Keep the opener anchor and comment body plain text.
-* Store only the anchor and comment body on disk. Do not store `id`, `createdAt`, `anchorStrategy`, `anchorHash`, or `sourceBlockHash`.
-* Derive `id` at read time from the placed block ordinal, anchor text, and comment body. Derive `anchorStrategy` at read time: the strategy is `exact-selection` only when the anchor is a unique substring of the placed block's rendered text; otherwise it is `nearest-block`.
+* Store only the anchor and comment body on disk. Do not store `id`, `createdAt`, or hash fields.
+* Derive `id` at read time from the placed block ordinal, anchor text, and comment body.
 * The opener is `<!--nx "` plus a JSON-style quoted anchor and a closing `"`, followed by the line ending. Escape anchor `\` as `\\`, `"` as `\"`, and newlines as `\n`.
 * Writer output must be blank-line-delimited: one blank line before `<!--nx "`, and the closing `-->` on its own line. This keeps Nex-authored comments block-level and avoids inline HTML ambiguity.
 * Recognize only line-isolated Nex comment blocks outside fenced code blocks. A literal `<!--nx "` inside a code fence or inline after paragraph text is not parsed as Nex metadata and must not be stripped from the source model.
@@ -122,7 +122,6 @@ Add source-level helpers under `Nex/Features/MarkdownPane/`:
 
 * `MarkdownComment.swift`
   * `MarkdownComment`
-  * `MarkdownAnchorStrategy`
   * `MarkdownCommentParser`
   * comment block serialization
   * comment field escaping/sanitization, including the `--` round-trip escape
@@ -152,15 +151,8 @@ Each interactive rendered checkbox should get a `data-nex-task-id` that maps bac
 Introduce a render context object rather than making the renderer infer everything from HTML strings:
 
 ```swift
-enum MarkdownAnchorStrategy: String {
-    case exactSelection = "exact-selection"
-    case nearestBlock = "nearest-block"
-}
-
 struct MarkdownComment {
     var id: String
-    var createdAt: Date
-    var anchorStrategy: MarkdownAnchorStrategy
     var anchorText: String
     var comment: String
     var markerRange: Range<String.Index>
@@ -178,7 +170,6 @@ struct MarkdownSourceBlock {
     var ordinal: Int
     var sourceRange: Range<String.Index>?
     var insertionIndex: String.Index
-    var renderedText: String
 }
 
 struct MarkdownBodyOffset {
@@ -196,7 +187,7 @@ struct MarkdownRenderContext {
 }
 
 enum MarkdownReviewPayload {
-    case addComment(selectedText: String, blockID: String, anchorStrategy: MarkdownAnchorStrategy)
+    case addComment(selectedText: String, blockID: String, comment: String)
     case toggleTask(taskID: String, checked: Bool)
 }
 ```
@@ -212,9 +203,9 @@ But internally it should delegate to a small pipeline owned by the renderer work
 The pipeline should build a source model first:
 
 1. Extract front matter with existing `FrontMatterExtractor`.
-2. Scan the body with a Markdown-aware comment scanner that tracks fenced code blocks and recognizes only line-isolated `<!-- nex-comment ... -->` blocks.
+2. Scan the body with a Markdown-aware comment scanner that tracks fenced code blocks and recognizes only line-isolated `<!--nx "..." ... -->` blocks.
 3. Parse recognized comment blocks and record their original source ranges.
-4. Preserve line numbering by replacing each removed `<!-- nex-comment ... -->` byte range with the same number of newline separators it contained. The goal is same line count, not same byte count.
+4. Preserve line numbering by replacing each removed `<!--nx "..." ... -->` byte range with the same number of newline separators it contained. The goal is same line count, not same byte count.
 5. Parse the cleaned body with swift-markdown.
 6. Walk swift-markdown blocks to assign stable visit-order `data-nex-block-id` values. Use source ranges when available; otherwise use visit-order IDs and mark the source range as unknown.
 7. Walk swift-markdown task-list items to assign task IDs only when the rendered checkbox can be mapped to a `MarkdownTaskMarker`.
@@ -226,8 +217,9 @@ The front-matter offset matters. Current parsing strips front matter before `Doc
 
 The prototype should render:
 
-* Highlight around the exact selected text when it can be found inside the anchor block.
-* Whole-block highlight when exact text matching fails.
+* A whole-block highlight for every commented block.
+* A refined inline highlight when the opener anchor is a unique substring inside the commented block.
+* The whole-block highlight when runtime anchor matching fails or is ambiguous.
 * Comment rail only when at least one comment exists.
 * Comment cards as escaped plain text.
 
@@ -236,7 +228,7 @@ MVP anchoring contract:
 * Swift inserts the comment marker after the selected block's source, never inside inline markdown syntax.
 * The JS payload sends `selectedText` and `blockID`, not rendered-text offsets. Swift does not try to translate DOM character offsets to source byte offsets for the prototype.
 * Renderer emits whole-block highlights directly for blocks with comments.
-* `MarkdownReviewScript` refines to exact text highlight after load by searching for `anchorText` inside that one rendered block. If it cannot find a unique match, the whole-block highlight remains.
+* `MarkdownReviewScript` refines to an inline highlight after load by searching for `anchorText` inside that one rendered block. If it cannot find a unique match, the whole-block highlight remains.
 * Find highlights and comment highlights must coexist: update `MarkdownFindScript.shouldSkipNode` to skip `.nex-comment-highlight` and `.nex-comment-rail`, and make the comment script avoid wrapping inside existing `mark.nex-find-match` nodes.
 
 ### 4. WKWebView bridge
@@ -254,8 +246,8 @@ The script should handle:
 * Comment mode on/off.
 * Selection capture from `window.getSelection()`.
 * Anchor block lookup from the selection range:
-  * If the range has a common ancestor inside one `[data-nex-block-id]`, use that block and `anchorStrategy: "exact-selection"`.
-  * If the selection spans multiple rendered blocks, use the range start container's nearest `[data-nex-block-id]` and `anchorStrategy: "nearest-block"`.
+  * If the range has a common ancestor inside one `[data-nex-block-id]`, use that block.
+  * If the selection spans multiple rendered blocks, use the range start container's closest `[data-nex-block-id]`.
   * If no block can be found, do not show the add-comment popover.
 * Add-comment popover in the DOM.
 * Checkbox click listeners.
@@ -270,7 +262,7 @@ Messages to Swift:
   "type": "addComment",
   "selectedText": "...",
   "blockID": "...",
-  "anchorStrategy": "exact-selection"
+  "comment": "..."
 }
 ```
 
@@ -332,11 +324,11 @@ If future implementation adds a keybinding or command-palette action for comment
 
 Deliver:
 
-* Parse/serialize `nex-comment` HTML comments.
+* Parse/serialize Nex HTML comment markers.
 * Strip or blank recognized comment blocks for rendering without touching comment lookalikes inside fenced code blocks.
 * Build source line index and source block/task marker maps with explicit front-matter/body offsets.
 * Toggle task marker mutation without full document rewrite.
-* Insert comment blocks after the selected block source, including exact-selection comments.
+* Insert comment blocks after the selected block source.
 * Preserve BOM, line endings, and trailing-newline state during mutations.
 
 Tests:
@@ -346,9 +338,9 @@ Tests:
 * Unknown HTML comment remains unknown.
 * Comment text containing `--` and `-->` round-trips through write -> read -> write.
 * Comment block inside a fenced code block is not parsed as a Nex comment.
-* A `<!-- nex-comment` string adjacent to paragraph text is not stripped or allowed to eat the paragraph.
-* Insert exact-selection comment after the target source block.
-* Insert nearest-block comment after nearest block.
+* A `<!--nx "` string adjacent to paragraph text is not stripped or allowed to eat the paragraph.
+* Insert a comment after the target source block.
+* Insert a comment for a multi-block selection after the chosen block.
 * Toggle unchecked, checked lowercase, checked uppercase.
 * Preserve indentation, list marker, line endings, BOM, trailing-newline state, and unrelated text.
 * Toggle mapping does not count blockquoted task-looking text that swift-markdown does not render as a checkbox.
@@ -370,7 +362,7 @@ Deliver:
 Tests:
 
 * Existing `MarkdownHTMLRendererTests` and `MarkdownCheckboxRenderingTests` still pass, updated only for intentional attribute changes.
-* Nex comment block is not present as raw `<!-- nex-comment` in rendered HTML.
+* Nex comment block is not present as raw `<!--nx` in rendered HTML.
 * Comment text is escaped.
 * Comment rail is absent when there are no comments.
 * Comment rail is present when comments exist.
@@ -398,7 +390,7 @@ Deliver:
 Tests:
 
 * Unit-test Swift message parsing if extracted into a small payload type.
-* Unit-test task/comment payload validation, including missing `blockID`, unknown `taskID`, and unsupported `anchorStrategy`.
+* Unit-test task/comment payload validation, including missing `blockID`, unknown `taskID`, and blank comment text.
 * Add a focused DOM/script test or manual checklist for: find active -> comment highlight applied -> find clears -> comment highlight remains.
 * Keep direct browser/UI automation for the final implementation pass rather than overfitting unit tests around WKWebView internals.
 
@@ -443,11 +435,11 @@ For manual QA:
 5. Open the same file in two markdown panes, toggle a checkbox in one pane, and confirm the other pane reloads to the same checked state.
 6. Toggle comment mode.
 7. Select text inside one paragraph and add a comment.
-8. Confirm a block-adjacent `nex-comment` block is inserted near the source.
+8. Confirm a block-adjacent `<!--nx` block is inserted near the source.
 9. Confirm the raw comment syntax is hidden in preview.
 10. Confirm the comment rail appears.
 11. Select text spanning multiple rendered blocks.
-12. Confirm Nex attaches a nearest-block comment rather than failing.
+12. Confirm Nex attaches the comment to the range start block rather than failing.
 13. Use find-in-page before and after comment highlighting; confirm clearing find marks does not remove comment highlights.
 
 ## Subagent implementation plan
@@ -456,7 +448,6 @@ The following split is designed to avoid overlapping write sets. Do not run A-D 
 
 Shared type contract before parallel work:
 
-* `MarkdownAnchorStrategy`
 * `MarkdownComment`
 * `MarkdownTaskMarker`
 * `MarkdownSourceBlock`
@@ -586,11 +577,11 @@ Output contract:
 ## Risks and constraints
 
 * `swift-markdown` source ranges may be relative to the front-matter-stripped body or nil. Carry explicit offsets and provide visit-order fallbacks.
-* Partial text selection inside formatted inline markdown is intentionally not mapped back to source byte offsets in the MVP. The source marker is block-adjacent; exact highlighting is a rendered-DOM refinement from `anchorText`.
+* Partial text selection inside formatted inline markdown is intentionally not mapped back to source byte offsets in the MVP. The source marker is block-adjacent; inline highlighting is a rendered-DOM refinement from `anchorText`.
 * HTML comments cannot contain `--`; use the documented reversible escape for user-controlled fields and test `--` / `-->` round trips.
 * Current copy-as-markdown intentionally avoids selection-aware source mapping because previous block-level mapping was inconsistent. Do not revive selection-aware copy as part of this feature.
-* Raw HTML pass-through exists today. Only transform recognized `nex-comment` blocks.
-* Recognized `nex-comment` blocks must be line-isolated and outside fenced code. Inline-adjacent or fenced lookalikes must not be stripped.
+* Raw HTML pass-through exists today. Only transform recognized Nex comment blocks.
+* Recognized Nex comment blocks must be line-isolated and outside fenced code. Inline-adjacent or fenced lookalikes must not be stripped.
 * Checkbox mutation must preserve BOM, line endings, trailing-newline state, and unrelated file text.
 * File watcher reloads must not fight optimistic updates. Keep `currentContent` synchronized before writing, write in place for the prototype, and serialize per-coordinator writes.
 * Same-file multi-pane behavior depends on deterministic source block and task IDs across independent WK coordinators.
@@ -599,8 +590,8 @@ Output contract:
 
 * Markdown preview can enter and exit comment mode from the pane header.
 * Selecting simple rendered paragraph/list/heading text can create a comment.
-* Ambiguous selections attach to the nearest rendered source block.
-* Source receives a readable `<!-- nex-comment ... -->` block near the anchor.
+* Ambiguous selections retain the whole-block highlight rather than forcing an inline match.
+* Source receives a readable `<!--nx "..." ... -->` block near the anchor.
 * Rendered preview hides raw Nex comment syntax.
 * Rendered preview shows a comment rail only when comments exist.
 * Comment text is escaped, plain text, and round-trips through `--` / `-->`.

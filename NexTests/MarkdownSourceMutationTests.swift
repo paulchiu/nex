@@ -3,13 +3,12 @@ import Foundation
 import Testing
 
 struct MarkdownSourceMutationTests {
-    @Test func insertsExactSelectionCommentAfterTargetBlock() throws {
+    @Test func insertsCommentAfterTargetBlock() throws {
         let markdown = "First paragraph.\n\nSecond paragraph.\n"
         let updated = try MarkdownSourceMutations.insertComment(
             in: markdown,
             blockID: "block-1",
             selectedText: "First paragraph.",
-            anchorStrategy: .exactSelection,
             commentText: "Needs evidence."
         )
 
@@ -22,13 +21,12 @@ struct MarkdownSourceMutationTests {
         #expect(updated.contains("Needs evidence."))
     }
 
-    @Test func insertsNearestBlockCommentAfterFallbackBlock() throws {
+    @Test func insertsCommentAfterFallbackBlock() throws {
         let markdown = "# Heading\n\nParagraph.\n"
         let updated = try MarkdownSourceMutations.insertComment(
             in: markdown,
             blockID: "block-1",
             selectedText: "Heading\n\nParagraph.",
-            anchorStrategy: .nearestBlock,
             commentText: "Spans blocks."
         )
 
@@ -46,7 +44,6 @@ struct MarkdownSourceMutationTests {
             in: markdown,
             blockID: "block-1",
             selectedText: "Only paragraph.",
-            anchorStrategy: .exactSelection,
             commentText: "No final newline."
         )
 

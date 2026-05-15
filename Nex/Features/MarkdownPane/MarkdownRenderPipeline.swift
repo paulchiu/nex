@@ -52,7 +52,6 @@ enum MarkdownRenderPipeline {
             guard !comment.isMalformed else { return comment }
             let block = block(for: comment, in: blocks)
             let blockOrdinal = block?.ordinal ?? 0
-            let strategy = anchorStrategy(for: comment.anchorText, in: block?.renderedText ?? "")
             let base = "\(blockOrdinal)\u{01}\(comment.anchorText)\u{01}\(comment.comment)"
             let duplicateIndex = duplicateCounts[base, default: 0]
             duplicateCounts[base] = duplicateIndex + 1
@@ -60,7 +59,6 @@ enum MarkdownRenderPipeline {
 
             var resolved = comment
             resolved.id = "c-\(sha256Prefix(hashInput))"
-            resolved.anchorStrategy = strategy
             return resolved
         }
     }
@@ -92,21 +90,6 @@ enum MarkdownRenderPipeline {
         return blocks
             .filter { $0.insertionIndex <= comment.markerRange.lowerBound }
             .last ?? blocks[0]
-    }
-
-    private static func anchorStrategy(
-        for anchor: String,
-        in blockText: String
-    ) -> MarkdownAnchorStrategy {
-        guard !anchor.isEmpty else { return .nearestBlock }
-        var count = 0
-        var searchStart = blockText.startIndex
-        while let range = blockText.range(of: anchor, range: searchStart ..< blockText.endIndex) {
-            count += 1
-            if count > 1 { return .nearestBlock }
-            searchStart = range.upperBound
-        }
-        return count == 1 ? .exactSelection : .nearestBlock
     }
 
     private static func sha256Prefix(_ text: String) -> String {
@@ -200,45 +183,7 @@ private struct MarkdownSourceBlockCollector: MarkupVisitor {
             id: "block-\(ordinal)",
             ordinal: ordinal,
             sourceRange: range,
-            insertionIndex: range?.upperBound ?? sourceMap.bodyRange.upperBound,
-            renderedText: MarkdownPlainTextRenderer.render(markup)
+            insertionIndex: range?.upperBound ?? sourceMap.bodyRange.upperBound
         ))
-    }
-}
-
-private struct MarkdownPlainTextRenderer: MarkupVisitor {
-    typealias Result = String
-
-    static func render(_ markup: any Markup) -> String {
-        var renderer = MarkdownPlainTextRenderer()
-        let text = renderer.visit(markup)
-        return text
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-    }
-
-    mutating func defaultVisit(_ markup: any Markup) -> String {
-        markup.children.map { visit($0) }.joined(separator: " ")
-    }
-
-    mutating func visitText(_ text: Text) -> String {
-        text.string
-    }
-
-    mutating func visitInlineCode(_ inlineCode: InlineCode) -> String {
-        inlineCode.code
-    }
-
-    mutating func visitCodeBlock(_ codeBlock: CodeBlock) -> String {
-        codeBlock.code
-    }
-
-    mutating func visitSoftBreak(_: SoftBreak) -> String {
-        " "
-    }
-
-    mutating func visitLineBreak(_: LineBreak) -> String {
-        " "
     }
 }

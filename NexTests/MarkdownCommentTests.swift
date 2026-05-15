@@ -78,7 +78,6 @@ struct MarkdownCommentTests {
         let empty = ""
         let original = MarkdownComment(
             id: "nex-test",
-            anchorStrategy: .exactSelection,
             anchorText: "a -- b --> c",
             comment: "note -- with --> marker",
             markerRange: empty.startIndex ..< empty.startIndex
@@ -100,7 +99,6 @@ struct MarkdownCommentTests {
         let empty = ""
         let original = MarkdownComment(
             id: "nex-test",
-            anchorStrategy: .exactSelection,
             anchorText: #"quoted "anchor""#,
             comment: "note",
             markerRange: empty.startIndex ..< empty.startIndex
@@ -117,7 +115,6 @@ struct MarkdownCommentTests {
         let empty = ""
         let original = MarkdownComment(
             id: "nex-test",
-            anchorStrategy: .exactSelection,
             anchorText: "line one\nline two",
             comment: "note",
             markerRange: empty.startIndex ..< empty.startIndex
@@ -146,43 +143,6 @@ struct MarkdownCommentTests {
         #expect(scan.comments.count == 1)
         #expect(scan.comments[0].anchorText == "Paragraph.")
         #expect(scan.comments[0].comment == "Tighten this claim.")
-    }
-
-    @Test func strategyDerivedAsExactWhenAnchorIsUniqueSubstring() throws {
-        let markdown = """
-        Alpha beta gamma.
-
-        <!--nx "beta"
-        Tighten this claim.
-        -->
-        """
-        let context = MarkdownRenderPipeline.makeContext(markdown)
-        let comment = try #require(context.comments.first)
-
-        #expect(comment.anchorStrategy == .exactSelection)
-    }
-
-    @Test func strategyDerivedAsNearestWhenAnchorIsAmbiguousOrAbsent() throws {
-        let ambiguous = """
-        repeat repeat repeat.
-
-        <!--nx "repeat"
-        Ambiguous.
-        -->
-        """
-        let absent = """
-        Alpha beta.
-
-        <!--nx "missing"
-        Absent.
-        -->
-        """
-
-        let ambiguousComment = try #require(MarkdownRenderPipeline.makeContext(ambiguous).comments.first)
-        let absentComment = try #require(MarkdownRenderPipeline.makeContext(absent).comments.first)
-
-        #expect(ambiguousComment.anchorStrategy == .nearestBlock)
-        #expect(absentComment.anchorStrategy == .nearestBlock)
     }
 
     @Test func runtimeCommentIDIsDeterministicAcrossScans() throws {
@@ -239,6 +199,23 @@ struct MarkdownCommentTests {
 
         #expect(scan.comments.isEmpty)
         #expect(scan.cleanedMarkdown == markdown)
+    }
+
+    @Test func parsesAddCommentReviewPayload() {
+        let payload = MarkdownReviewPayload.parse([
+            "type": "addComment",
+            "selectedText": "  Selected text.  ",
+            "blockID": "block-1",
+            "comment": "  New note.  "
+        ])
+
+        guard case let .addComment(selectedText, blockID, comment) = payload else {
+            Issue.record("expected addComment payload")
+            return
+        }
+        #expect(selectedText == "  Selected text.  ")
+        #expect(blockID == "block-1")
+        #expect(comment == "New note.")
     }
 
     @Test func parsesUpdateCommentReviewPayload() {

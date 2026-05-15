@@ -18,7 +18,6 @@ enum MarkdownSourceMutations {
         in markdown: String,
         blockID: String,
         selectedText: String,
-        anchorStrategy: MarkdownAnchorStrategy,
         commentText: String
     ) throws -> String {
         let context = MarkdownRenderPipeline.makeContext(markdown)
@@ -29,7 +28,6 @@ enum MarkdownSourceMutations {
         let lineEnding = MarkdownSourceMap.dominantLineEnding(in: markdown)
         let comment = MarkdownComment(
             id: "",
-            anchorStrategy: anchorStrategy,
             anchorText: selectedText.trimmingCharacters(in: .whitespacesAndNewlines),
             comment: commentText.trimmingCharacters(in: .whitespacesAndNewlines),
             markerRange: markdown.startIndex ..< markdown.startIndex
