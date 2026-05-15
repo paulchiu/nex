@@ -82,6 +82,7 @@ enum MarkdownReviewPayload {
     case requestDeleteComment(commentID: String, anchorRect: AnchorRect)
     case deleteComment(commentID: String)
     case activateComment(commentID: String, scrollTarget: Bool, scrollCard: Bool)
+    case clearActiveComment
 
     static func parse(_ body: Any) -> MarkdownReviewPayload? {
         guard let payload = body as? [String: Any],
@@ -168,6 +169,9 @@ enum MarkdownReviewPayload {
                 scrollTarget: payload["scrollTarget"] as? Bool ?? false,
                 scrollCard: payload["scrollCard"] as? Bool ?? false
             )
+
+        case "clearActiveComment":
+            return .clearActiveComment
 
         default:
             return nil

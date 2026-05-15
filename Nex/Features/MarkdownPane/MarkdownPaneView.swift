@@ -403,6 +403,9 @@ struct MarkdownPaneView: NSViewRepresentable {
                     scrollCard: scrollCard
                 )
 
+            case .clearActiveComment:
+                clearActiveComment()
+
             case let .toggleTask(taskID, checked):
                 guard !inFlightTaskIDs.contains(taskID) else { return }
                 inFlightTaskIDs.insert(taskID)
@@ -611,6 +614,13 @@ struct MarkdownPaneView: NSViewRepresentable {
         private func reapplyActiveComment() {
             guard let activeCommentID else { return }
             activateComment(activeCommentID, scrollTarget: false, scrollCard: false)
+        }
+
+        private func clearActiveComment() {
+            activeCommentID = nil
+            webView?.evaluateJavaScript(
+                "window.__nexMarkdownReview && window.__nexMarkdownReview.setActiveComment(null);"
+            )
         }
 
         private func clearWebSelection() {

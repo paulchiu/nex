@@ -311,6 +311,17 @@ struct MarkdownCommentTests {
         #expect(!scrollCard)
     }
 
+    @Test func parsesClearActiveCommentReviewPayload() {
+        let payload = MarkdownReviewPayload.parse([
+            "type": "clearActiveComment"
+        ])
+
+        guard case .clearActiveComment = payload else {
+            Issue.record("expected clearActiveComment payload")
+            return
+        }
+    }
+
     @Test func rejectsBlankUpdateCommentReviewPayload() {
         let payload = MarkdownReviewPayload.parse([
             "type": "updateComment",
@@ -338,6 +349,7 @@ struct MarkdownCommentTests {
 
         #expect(source.contains("ns.setActiveComment = function(id, options)"))
         #expect(source.contains("ns.clearSelection = function()"))
+        #expect(source.contains("type: 'clearActiveComment'"))
     }
 
     @Test func reviewScriptPostsSelectionGeometryToSwift() {

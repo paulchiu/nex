@@ -187,6 +187,11 @@ enum MarkdownReviewScript {
             commentID: highlight.getAttribute('data-nex-comment-highlight-id'),
             scrollCard: true
           });
+          return;
+        }
+
+        if (ns.activeCommentID) {
+          post({ type: 'clearActiveComment' });
         }
       }
 
