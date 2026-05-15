@@ -150,12 +150,10 @@ enum MarkdownCommentParser {
                 var cursor = index + 1
                 var foundEnd = false
 
-                cleaned += line.lineEnding
                 while cursor < lines.count {
                     let candidate = lines[cursor]
                     end = candidate.fullRange.upperBound
                     commentLineCount += 1
-                    cleaned += candidate.lineEnding
                     if candidate.text.trimmingCharacters(in: .whitespacesAndNewlines) == "-->" {
                         foundEnd = true
                         break
@@ -163,9 +161,21 @@ enum MarkdownCommentParser {
                     cursor += 1
                 }
 
+                if !foundEnd {
+                    let openerRange = line.fullRange
+                    ranges.append(openerRange)
+                    comments.append(malformedComment(range: openerRange, ordinal: comments.count + 1))
+                    cleaned += line.lineEnding
+                    index += 1
+                    continue
+                }
+
                 let range = start ..< end
                 ranges.append(range)
-                if foundEnd, let comment = parseCommentBlock(in: source, range: range) {
+                for hiddenLine in lines[index ..< index + commentLineCount] {
+                    cleaned += hiddenLine.lineEnding
+                }
+                if let comment = parseCommentBlock(in: source, range: range) {
                     comments.append(comment)
                 } else {
                     comments.append(malformedComment(range: range, ordinal: comments.count + 1))

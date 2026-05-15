@@ -45,6 +45,25 @@ struct MarkdownCommentTests {
         #expect(!scan.cleanedMarkdown.contains("<!-- nex-comment"))
     }
 
+    @Test func unclosedMalformedCommentDoesNotHideFollowingMarkdown() {
+        let markdown = """
+        A.
+
+        <!-- nex-comment
+        id: "broken"
+
+        B.
+        """
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments.count == 1)
+        #expect(scan.comments[0].isMalformed)
+        #expect(!scan.cleanedMarkdown.contains("<!-- nex-comment"))
+        #expect(scan.cleanedMarkdown.contains("id: \"broken\""))
+        #expect(scan.cleanedMarkdown.contains("B."))
+    }
+
     @Test func unknownHTMLCommentRemainsMarkdown() {
         let markdown = "A.\n\n<!-- ordinary -->\n"
         let body = MarkdownSourceMap.frontMatterBody(in: markdown)
