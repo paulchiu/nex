@@ -85,4 +85,61 @@ struct MarkdownSourceMutationTests {
         #expect(context.taskMarkers.count == 1)
         #expect(context.taskMarkers[0].sourceLine == 3)
     }
+
+    @Test func updatesCommentTextInPlacePreservingAnchor() throws {
+        let markdown = """
+        Paragraph.
+
+        <!-- nex-comment
+        id: "nex-test"
+        createdAt: "2026-05-15T00:00:00Z"
+        anchorStrategy: "exact-selection"
+        anchorText: |-
+          Paragraph.
+        comment: |-
+          Old note.
+        -->
+
+        Tail.
+        """
+
+        let updated = try MarkdownSourceMutations.updateComment(
+            in: markdown,
+            commentID: "nex-test",
+            commentText: "New note."
+        )
+
+        #expect(updated.contains("comment: |-\n  New note."))
+        #expect(!updated.contains("Old note."))
+        #expect(updated.contains("anchorText: |-\n  Paragraph."))
+        #expect(updated.contains("Tail."))
+    }
+
+    @Test func deletesCommentBlockWithoutRemovingNeighbors() throws {
+        let markdown = """
+        Before.
+
+        <!-- nex-comment
+        id: "nex-delete"
+        createdAt: "2026-05-15T00:00:00Z"
+        anchorStrategy: "nearest-block"
+        anchorText: |-
+          Before.
+        comment: |-
+          Remove me.
+        -->
+
+        After.
+        """
+
+        let updated = try MarkdownSourceMutations.deleteComment(
+            in: markdown,
+            commentID: "nex-delete"
+        )
+
+        #expect(!updated.contains("<!-- nex-comment"))
+        #expect(!updated.contains("Remove me."))
+        #expect(updated.contains("Before."))
+        #expect(updated.contains("After."))
+    }
 }

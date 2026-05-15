@@ -292,6 +292,39 @@ struct MarkdownPaneView: NSViewRepresentable {
                     showReviewError("Could not add comment")
                 }
 
+            case let .updateComment(commentID, comment):
+                let previous = currentContent
+                do {
+                    let updated = try MarkdownSourceMutations.updateComment(
+                        in: previous,
+                        commentID: commentID,
+                        commentText: comment
+                    )
+                    currentContent = updated
+                    renderAndReload(content: updated)
+                    try writeCurrentContentToDisk()
+                } catch {
+                    currentContent = previous
+                    renderAndReload(content: previous)
+                    showReviewError("Could not update comment")
+                }
+
+            case let .deleteComment(commentID):
+                let previous = currentContent
+                do {
+                    let updated = try MarkdownSourceMutations.deleteComment(
+                        in: previous,
+                        commentID: commentID
+                    )
+                    currentContent = updated
+                    renderAndReload(content: updated)
+                    try writeCurrentContentToDisk()
+                } catch {
+                    currentContent = previous
+                    renderAndReload(content: previous)
+                    showReviewError("Could not delete comment")
+                }
+
             case let .toggleTask(taskID, checked):
                 guard !inFlightTaskIDs.contains(taskID) else { return }
                 inFlightTaskIDs.insert(taskID)

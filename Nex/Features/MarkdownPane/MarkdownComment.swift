@@ -2,8 +2,11 @@ import Foundation
 
 enum MarkdownDOMClass {
     static let commentBlock = "nex-comment-block"
+    static let commentBlockActive = "nex-comment-block-active"
     static let commentHighlight = "nex-comment-highlight"
+    static let commentHighlightActive = "nex-comment-highlight-active"
     static let commentRail = "nex-comment-rail"
+    static let commentCardActive = "nex-comment-card-active"
     static let findMatch = "nex-find-match"
 }
 
@@ -61,6 +64,8 @@ enum MarkdownReviewPayload {
         comment: String
     )
     case toggleTask(taskID: String, checked: Bool)
+    case updateComment(commentID: String, comment: String)
+    case deleteComment(commentID: String)
 
     static func parse(_ body: Any) -> MarkdownReviewPayload? {
         guard let payload = body as? [String: Any],
@@ -93,6 +98,21 @@ enum MarkdownReviewPayload {
                   !taskID.isEmpty
             else { return nil }
             return .toggleTask(taskID: taskID, checked: checked)
+
+        case "updateComment":
+            guard let commentID = payload["commentID"] as? String,
+                  let comment = payload["comment"] as? String,
+                  !commentID.isEmpty
+            else { return nil }
+            let trimmedComment = comment.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedComment.isEmpty else { return nil }
+            return .updateComment(commentID: commentID, comment: trimmedComment)
+
+        case "deleteComment":
+            guard let commentID = payload["commentID"] as? String,
+                  !commentID.isEmpty
+            else { return nil }
+            return .deleteComment(commentID: commentID)
 
         default:
             return nil

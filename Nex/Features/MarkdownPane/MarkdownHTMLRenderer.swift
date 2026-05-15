@@ -305,10 +305,19 @@ enum MarkdownRenderer {
         for comment in context.comments {
             let blockID = context.commentBlockIDs[comment.id] ?? ""
             let malformedClass = comment.isMalformed ? " nex-comment-card-malformed" : ""
+            let editButton = comment.isMalformed ? "" : """
+            <button type="button" class="nex-comment-action" data-nex-comment-edit aria-label="Edit comment">Edit</button>
+            """
             cards += """
-            <article class="nex-comment-card\(malformedClass)" data-nex-comment-id="\(escapeHTML(comment.id))" data-nex-block-id="\(escapeHTML(blockID))" data-nex-anchor-text="\(escapeHTMLAttribute(comment.anchorText))">
+            <article class="nex-comment-card\(malformedClass)" tabindex="0" data-nex-comment-id="\(escapeHTML(comment.id))" data-nex-comment-block-id="\(escapeHTML(blockID))" data-nex-anchor-text="\(escapeHTMLAttribute(comment.anchorText))">
+            <header class="nex-comment-card-header">
             <div class="nex-comment-card-label">Comment</div>
-            <p>\(escapeHTML(comment.comment))</p>
+            <div class="nex-comment-actions">
+            \(editButton)
+            <button type="button" class="nex-comment-action nex-comment-delete" data-nex-comment-delete aria-label="Delete comment">Delete</button>
+            </div>
+            </header>
+            <p data-nex-comment-body>\(escapeHTML(comment.comment))</p>
             </article>
 
             """
@@ -561,6 +570,14 @@ enum MarkdownRenderer {
             background: rgba(210, 153, 34, 0.16);
             box-shadow: inset 3px 0 0 #e3b341;
         }
+        .\(MarkdownDOMClass.commentBlockActive) {
+            background: rgba(255, 212, 0, 0.28);
+            box-shadow: inset 4px 0 0 #bf8700, 0 0 0 1px rgba(191, 135, 0, 0.28);
+        }
+        .dark .\(MarkdownDOMClass.commentBlockActive) {
+            background: rgba(227, 179, 65, 0.34);
+            box-shadow: inset 4px 0 0 #f2cc60, 0 0 0 1px rgba(242, 204, 96, 0.32);
+        }
         .\(MarkdownDOMClass.commentHighlight) {
             background: rgba(255, 212, 0, 0.38);
             border-radius: 2px;
@@ -569,6 +586,14 @@ enum MarkdownRenderer {
         }
         .dark .\(MarkdownDOMClass.commentHighlight) {
             background: rgba(227, 179, 65, 0.40);
+        }
+        .\(MarkdownDOMClass.commentHighlightActive) {
+            background: rgba(255, 212, 0, 0.68);
+            box-shadow: 0 0 0 1px rgba(191, 135, 0, 0.55);
+        }
+        .dark .\(MarkdownDOMClass.commentHighlightActive) {
+            background: rgba(242, 204, 96, 0.70);
+            box-shadow: 0 0 0 1px rgba(242, 204, 96, 0.65);
         }
         .\(MarkdownDOMClass.commentRail) {
             position: sticky;
@@ -586,18 +611,73 @@ enum MarkdownRenderer {
             background: rgba(255, 212, 0, 0.08);
             padding: 8px;
             border-radius: 6px;
+            cursor: pointer;
+            position: relative;
         }
         .dark .nex-comment-card {
             border-left-color: #e3b341;
             background: rgba(210, 153, 34, 0.14);
         }
+        .nex-comment-card:focus-visible,
+        .nex-comment-card.\(MarkdownDOMClass.commentCardActive) {
+            outline: 2px solid #bf8700;
+            outline-offset: 2px;
+            background: rgba(255, 212, 0, 0.24);
+            box-shadow: 0 0 0 1px rgba(191, 135, 0, 0.42), inset 4px 0 0 #bf8700;
+        }
+        .dark .nex-comment-card:focus-visible,
+        .dark .nex-comment-card.\(MarkdownDOMClass.commentCardActive) {
+            outline-color: #f2cc60;
+            background: rgba(227, 179, 65, 0.36);
+            box-shadow: 0 0 0 1px rgba(242, 204, 96, 0.48), inset 4px 0 0 #f2cc60;
+        }
+        .nex-comment-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
         .nex-comment-card-label {
             color: #656d76;
             font-size: 0.78em;
             font-weight: 600;
-            margin-bottom: 2px;
         }
         .dark .nex-comment-card-label { color: #9198a1; }
+        .nex-comment-actions {
+            display: flex;
+            gap: 4px;
+            margin-left: auto;
+        }
+        .nex-comment-action {
+            border: 1px solid #d1d9e0;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.55);
+            color: #57606a;
+            cursor: pointer;
+            font: inherit;
+            font-size: 0.72em;
+            line-height: 1.2;
+            padding: 1px 4px;
+        }
+        .nex-comment-action:hover,
+        .nex-comment-action:focus-visible {
+            border-color: #d1d9e0;
+            background: rgba(175, 184, 193, 0.18);
+            color: #1f2328;
+        }
+        .dark .nex-comment-action {
+            border-color: #3d444d;
+            background: rgba(110, 118, 129, 0.20);
+            color: #c9d1d9;
+        }
+        .dark .nex-comment-action:hover,
+        .dark .nex-comment-action:focus-visible {
+            border-color: #3d444d;
+            background: rgba(110, 118, 129, 0.22);
+            color: #e6edf3;
+        }
         .nex-comment-card p {
             margin: 0;
             white-space: pre-wrap;

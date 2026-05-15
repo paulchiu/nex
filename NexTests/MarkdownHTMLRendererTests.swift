@@ -421,6 +421,30 @@ struct MarkdownHTMLRendererTests {
         #expect(html.contains("border-left: 1px solid #d1d9e0;"))
     }
 
+    @Test func commentRailCardsExposeActivationAndEditControls() {
+        let markdown = """
+        Paragraph.
+
+        <!-- nex-comment
+        id: "nex-test"
+        createdAt: "2026-05-15T00:00:00Z"
+        anchorStrategy: "exact-selection"
+        anchorText: |-
+          Paragraph.
+        comment: |-
+          Side rail.
+        -->
+        """
+        let html = MarkdownRenderer.renderToHTML(markdown)
+
+        #expect(html.contains("tabindex=\"0\" data-nex-comment-id=\"nex-test\""))
+        #expect(html.contains("data-nex-comment-block-id=\"block-1\""))
+        #expect(html.contains("data-nex-comment-edit"))
+        #expect(html.contains("data-nex-comment-delete"))
+        #expect(html.contains(MarkdownDOMClass.commentCardActive))
+        #expect(html.contains(MarkdownDOMClass.commentHighlightActive))
+    }
+
     @Test func commentRailAbsentWhenNoCommentsExist() {
         let html = MarkdownRenderer.renderToHTML("Paragraph.")
         #expect(!html.contains("class=\"\(MarkdownDOMClass.commentRail)\""))

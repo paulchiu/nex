@@ -3,7 +3,9 @@ import Foundation
 enum MarkdownSourceMutationError: Error, Equatable {
     case unknownBlock(String)
     case unknownTask(String)
+    case unknownComment(String)
     case invalidTaskMarker(String)
+    case malformedComment(String)
 }
 
 struct MarkdownTaskToggleResult {
@@ -60,6 +62,48 @@ enum MarkdownSourceMutations {
         var updated = markdown
         updated.replaceSubrange(marker.markerRange, with: checked ? "[x]" : "[ ]")
         return MarkdownTaskToggleResult(markdown: updated, previousChecked: marker.checked)
+    }
+
+    static func updateComment(
+        in markdown: String,
+        commentID: String,
+        commentText: String
+    ) throws -> String {
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+        guard var comment = context.comments.first(where: { $0.id == commentID }) else {
+            throw MarkdownSourceMutationError.unknownComment(commentID)
+        }
+        guard !comment.isMalformed else {
+            throw MarkdownSourceMutationError.malformedComment(commentID)
+        }
+
+        let trimmed = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw MarkdownSourceMutationError.malformedComment(commentID)
+        }
+        comment.comment = trimmed
+        let serialized = MarkdownCommentParser.serialize(
+            comment,
+            lineEnding: MarkdownSourceMap.dominantLineEnding(in: markdown)
+        )
+
+        var updated = markdown
+        updated.replaceSubrange(comment.markerRange, with: serialized)
+        return updated
+    }
+
+    static func deleteComment(
+        in markdown: String,
+        commentID: String
+    ) throws -> String {
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+        guard let comment = context.comments.first(where: { $0.id == commentID }) else {
+            throw MarkdownSourceMutationError.unknownComment(commentID)
+        }
+
+        var updated = markdown
+        updated.replaceSubrange(comment.markerRange, with: "")
+        return updated
     }
 
     private static func makeCommentID(createdAt: Date) -> String {

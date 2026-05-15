@@ -100,4 +100,44 @@ struct MarkdownCommentTests {
         #expect(scan.comments.isEmpty)
         #expect(scan.cleanedMarkdown == markdown)
     }
+
+    @Test func parsesUpdateCommentReviewPayload() {
+        let payload = MarkdownReviewPayload.parse([
+            "type": "updateComment",
+            "commentID": "nex-test",
+            "comment": "  Updated.  "
+        ])
+
+        guard case let .updateComment(commentID, comment) = payload else {
+            Issue.record("expected updateComment payload")
+            return
+        }
+        #expect(commentID == "nex-test")
+        #expect(comment == "Updated.")
+    }
+
+    @Test func parsesDeleteCommentReviewPayload() {
+        let payload = MarkdownReviewPayload.parse([
+            "type": "deleteComment",
+            "commentID": "nex-test"
+        ])
+
+        guard case let .deleteComment(commentID) = payload else {
+            Issue.record("expected deleteComment payload")
+            return
+        }
+        #expect(commentID == "nex-test")
+    }
+
+    @Test func rejectsBlankUpdateCommentReviewPayload() {
+        let payload = MarkdownReviewPayload.parse([
+            "type": "updateComment",
+            "commentID": "nex-test",
+            "comment": "  \n  "
+        ])
+
+        if payload != nil {
+            Issue.record("expected blank update comment payload to be rejected")
+        }
+    }
 }

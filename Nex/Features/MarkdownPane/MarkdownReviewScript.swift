@@ -10,6 +10,7 @@ enum MarkdownReviewScript {
       ns.commentMode = false;
       ns.pendingTasks = {};
       ns.popover = null;
+      ns.activeCommentID = null;
 
       var styleEl = document.createElement('style');
       styleEl.textContent = (
@@ -55,6 +56,17 @@ enum MarkdownReviewScript {
         return node.nodeType === 1 ? node : node.parentElement;
       }
 
+      function closestCommentCard(node) {
+        var el = elementForNode(node);
+        return el ? el.closest('.nex-comment-card[data-nex-comment-id]') : null;
+      }
+
+      function isReviewChrome(node) {
+        var el = elementForNode(node);
+        if (!el) return false;
+        return !!el.closest('.\(MarkdownDOMClass.commentRail), .nex-review-popover');
+      }
+
       function closestBlock(node) {
         var el = elementForNode(node);
         return el ? el.closest('[data-nex-block-id]') : null;
@@ -66,11 +78,16 @@ enum MarkdownReviewScript {
         var selectedText = String(sel.toString() || '').trim();
         if (!selectedText) return null;
         var range = sel.getRangeAt(0);
+        if (isReviewChrome(range.startContainer) || isReviewChrome(range.endContainer) ||
+            isReviewChrome(range.commonAncestorContainer)) {
+          return null;
+        }
         var startBlock = closestBlock(range.startContainer);
         var endBlock = closestBlock(range.endContainer);
         var commonBlock = closestBlock(range.commonAncestorContainer);
         var block = commonBlock || startBlock;
         if (!block) return null;
+        if (isReviewChrome(block)) return null;
         var strategy = (startBlock && endBlock && startBlock === endBlock && commonBlock)
           ? 'exact-selection'
           : 'nearest-block';
@@ -128,9 +145,174 @@ enum MarkdownReviewScript {
         textarea.focus();
       }
 
+      function showEditPopover(card) {
+        if (!card) return;
+        removePopover();
+        setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });
+        var pop = document.createElement('div');
+        pop.className = 'nex-review-popover';
+        var textarea = document.createElement('textarea');
+        var body = card.querySelector('[data-nex-comment-body]');
+        textarea.value = body ? String(body.textContent || '') : '';
+        var actions = document.createElement('div');
+        actions.className = 'nex-review-actions';
+        var cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = 'Cancel';
+        var save = document.createElement('button');
+        save.type = 'button';
+        save.className = 'primary';
+        save.textContent = 'Save';
+        actions.appendChild(cancel);
+        actions.appendChild(save);
+        pop.appendChild(textarea);
+        pop.appendChild(actions);
+        document.body.appendChild(pop);
+
+        var rect = card.getBoundingClientRect();
+        pop.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - 130)) + 'px';
+        pop.style.left = Math.max(8, Math.min(rect.left - 292, window.innerWidth - 300)) + 'px';
+
+        cancel.addEventListener('click', removePopover);
+        save.addEventListener('click', function() {
+          var comment = String(textarea.value || '').trim();
+          if (!comment) { textarea.focus(); return; }
+          post({
+            type: 'updateComment',
+            commentID: card.getAttribute('data-nex-comment-id'),
+            comment: comment
+          });
+          removePopover();
+        });
+
+        ns.popover = pop;
+        textarea.focus();
+        textarea.select();
+      }
+
+      function showDeletePopover(card) {
+        if (!card) return;
+        removePopover();
+        setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });
+        var pop = document.createElement('div');
+        pop.className = 'nex-review-popover';
+        var message = document.createElement('div');
+        message.textContent = 'Delete this comment?';
+        var actions = document.createElement('div');
+        actions.className = 'nex-review-actions';
+        var cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.textContent = 'Cancel';
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'primary';
+        del.textContent = 'Delete';
+        actions.appendChild(cancel);
+        actions.appendChild(del);
+        pop.appendChild(message);
+        pop.appendChild(actions);
+        document.body.appendChild(pop);
+
+        var rect = card.getBoundingClientRect();
+        pop.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - 100)) + 'px';
+        pop.style.left = Math.max(8, Math.min(rect.left - 292, window.innerWidth - 300)) + 'px';
+
+        cancel.addEventListener('click', removePopover);
+        del.addEventListener('click', function() {
+          post({
+            type: 'deleteComment',
+            commentID: card.getAttribute('data-nex-comment-id')
+          });
+          removePopover();
+        });
+
+        ns.popover = pop;
+        del.focus();
+      }
+
+      function removeActiveComment() {
+        var active = document.querySelectorAll(
+          '.\(MarkdownDOMClass.commentCardActive), .\(MarkdownDOMClass.commentHighlightActive), .\(MarkdownDOMClass.commentBlockActive)'
+        );
+        for (var i = 0; i < active.length; i++) {
+          active[i].classList.remove(
+            '\(MarkdownDOMClass.commentCardActive)',
+            '\(MarkdownDOMClass.commentHighlightActive)',
+            '\(MarkdownDOMClass.commentBlockActive)'
+          );
+        }
+      }
+
+      function setActiveComment(id, options) {
+        options = options || {};
+        removeActiveComment();
+        ns.activeCommentID = id || null;
+        if (!id) return;
+
+        var escaped = CSS.escape(id);
+        var card = document.querySelector('.nex-comment-card[data-nex-comment-id="' + escaped + '"]');
+        var target = null;
+        if (card) {
+          card.classList.add('\(MarkdownDOMClass.commentCardActive)');
+          if (options.scrollCard) {
+            card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          }
+          var blockID = card.getAttribute('data-nex-comment-block-id');
+          if (blockID) {
+            var block = document.querySelector('[data-nex-block-id="' + CSS.escape(blockID) + '"]');
+            if (block) {
+              block.classList.add('\(MarkdownDOMClass.commentBlockActive)');
+              target = block;
+            }
+          }
+        }
+
+        var highlights = document.querySelectorAll('[data-nex-comment-highlight-id="' + escaped + '"]');
+        for (var i = 0; i < highlights.length; i++) {
+          highlights[i].classList.add('\(MarkdownDOMClass.commentHighlightActive)');
+          if (!target) target = highlights[i];
+        }
+        if (options.scrollTarget && target) {
+          target.scrollIntoView({ block: 'center', inline: 'nearest' });
+        }
+      }
+
+      function onClick(event) {
+        var target = elementForNode(event.target);
+        if (!target) return;
+
+        var edit = target.closest('[data-nex-comment-edit]');
+        if (edit) {
+          event.preventDefault();
+          event.stopPropagation();
+          showEditPopover(closestCommentCard(edit));
+          return;
+        }
+
+        var del = target.closest('[data-nex-comment-delete]');
+        if (del) {
+          event.preventDefault();
+          event.stopPropagation();
+          showDeletePopover(closestCommentCard(del));
+          return;
+        }
+
+        var card = closestCommentCard(target);
+        if (card) {
+          setActiveComment(card.getAttribute('data-nex-comment-id'), { scrollTarget: true });
+          return;
+        }
+
+        var highlight = target.closest('[data-nex-comment-highlight-id]');
+        if (highlight) {
+          setActiveComment(highlight.getAttribute('data-nex-comment-highlight-id'), { scrollCard: true });
+        }
+      }
+
       function onMouseUp(event) {
         if (!ns.commentMode) return;
         if (ns.popover && ns.popover.contains(event.target)) return;
+        if (isReviewChrome(event.target)) return;
         setTimeout(function() {
           var info = selectionInfo();
           if (info) showPopover(info);
@@ -189,7 +371,7 @@ enum MarkdownReviewScript {
         for (var i = 0; i < cards.length; i++) {
           var card = cards[i];
           var id = card.getAttribute('data-nex-comment-id');
-          var blockID = card.getAttribute('data-nex-block-id');
+          var blockID = card.getAttribute('data-nex-comment-block-id');
           var anchor = card.getAttribute('data-nex-anchor-text') || '';
           if (!id || !blockID || !anchor) continue;
           var block = document.querySelector('[data-nex-block-id="' + CSS.escape(blockID) + '"]');
@@ -256,6 +438,7 @@ enum MarkdownReviewScript {
       };
 
       document.addEventListener('mouseup', onMouseUp, true);
+      document.addEventListener('click', onClick, true);
       document.addEventListener('change', onTaskChange, true);
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', refineCommentHighlights, { once: true });
