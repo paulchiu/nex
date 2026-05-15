@@ -91,9 +91,9 @@ struct MarkdownReviewPopoverView: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: onCancel)
+                    .keyboardShortcut(.defaultAction)
                     .keyboardShortcut(.cancelAction)
                 Button("Delete", role: .destructive, action: onDelete)
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(12)
