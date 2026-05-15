@@ -64,6 +64,7 @@ final class GhosttyConfig {
         if let color = colorValue(for: "cursor-color") {
             candidates.append((color, 0.4))
         }
+        candidates += paletteAccentColors().map { ($0, 0.2) }
         if let color = colorValue(for: "selection-background") {
             candidates.append((color, -0.2))
         }
@@ -83,6 +84,30 @@ final class GhosttyConfig {
             )
         }
         return nil
+    }
+
+    private func paletteAccentColors() -> [NSColor] {
+        var palette = ghostty_config_palette_s()
+        let key = "palette"
+        guard ghostty_config_get(rawConfig, &palette, key, UInt(key.count)) else {
+            return []
+        }
+
+        return withUnsafeBytes(of: &palette) { rawBuffer -> [NSColor] in
+            let colors = rawBuffer.bindMemory(to: ghostty_config_color_s.self)
+            guard colors.count >= 256 else { return [] }
+
+            let preferredIndexes = [12, 14, 13, 6, 4, 5]
+            return preferredIndexes.map { index in
+                let color = colors[index]
+                return NSColor(
+                    red: CGFloat(color.r) / 255.0,
+                    green: CGFloat(color.g) / 255.0,
+                    blue: CGFloat(color.b) / 255.0,
+                    alpha: 1.0
+                )
+            }
+        }
     }
 
     private static func bestAccentColor(
