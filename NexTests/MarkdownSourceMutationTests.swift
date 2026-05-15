@@ -93,12 +93,21 @@ struct MarkdownSourceMutationTests {
         #expect(updated == "Intro\r\n  * [x] nested\r\nTail")
     }
 
-    @Test func taskMarkerScanSkipsBlockquotedTaskLookingText() {
+    @Test func blockquotedTaskMarkerRendersAndTogglesOnlyRealTask() throws {
         let markdown = "> - [ ] quoted\n\n- [ ] real\n"
         let context = MarkdownRenderPipeline.makeContext(markdown)
+        let html = MarkdownRenderer.renderToHTML(markdown)
 
         #expect(context.taskMarkers.count == 1)
         #expect(context.taskMarkers[0].sourceLine == 3)
+        #expect(html.components(separatedBy: "data-nex-task-id=\"").count - 1 == 1)
+
+        let updated = try MarkdownSourceMutations.toggleTaskCheckbox(
+            in: markdown,
+            taskID: context.taskMarkers[0].id,
+            checked: true
+        ).markdown
+        #expect(updated == "> - [ ] quoted\n\n- [x] real\n")
     }
 
     @Test func taskMarkerScanIgnoresFenceTextInsideCommentBlocks() {
