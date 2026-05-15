@@ -413,13 +413,18 @@ enum MarkdownReviewScript {
           }
         }
         var gap = 8;
+        var suppressedHeight = 52;
         var activeTop = null;
         var activeBottom = null;
+        var activeAboveCursor = null;
+        var activeBelowCursor = null;
         if (activeItem) {
           activeTop = activeItem.y;
           activeItem.card.style.top = activeTop + 'px';
           activeItem.card.style.zIndex = '2';
           activeBottom = activeTop + activeItem.card.offsetHeight;
+          activeAboveCursor = activeTop;
+          activeBelowCursor = activeBottom + gap;
         }
 
         var cursor = 0;
@@ -431,20 +436,25 @@ enum MarkdownReviewScript {
           }
 
           var height = item.card.offsetHeight;
+          var collapsedHeight = Math.min(height, suppressedHeight);
           var top = Math.max(item.y, cursor);
           var displacedByActive = false;
+          var effectiveHeight = height;
           if (activeItem) {
             var overlapsActive = top < activeBottom + gap && top + height + gap > activeTop;
-            if (overlapsActive && item.y < activeTop && activeTop >= height + gap) {
-              top = Math.max(0, activeTop - height - gap);
-              overlapsActive = top < activeBottom + gap && top + height + gap > activeTop;
-            }
             if (overlapsActive) {
-              top = activeBottom + gap;
               displacedByActive = true;
-            }
-            if (Math.abs(top - item.y) > 16) {
+              effectiveHeight = collapsedHeight;
+              if (item.y < activeTop && activeAboveCursor >= collapsedHeight + gap) {
+                top = Math.max(0, activeAboveCursor - collapsedHeight - gap);
+                activeAboveCursor = top;
+              } else {
+                top = activeBelowCursor;
+                activeBelowCursor = top + collapsedHeight + gap;
+              }
+            } else if (Math.abs(top - item.y) > 16) {
               displacedByActive = true;
+              effectiveHeight = collapsedHeight;
             }
           }
 
@@ -452,7 +462,7 @@ enum MarkdownReviewScript {
           if (displacedByActive) {
             item.card.classList.add('nex-comment-card-suppressed');
           }
-          cursor = top + item.card.offsetHeight + gap;
+          cursor = top + effectiveHeight + gap;
         }
 
         var requiredHeight = Math.max(cursor, activeBottom || 0);
