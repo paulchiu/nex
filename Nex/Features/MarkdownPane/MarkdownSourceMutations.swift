@@ -109,42 +109,19 @@ enum MarkdownSourceMutations {
 
         var updated = markdown
         let lineEnding = MarkdownSourceMap.dominantLineEnding(in: markdown)
-        let start = startByTrimmingInsertedBlankLine(
-            before: comment.markerRange.lowerBound,
-            in: markdown,
-            lineEnding: lineEnding
-        )
+        let length = lineEnding.utf8.count
+        let start = if let markerStart = comment.markerRange.lowerBound.samePosition(in: markdown.utf8),
+                       let trimStartUTF8 = markdown.utf8.index(markerStart, offsetBy: -length, limitedBy: markdown.utf8.startIndex),
+                       let checkStartUTF8 = markdown.utf8.index(markerStart, offsetBy: -2 * length, limitedBy: markdown.utf8.startIndex),
+                       let trimStart = String.Index(trimStartUTF8, within: markdown),
+                       let checkStart = String.Index(checkStartUTF8, within: markdown),
+                       String(markdown[checkStart ..< comment.markerRange.lowerBound]) == lineEnding + lineEnding {
+            trimStart
+        } else {
+            comment.markerRange.lowerBound
+        }
         updated.replaceSubrange(start ..< comment.markerRange.upperBound, with: "")
         return updated
-    }
-
-    private static func startByTrimmingInsertedBlankLine(
-        before index: String.Index,
-        in markdown: String,
-        lineEnding: String
-    ) -> String.Index {
-        let length = lineEnding.utf8.count
-        guard let previous = utf8Index(index, offsetBy: -length, in: markdown),
-              String(markdown[previous ..< index]) == lineEnding,
-              let beforePrevious = utf8Index(previous, offsetBy: -length, in: markdown),
-              String(markdown[beforePrevious ..< previous]) == lineEnding
-        else { return index }
-        return previous
-    }
-
-    private static func utf8Index(
-        _ index: String.Index,
-        offsetBy offset: Int,
-        in markdown: String
-    ) -> String.Index? {
-        guard let utf8Index = index.samePosition(in: markdown.utf8),
-              let target = markdown.utf8.index(
-                  utf8Index,
-                  offsetBy: offset,
-                  limitedBy: offset < 0 ? markdown.utf8.startIndex : markdown.utf8.endIndex
-              )
-        else { return nil }
-        return String.Index(target, within: markdown)
     }
 
     private static func makeCommentID(createdAt: Date) -> String {
