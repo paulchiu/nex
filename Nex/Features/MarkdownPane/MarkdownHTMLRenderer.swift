@@ -22,7 +22,6 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
     private var skipAutolinkDepth = 0
     private var context: MarkdownRenderContext?
     private var blockCursor = 0
-    private var blockQuoteDepth = 0
 
     init(context: MarkdownRenderContext? = nil) {
         self.context = context
@@ -131,9 +130,7 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
 
     mutating func visitBlockQuote(_ blockQuote: BlockQuote) -> String {
         let block = nextBlock()
-        blockQuoteDepth += 1
         let content = blockQuote.children.map { visit($0) }.joined()
-        blockQuoteDepth -= 1
         return "<blockquote\(blockAttributes(for: block))>\n\(content)</blockquote>\n"
     }
 
@@ -200,8 +197,7 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
     }
 
     private func taskMarker(for item: ListItem) -> MarkdownTaskMarker? {
-        guard blockQuoteDepth == 0,
-              let context,
+        guard let context,
               let sourceRange = item.range,
               let itemRange = context.sourceMap.range(for: sourceRange)
         else { return nil }
