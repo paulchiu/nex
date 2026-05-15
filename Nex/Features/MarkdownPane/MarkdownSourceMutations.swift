@@ -41,7 +41,13 @@ enum MarkdownSourceMutations {
         let prefix = markdown[..<insertion]
         let suffix = markdown[insertion...]
         let leading = prefix.hasSuffix(lineEnding) ? lineEnding : lineEnding + lineEnding
-        let trailing = suffix.hasPrefix(lineEnding) || suffix.isEmpty ? lineEnding : lineEnding + lineEnding
+        let trailing: String = if suffix.isEmpty {
+            markdown.hasSuffix(lineEnding) ? lineEnding : ""
+        } else if suffix.hasPrefix(lineEnding) {
+            lineEnding
+        } else {
+            lineEnding + lineEnding
+        }
         return String(prefix) + leading + blockText + trailing + String(suffix)
     }
 

@@ -42,6 +42,21 @@ struct MarkdownSourceMutationTests {
         #expect(updated.contains("anchorStrategy: \"nearest-block\""))
     }
 
+    @Test func insertCommentAtEOFPreservesTrailingNewlineAbsence() throws {
+        let markdown = "Only paragraph."
+        let updated = try MarkdownSourceMutations.insertComment(
+            in: markdown,
+            blockID: "block-1",
+            selectedText: "Only paragraph.",
+            anchorStrategy: .exactSelection,
+            commentText: "No final newline.",
+            createdAt: Date(timeIntervalSince1970: 0)
+        )
+
+        #expect(updated.contains("Only paragraph.\n\n<!-- nex-comment"))
+        #expect(!updated.hasSuffix("\n"))
+    }
+
     @Test func togglesUncheckedCheckedAndUppercaseMarkers() throws {
         let markdown = "- [ ] todo\n- [x] done\n- [X] loud\n"
 
