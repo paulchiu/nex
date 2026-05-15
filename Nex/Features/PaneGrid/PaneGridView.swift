@@ -205,6 +205,7 @@ struct PaneGridView: View {
                         isFocused: pane.id == focusedPaneID,
                         backgroundColor: ghosttyConfig.backgroundColor,
                         backgroundOpacity: ghosttyConfig.backgroundOpacity,
+                        reviewAccentColor: ghosttyConfig.reviewAccentColor,
                         fontSize: pane.markdownFontSize,
                         commentModeEnabled: markdownCommentModes[pane.id] ?? false
                     )

@@ -24,6 +24,7 @@ struct MarkdownPaneView: NSViewRepresentable {
     let isFocused: Bool
     var backgroundColor: NSColor = .windowBackgroundColor
     var backgroundOpacity: Double = 1.0
+    var reviewAccentColor: NSColor = .controlAccentColor
     var fontSize: Double = Pane.defaultMarkdownFontSize
     var commentModeEnabled: Bool = false
     @Environment(\.sidebarTextEditingActive) private var sidebarTextEditingActive
@@ -74,6 +75,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         context.coordinator.filePath = filePath
         context.coordinator.backgroundColor = backgroundColor
         context.coordinator.backgroundOpacity = backgroundOpacity
+        context.coordinator.reviewAccentColor = reviewAccentColor
         context.coordinator.fontSize = fontSize
         context.coordinator.commentModeEnabled = commentModeEnabled
         context.coordinator.loadFile()
@@ -94,12 +96,23 @@ struct MarkdownPaneView: NSViewRepresentable {
         if context.coordinator.filePath != filePath {
             context.coordinator.stopWatching()
             context.coordinator.filePath = filePath
+            context.coordinator.backgroundColor = backgroundColor
+            context.coordinator.backgroundOpacity = backgroundOpacity
+            context.coordinator.reviewAccentColor = reviewAccentColor
             context.coordinator.fontSize = fontSize
             context.coordinator.loadFile()
             context.coordinator.startWatching()
-        } else if context.coordinator.fontSize != fontSize {
+        } else {
+            let fontChanged = context.coordinator.fontSize != fontSize
+            let appearanceChanged = context.coordinator.updateAppearance(
+                backgroundColor: backgroundColor,
+                backgroundOpacity: backgroundOpacity,
+                reviewAccentColor: reviewAccentColor
+            )
             context.coordinator.fontSize = fontSize
-            context.coordinator.renderCurrentContent()
+            if fontChanged || appearanceChanged {
+                context.coordinator.renderCurrentContent()
+            }
         }
         if context.coordinator.commentModeEnabled != commentModeEnabled {
             context.coordinator.commentModeEnabled = commentModeEnabled
@@ -147,6 +160,7 @@ struct MarkdownPaneView: NSViewRepresentable {
         var filePath: String = ""
         var backgroundColor: NSColor = .windowBackgroundColor
         var backgroundOpacity: Double = 1.0
+        var reviewAccentColor: NSColor = .controlAccentColor
         var fontSize: Double = Pane.defaultMarkdownFontSize
         var commentModeEnabled: Bool = false
         var lastIsFocused: Bool = false
@@ -204,6 +218,22 @@ struct MarkdownPaneView: NSViewRepresentable {
             renderAndReload(content: currentContent)
         }
 
+        func updateAppearance(
+            backgroundColor: NSColor,
+            backgroundOpacity: Double,
+            reviewAccentColor: NSColor
+        ) -> Bool {
+            guard self.backgroundOpacity != backgroundOpacity ||
+                !Self.colorsEqual(self.backgroundColor, backgroundColor) ||
+                !Self.colorsEqual(self.reviewAccentColor, reviewAccentColor)
+            else { return false }
+
+            self.backgroundColor = backgroundColor
+            self.backgroundOpacity = backgroundOpacity
+            self.reviewAccentColor = reviewAccentColor
+            return true
+        }
+
         private func renderAndReload(content: String) {
             renderToken &+= 1
             let token = renderToken
@@ -211,6 +241,7 @@ struct MarkdownPaneView: NSViewRepresentable {
                 content,
                 backgroundColor: backgroundColor,
                 backgroundOpacity: backgroundOpacity,
+                reviewAccentColor: reviewAccentColor,
                 baseFontSize: fontSize
             )
             let baseURL = URL(fileURLWithPath: filePath).deletingLastPathComponent()
@@ -228,6 +259,18 @@ struct MarkdownPaneView: NSViewRepresentable {
                     webView?.evaluateJavaScript("window.scrollTo(0, \(scrollY))")
                 }
             }
+        }
+
+        private static func colorsEqual(_ lhs: NSColor, _ rhs: NSColor) -> Bool {
+            guard let left = lhs.usingColorSpace(.sRGB),
+                  let right = rhs.usingColorSpace(.sRGB) else {
+                return lhs.isEqual(rhs)
+            }
+            let tolerance: CGFloat = 0.0001
+            return abs(left.redComponent - right.redComponent) < tolerance &&
+                abs(left.greenComponent - right.greenComponent) < tolerance &&
+                abs(left.blueComponent - right.blueComponent) < tolerance &&
+                abs(left.alphaComponent - right.alphaComponent) < tolerance
         }
 
         // MARK: - WKScriptMessageHandler

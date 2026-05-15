@@ -274,6 +274,7 @@ struct SettingsFeature {
                         // Read resolved background from ghostty (correct for both theme and custom).
                         GhosttyConfigClient.liveValue.backgroundOpacity = opacity
                         GhosttyConfigClient.liveValue.backgroundColor = newConfig.backgroundColor
+                        GhosttyConfigClient.liveValue.reviewAccentColor = newConfig.reviewAccentColor
 
                         // Update window compositing
                         if let window = NSApp.windows.first(where: { $0.isVisible && !($0 is NSPanel) }) {

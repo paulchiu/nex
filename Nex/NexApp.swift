@@ -69,21 +69,12 @@ struct NexApp: App {
                         }
                     }
 
-                    // Populate config dependency from the live ghostty config
-                    var config = GhosttyConfigClient.load()
-
+                    // Populate config dependency from the live ghostty config.
                     // Apply saved appearance settings BEFORE creating surfaces so
                     // panes start with the correct background from the first frame.
-                    let defaults = UserDefaults.standard
-                    if defaults.object(forKey: SettingsFeature.defaultsKeyOpacity) != nil {
-                        config.backgroundOpacity = defaults.double(forKey: SettingsFeature.defaultsKeyOpacity)
-                    }
-                    if defaults.bool(forKey: SettingsFeature.defaultsKeyHasCustomColor) {
-                        let r = defaults.double(forKey: SettingsFeature.defaultsKeyColorR)
-                        let g = defaults.double(forKey: SettingsFeature.defaultsKeyColorG)
-                        let b = defaults.double(forKey: SettingsFeature.defaultsKeyColorB)
-                        config.backgroundColor = NSColor(red: r, green: g, blue: b, alpha: 1.0)
-                    }
+                    let config = GhosttyConfigClient.load(
+                        applyingSavedAppearanceFrom: .standard
+                    )
 
                     GhosttyConfigClient.liveValue = config
 

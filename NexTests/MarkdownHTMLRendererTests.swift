@@ -447,6 +447,34 @@ struct MarkdownHTMLRendererTests {
         #expect(html.contains(MarkdownDOMClass.commentHighlightActive))
     }
 
+    @Test func commentStylesUseThemeAccentVariables() {
+        let markdown = """
+        Paragraph.
+
+        <!-- nex-comment
+        id: "nex-test"
+        createdAt: "2026-05-15T00:00:00Z"
+        anchorStrategy: "nearest-block"
+        anchorText: |-
+          Paragraph.
+        comment: |-
+          Themed comment.
+        -->
+        """
+        let html = MarkdownRenderer.renderToHTML(
+            markdown,
+            backgroundColor: .white,
+            reviewAccentColor: NSColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)
+        )
+
+        #expect(html.contains("--nex-comment-accent: #3366cc;"))
+        #expect(html.contains("--nex-comment-card-bg: rgba(51, 102, 204, 0.08);"))
+        #expect(html.contains("border-left: 3px solid var(--nex-comment-accent);"))
+        #expect(html.contains("background: var(--nex-comment-card-active-bg);"))
+        #expect(!html.contains("rgba(255, 212, 0"))
+        #expect(!html.contains("#d29922"))
+    }
+
     @Test func commentRailAbsentWhenNoCommentsExist() {
         let html = MarkdownRenderer.renderToHTML("Paragraph.")
         #expect(!html.contains("class=\"\(MarkdownDOMClass.commentRail)\""))

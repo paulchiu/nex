@@ -279,6 +279,7 @@ enum MarkdownRenderer {
         _ markdown: String,
         backgroundColor: NSColor = .windowBackgroundColor,
         backgroundOpacity: Double = 1.0,
+        reviewAccentColor: NSColor = .controlAccentColor,
         baseFontSize: Double = 14
     ) -> String {
         let yaml = MarkdownRenderPipeline.frontMatter(in: markdown)
@@ -294,6 +295,11 @@ enum MarkdownRenderer {
             fmHTML + bodyHTML,
             commentRailHTML: commentRailHTML,
             backgroundCSS: bgCSS,
+            reviewAccentCSS: reviewAccentCSS(
+                accentColor: reviewAccentColor,
+                backgroundColor: backgroundColor,
+                isDark: isDark
+            ),
             isDark: isDark,
             baseFontSize: baseFontSize
         )
@@ -342,10 +348,120 @@ enum MarkdownRenderer {
         return "background-color: rgba(\(r), \(g), \(b), \(opacity));"
     }
 
+    private static func reviewAccentCSS(
+        accentColor: NSColor,
+        backgroundColor: NSColor,
+        isDark: Bool
+    ) -> String {
+        let accent = usableReviewAccent(
+            accentColor,
+            backgroundColor: backgroundColor,
+            isDark: isDark
+        )
+        let strongAccent = mix(
+            accent,
+            with: isDark ? .white : .black,
+            amount: isDark ? 0.28 : 0.18
+        )
+
+        return """
+        --nex-comment-accent: \(cssHex(accent));
+        --nex-comment-accent-strong: \(cssHex(strongAccent));
+        --nex-comment-block-bg: \(cssRGBA(accent, alpha: isDark ? 0.16 : 0.10));
+        --nex-comment-block-active-bg: \(cssRGBA(accent, alpha: isDark ? 0.34 : 0.22));
+        --nex-comment-card-bg: \(cssRGBA(accent, alpha: isDark ? 0.14 : 0.08));
+        --nex-comment-card-active-bg: \(cssRGBA(accent, alpha: isDark ? 0.30 : 0.18));
+        --nex-comment-highlight-bg: \(cssRGBA(accent, alpha: isDark ? 0.40 : 0.32));
+        --nex-comment-highlight-active-bg: \(cssRGBA(strongAccent, alpha: isDark ? 0.72 : 0.58));
+        --nex-comment-ring: \(cssRGBA(strongAccent, alpha: isDark ? 0.56 : 0.42));
+        """
+    }
+
+    private static func usableReviewAccent(
+        _ color: NSColor,
+        backgroundColor: NSColor,
+        isDark: Bool
+    ) -> NSColor {
+        let fallback = NSColor.systemBlue.usingColorSpace(.sRGB)
+            ?? NSColor(red: 0.0, green: 0.48, blue: 1.0, alpha: 1.0)
+        var candidate = color.usingColorSpace(.sRGB) ?? fallback
+        let background = backgroundColor.usingColorSpace(.sRGB) ?? (isDark ? .black : .white)
+        let target = isDark ? NSColor.white : NSColor.black
+
+        guard contrastRatio(candidate, background) < 1.8 else { return candidate }
+        for amount in [0.25, 0.4, 0.55, 0.7] {
+            candidate = mix(candidate, with: target, amount: amount)
+            if contrastRatio(candidate, background) >= 1.8 {
+                return candidate
+            }
+        }
+        return candidate
+    }
+
+    private static func cssHex(_ color: NSColor) -> String {
+        let rgb = color.usingColorSpace(.sRGB) ?? color
+        return String(
+            format: "#%02x%02x%02x",
+            clampedColorByte(rgb.redComponent),
+            clampedColorByte(rgb.greenComponent),
+            clampedColorByte(rgb.blueComponent)
+        )
+    }
+
+    private static func cssRGBA(_ color: NSColor, alpha: Double) -> String {
+        let rgb = color.usingColorSpace(.sRGB) ?? color
+        return String(
+            format: "rgba(%d, %d, %d, %.2f)",
+            clampedColorByte(rgb.redComponent),
+            clampedColorByte(rgb.greenComponent),
+            clampedColorByte(rgb.blueComponent),
+            min(max(alpha, 0), 1)
+        )
+    }
+
+    private static func clampedColorByte(_ component: CGFloat) -> Int {
+        min(max(Int((component * 255).rounded()), 0), 255)
+    }
+
+    private static func mix(_ color: NSColor, with other: NSColor, amount: CGFloat) -> NSColor {
+        let first = color.usingColorSpace(.sRGB) ?? color
+        let second = other.usingColorSpace(.sRGB) ?? other
+        let amount = min(max(amount, 0), 1)
+        let inverse = 1 - amount
+        return NSColor(
+            red: first.redComponent * inverse + second.redComponent * amount,
+            green: first.greenComponent * inverse + second.greenComponent * amount,
+            blue: first.blueComponent * inverse + second.blueComponent * amount,
+            alpha: 1.0
+        )
+    }
+
+    private static func contrastRatio(_ lhs: NSColor, _ rhs: NSColor) -> Double {
+        let first = relativeLuminance(lhs)
+        let second = relativeLuminance(rhs)
+        let lighter = max(first, second)
+        let darker = min(first, second)
+        return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    private static func relativeLuminance(_ color: NSColor) -> Double {
+        let rgb = color.usingColorSpace(.sRGB) ?? color
+        func channel(_ value: CGFloat) -> Double {
+            let value = Double(value)
+            return value <= 0.03928
+                ? value / 12.92
+                : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * channel(rgb.redComponent)
+            + 0.7152 * channel(rgb.greenComponent)
+            + 0.0722 * channel(rgb.blueComponent)
+    }
+
     private static func wrapInHTMLDocument(
         _ body: String,
         commentRailHTML: String,
         backgroundCSS: String,
+        reviewAccentCSS: String,
         isDark: Bool,
         baseFontSize: Double
     ) -> String {
@@ -359,7 +475,7 @@ enum MarkdownRenderer {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-        \(css(backgroundCSS: backgroundCSS, baseFontSize: baseFontSize))
+        \(css(backgroundCSS: backgroundCSS, reviewAccentCSS: reviewAccentCSS, baseFontSize: baseFontSize))
         </style>
         </head>
         <body>
@@ -387,9 +503,16 @@ enum MarkdownRenderer {
         escapeHTML(text).replacingOccurrences(of: "\n", with: "&#10;")
     }
 
-    private static func css(backgroundCSS: String, baseFontSize: Double) -> String {
+    private static func css(
+        backgroundCSS: String,
+        reviewAccentCSS: String,
+        baseFontSize: Double
+    ) -> String {
         let codeFontSize = max(baseFontSize - 1, 6)
         return """
+        :root {
+            \(reviewAccentCSS)
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
             font-size: \(baseFontSize)px;
@@ -561,39 +684,24 @@ enum MarkdownRenderer {
         }
         .dark pre.frontmatter-raw { border-left-color: #3d444d; }
         .\(MarkdownDOMClass.commentBlock) {
-            background: rgba(255, 212, 0, 0.10);
-            box-shadow: inset 3px 0 0 #d29922;
+            background: var(--nex-comment-block-bg);
+            box-shadow: inset 3px 0 0 var(--nex-comment-accent);
             padding-left: 8px;
             margin-left: -8px;
         }
-        .dark .\(MarkdownDOMClass.commentBlock) {
-            background: rgba(210, 153, 34, 0.16);
-            box-shadow: inset 3px 0 0 #e3b341;
-        }
         .\(MarkdownDOMClass.commentBlockActive) {
-            background: rgba(255, 212, 0, 0.28);
-            box-shadow: inset 4px 0 0 #bf8700, 0 0 0 1px rgba(191, 135, 0, 0.28);
-        }
-        .dark .\(MarkdownDOMClass.commentBlockActive) {
-            background: rgba(227, 179, 65, 0.34);
-            box-shadow: inset 4px 0 0 #f2cc60, 0 0 0 1px rgba(242, 204, 96, 0.32);
+            background: var(--nex-comment-block-active-bg);
+            box-shadow: inset 4px 0 0 var(--nex-comment-accent-strong), 0 0 0 1px var(--nex-comment-ring);
         }
         .\(MarkdownDOMClass.commentHighlight) {
-            background: rgba(255, 212, 0, 0.38);
+            background: var(--nex-comment-highlight-bg);
             border-radius: 2px;
             box-decoration-break: clone;
             -webkit-box-decoration-break: clone;
         }
-        .dark .\(MarkdownDOMClass.commentHighlight) {
-            background: rgba(227, 179, 65, 0.40);
-        }
         .\(MarkdownDOMClass.commentHighlightActive) {
-            background: rgba(255, 212, 0, 0.68);
-            box-shadow: 0 0 0 1px rgba(191, 135, 0, 0.55);
-        }
-        .dark .\(MarkdownDOMClass.commentHighlightActive) {
-            background: rgba(242, 204, 96, 0.70);
-            box-shadow: 0 0 0 1px rgba(242, 204, 96, 0.65);
+            background: var(--nex-comment-highlight-active-bg);
+            box-shadow: 0 0 0 1px var(--nex-comment-ring);
         }
         .\(MarkdownDOMClass.commentRail) {
             position: relative;
@@ -611,8 +719,8 @@ enum MarkdownRenderer {
             display: block;
         }
         .nex-comment-card {
-            border-left: 3px solid #d29922;
-            background: rgba(255, 212, 0, 0.08);
+            border-left: 3px solid var(--nex-comment-accent);
+            background: var(--nex-comment-card-bg);
             padding: 8px;
             border-radius: 6px;
             cursor: pointer;
@@ -623,22 +731,12 @@ enum MarkdownRenderer {
             left: 10px;
             right: 0;
         }
-        .dark .nex-comment-card {
-            border-left-color: #e3b341;
-            background: rgba(210, 153, 34, 0.14);
-        }
         .nex-comment-card:focus-visible,
         .nex-comment-card.\(MarkdownDOMClass.commentCardActive) {
-            outline: 2px solid #bf8700;
+            outline: 2px solid var(--nex-comment-accent-strong);
             outline-offset: 2px;
-            background: rgba(255, 212, 0, 0.24);
-            box-shadow: 0 0 0 1px rgba(191, 135, 0, 0.42), inset 4px 0 0 #bf8700;
-        }
-        .dark .nex-comment-card:focus-visible,
-        .dark .nex-comment-card.\(MarkdownDOMClass.commentCardActive) {
-            outline-color: #f2cc60;
-            background: rgba(227, 179, 65, 0.36);
-            box-shadow: 0 0 0 1px rgba(242, 204, 96, 0.48), inset 4px 0 0 #f2cc60;
+            background: var(--nex-comment-card-active-bg);
+            box-shadow: 0 0 0 1px var(--nex-comment-ring), inset 4px 0 0 var(--nex-comment-accent-strong);
         }
         .nex-comment-card-header {
             display: flex;
