@@ -7,32 +7,24 @@ struct MarkdownCommentTests {
         let markdown = """
         Paragraph.
 
-        <!-- nex-comment
-        id: "nex-test"
-        createdAt: "2026-05-15T00:00:00Z"
-        anchorStrategy: "exact-selection"
-        anchorText: |-
-          Paragraph.
-        comment: |-
-          Tighten this claim.
+        <!--nx "Paragraph."
+        Tighten this claim.
         -->
         """
         let body = MarkdownSourceMap.frontMatterBody(in: markdown)
         let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
 
         #expect(scan.comments.count == 1)
-        #expect(scan.comments[0].id == "nex-test")
-        #expect(scan.comments[0].anchorStrategy == .exactSelection)
         #expect(scan.comments[0].anchorText == "Paragraph.")
         #expect(scan.comments[0].comment == "Tighten this claim.")
-        #expect(!scan.cleanedMarkdown.contains("<!-- nex-comment"))
+        #expect(!scan.cleanedMarkdown.contains("<!--nx"))
     }
 
     @Test func malformedCommentIsHiddenAndRecordedSafely() {
         let markdown = """
         A.
 
-        <!-- nex-comment
+        <!--nx "broken
         id: "broken"
         -->
         """
@@ -42,14 +34,14 @@ struct MarkdownCommentTests {
         #expect(scan.comments.count == 1)
         #expect(scan.comments[0].isMalformed)
         #expect(scan.comments[0].comment == "Malformed Nex comment")
-        #expect(!scan.cleanedMarkdown.contains("<!-- nex-comment"))
+        #expect(!scan.cleanedMarkdown.contains("<!--nx"))
     }
 
     @Test func unclosedMalformedCommentDoesNotHideFollowingMarkdown() {
         let markdown = """
         A.
 
-        <!-- nex-comment
+        <!--nx "broken"
         id: "broken"
 
         B.
@@ -59,7 +51,7 @@ struct MarkdownCommentTests {
 
         #expect(scan.comments.count == 1)
         #expect(scan.comments[0].isMalformed)
-        #expect(!scan.cleanedMarkdown.contains("<!-- nex-comment"))
+        #expect(!scan.cleanedMarkdown.contains("<!--nx"))
         #expect(scan.cleanedMarkdown.contains("id: \"broken\""))
         #expect(scan.cleanedMarkdown.contains("B."))
     }
@@ -73,11 +65,19 @@ struct MarkdownCommentTests {
         #expect(scan.cleanedMarkdown.contains("<!-- ordinary -->"))
     }
 
+    @Test func unknownNxCommentWithoutQuotedAnchorRemainsMarkdown() {
+        let markdown = "A.\n\n<!--nx ordinary -->\n"
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments.isEmpty)
+        #expect(scan.cleanedMarkdown.contains("<!--nx ordinary -->"))
+    }
+
     @Test func commentFieldsEscapeDashDashRoundTrip() {
         let empty = ""
         let original = MarkdownComment(
             id: "nex-test",
-            createdAt: Date(timeIntervalSince1970: 0),
             anchorStrategy: .exactSelection,
             anchorText: "a -- b --> c",
             comment: "note -- with --> marker",
@@ -96,18 +96,47 @@ struct MarkdownCommentTests {
         #expect(scan.comments[0].comment == "note -- with --> marker")
     }
 
+    @Test func commentAnchorRoundTripsEmbeddedQuote() {
+        let empty = ""
+        let original = MarkdownComment(
+            id: "nex-test",
+            anchorStrategy: .exactSelection,
+            anchorText: #"quoted "anchor""#,
+            comment: "note",
+            markerRange: empty.startIndex ..< empty.startIndex
+        )
+        let serialized = MarkdownCommentParser.serialize(original, lineEnding: "\n")
+        let markdown = "A.\n\n\(serialized)\n"
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(scan.comments[0].anchorText == #"quoted "anchor""#)
+    }
+
+    @Test func commentAnchorRoundTripsMultilineSelection() {
+        let empty = ""
+        let original = MarkdownComment(
+            id: "nex-test",
+            anchorStrategy: .exactSelection,
+            anchorText: "line one\nline two",
+            comment: "note",
+            markerRange: empty.startIndex ..< empty.startIndex
+        )
+        let serialized = MarkdownCommentParser.serialize(original, lineEnding: "\n")
+        let markdown = "A.\n\n\(serialized)\n"
+        let body = MarkdownSourceMap.frontMatterBody(in: markdown)
+        let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
+
+        #expect(serialized.contains(#"<!--nx "line one\nline two""#))
+        #expect(scan.comments[0].anchorText == "line one\nline two")
+    }
+
     @Test func parsesCRLFCommentBlockWithoutInjectedBlankLines() {
         let markdown = [
             "Paragraph.",
             "",
-            "<!-- nex-comment",
-            "id: \"nex-crlf\"",
-            "createdAt: \"2026-05-15T00:00:00Z\"",
-            "anchorStrategy: \"exact-selection\"",
-            "anchorText: |-",
-            "  Paragraph.",
-            "comment: |-",
-            "  Tighten this claim.",
+            "<!--nx \"Paragraph.\"",
+            "Tighten this claim.",
             "-->",
             ""
         ].joined(separator: "\r\n")
@@ -119,11 +148,64 @@ struct MarkdownCommentTests {
         #expect(scan.comments[0].comment == "Tighten this claim.")
     }
 
+    @Test func strategyDerivedAsExactWhenAnchorIsUniqueSubstring() throws {
+        let markdown = """
+        Alpha beta gamma.
+
+        <!--nx "beta"
+        Tighten this claim.
+        -->
+        """
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+        let comment = try #require(context.comments.first)
+
+        #expect(comment.anchorStrategy == .exactSelection)
+    }
+
+    @Test func strategyDerivedAsNearestWhenAnchorIsAmbiguousOrAbsent() throws {
+        let ambiguous = """
+        repeat repeat repeat.
+
+        <!--nx "repeat"
+        Ambiguous.
+        -->
+        """
+        let absent = """
+        Alpha beta.
+
+        <!--nx "missing"
+        Absent.
+        -->
+        """
+
+        let ambiguousComment = try #require(MarkdownRenderPipeline.makeContext(ambiguous).comments.first)
+        let absentComment = try #require(MarkdownRenderPipeline.makeContext(absent).comments.first)
+
+        #expect(ambiguousComment.anchorStrategy == .nearestBlock)
+        #expect(absentComment.anchorStrategy == .nearestBlock)
+    }
+
+    @Test func runtimeCommentIDIsDeterministicAcrossScans() throws {
+        let markdown = """
+        Paragraph.
+
+        <!--nx "Paragraph."
+        Tighten this claim.
+        -->
+        """
+        let first = try #require(MarkdownRenderPipeline.makeContext(markdown).comments.first)
+        let second = try #require(MarkdownRenderPipeline.makeContext(markdown).comments.first)
+
+        #expect(first.id == second.id)
+        #expect(first.id.hasPrefix("c-"))
+        #expect(first.id.count == 10)
+    }
+
     @Test func commentInsideFenceIsNotParsed() {
         let markdown = """
         ```
-        <!-- nex-comment
-        id: "nope"
+        <!--nx "nope"
+        note
         -->
         ```
         """
@@ -131,13 +213,13 @@ struct MarkdownCommentTests {
         let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
 
         #expect(scan.comments.isEmpty)
-        #expect(scan.cleanedMarkdown.contains("<!-- nex-comment"))
+        #expect(scan.cleanedMarkdown.contains("<!--nx"))
     }
 
     @Test func indentedCommentLookalikeIsNotParsed() {
         let markdown = """
-            <!-- nex-comment
-            id: "code"
+            <!--nx "code"
+            note
             -->
 
         Paragraph.
@@ -146,12 +228,12 @@ struct MarkdownCommentTests {
         let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
 
         #expect(scan.comments.isEmpty)
-        #expect(scan.cleanedMarkdown.contains("<!-- nex-comment"))
-        #expect(scan.cleanedMarkdown.contains("id: \"code\""))
+        #expect(scan.cleanedMarkdown.contains("<!--nx"))
+        #expect(scan.cleanedMarkdown.contains("note"))
     }
 
     @Test func inlineAdjacentCommentLookalikeIsNotStripped() {
-        let markdown = "Paragraph <!-- nex-comment still prose -->\n"
+        let markdown = "Paragraph <!--nx \"still prose\" -->\n"
         let body = MarkdownSourceMap.frontMatterBody(in: markdown)
         let scan = MarkdownCommentParser.scan(in: markdown, bodyRange: body.bodyRange)
 

@@ -19,8 +19,7 @@ enum MarkdownSourceMutations {
         blockID: String,
         selectedText: String,
         anchorStrategy: MarkdownAnchorStrategy,
-        commentText: String,
-        createdAt: Date = Date()
+        commentText: String
     ) throws -> String {
         let context = MarkdownRenderPipeline.makeContext(markdown)
         guard let block = context.sourceBlocks.first(where: { $0.id == blockID }) else {
@@ -29,8 +28,7 @@ enum MarkdownSourceMutations {
 
         let lineEnding = MarkdownSourceMap.dominantLineEnding(in: markdown)
         let comment = MarkdownComment(
-            id: makeCommentID(createdAt: createdAt),
-            createdAt: createdAt,
+            id: "",
             anchorStrategy: anchorStrategy,
             anchorText: selectedText.trimmingCharacters(in: .whitespacesAndNewlines),
             comment: commentText.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -122,16 +120,5 @@ enum MarkdownSourceMutations {
         }
         updated.replaceSubrange(start ..< comment.markerRange.upperBound, with: "")
         return updated
-    }
-
-    private static func makeCommentID(createdAt: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        let stamp = formatter.string(from: createdAt)
-        let suffix = UUID().uuidString.prefix(8).lowercased()
-        return "nex-\(stamp)-\(suffix)"
     }
 }

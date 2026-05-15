@@ -381,19 +381,13 @@ struct MarkdownHTMLRendererTests {
         let markdown = """
         Paragraph.
 
-        <!-- nex-comment
-        id: "nex-test"
-        createdAt: "2026-05-15T00:00:00Z"
-        anchorStrategy: "exact-selection"
-        anchorText: |-
-          Paragraph.
-        comment: |-
-          Needs evidence.
+        <!--nx "Paragraph."
+        Needs evidence.
         -->
         """
         let html = MarkdownRenderer.renderToHTML(markdown)
 
-        #expect(!html.contains("<!-- nex-comment"))
+        #expect(!html.contains("<!--nx"))
         #expect(html.contains("class=\"\(MarkdownDOMClass.commentRail)\""))
         #expect(html.contains("Needs evidence."))
         #expect(html.contains(MarkdownDOMClass.commentBlock))
@@ -403,14 +397,8 @@ struct MarkdownHTMLRendererTests {
         let markdown = """
         Paragraph.
 
-        <!-- nex-comment
-        id: "nex-test"
-        createdAt: "2026-05-15T00:00:00Z"
-        anchorStrategy: "nearest-block"
-        anchorText: |-
-          Paragraph.
-        comment: |-
-          Side rail.
+        <!--nx "Paragraph."
+        Side rail.
         -->
         """
         let html = MarkdownRenderer.renderToHTML(markdown)
@@ -427,19 +415,15 @@ struct MarkdownHTMLRendererTests {
         let markdown = """
         Paragraph.
 
-        <!-- nex-comment
-        id: "nex-test"
-        createdAt: "2026-05-15T00:00:00Z"
-        anchorStrategy: "exact-selection"
-        anchorText: |-
-          Paragraph.
-        comment: |-
-          Side rail.
+        <!--nx "Paragraph."
+        Side rail.
         -->
         """
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+        let commentID = context.comments.first?.id ?? ""
         let html = MarkdownRenderer.renderToHTML(markdown)
 
-        #expect(html.contains("tabindex=\"0\" data-nex-comment-id=\"nex-test\""))
+        #expect(html.contains("tabindex=\"0\" data-nex-comment-id=\"\(commentID)\""))
         #expect(html.contains("data-nex-comment-block-id=\"block-1\""))
         #expect(html.contains("data-nex-comment-edit aria-label=\"Edit comment\""))
         #expect(html.contains("data-nex-comment-delete aria-label=\"Delete comment\""))
@@ -456,14 +440,8 @@ struct MarkdownHTMLRendererTests {
         let markdown = """
         Paragraph.
 
-        <!-- nex-comment
-        id: "nex-test"
-        createdAt: "2026-05-15T00:00:00Z"
-        anchorStrategy: "exact-selection"
-        anchorText: |-
-          Paragraph.
-        comment: |-
-          Side rail.
+        <!--nx "Paragraph."
+        Side rail.
         -->
         """
         let html = MarkdownRenderer.renderToHTML(markdown)
@@ -476,14 +454,8 @@ struct MarkdownHTMLRendererTests {
         let markdown = """
         Paragraph.
 
-        <!-- nex-comment
-        id: "nex-test"
-        createdAt: "2026-05-15T00:00:00Z"
-        anchorStrategy: "nearest-block"
-        anchorText: |-
-          Paragraph.
-        comment: |-
-          Themed comment.
+        <!--nx "Paragraph."
+        Themed comment.
         -->
         """
         let html = MarkdownRenderer.renderToHTML(
@@ -509,14 +481,8 @@ struct MarkdownHTMLRendererTests {
         let markdown = """
         Paragraph.
 
-        <!-- nex-comment
-        id: "nex-test"
-        createdAt: "2026-05-15T00:00:00Z"
-        anchorStrategy: "nearest-block"
-        anchorText: |-
-          Paragraph.
-        comment: |-
-          <script>alert(1)</script>
+        <!--nx "Paragraph."
+        <script>alert(1)</script>
         -->
         """
         let html = MarkdownRenderer.renderToHTML(markdown)

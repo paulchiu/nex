@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Markdown
 
@@ -19,10 +20,11 @@ enum MarkdownRenderPipeline {
             document: document,
             sourceMap: sourceMap
         )
-        let placement = placeComments(scan.comments, on: sourceBlocks)
+        let comments = deriveRuntimeCommentMetadata(scan.comments, on: sourceBlocks)
+        let placement = placeComments(comments, on: sourceBlocks)
 
         return MarkdownRenderContext(
-            comments: scan.comments,
+            comments: comments,
             taskMarkers: taskMarkers,
             taskMarkersByItemRange: taskMarkers.reduce(into: [:]) { result, marker in
                 result[marker.itemRange] = marker
@@ -41,6 +43,28 @@ enum MarkdownRenderPipeline {
         MarkdownSourceMap.frontMatterBody(in: markdown).yaml
     }
 
+    private static func deriveRuntimeCommentMetadata(
+        _ comments: [MarkdownComment],
+        on blocks: [MarkdownSourceBlock]
+    ) -> [MarkdownComment] {
+        var duplicateCounts: [String: Int] = [:]
+        return comments.map { comment in
+            guard !comment.isMalformed else { return comment }
+            let block = block(for: comment, in: blocks)
+            let blockOrdinal = block?.ordinal ?? 0
+            let strategy = anchorStrategy(for: comment.anchorText, in: block?.renderedText ?? "")
+            let base = "\(blockOrdinal)\u{01}\(comment.anchorText)\u{01}\(comment.comment)"
+            let duplicateIndex = duplicateCounts[base, default: 0]
+            duplicateCounts[base] = duplicateIndex + 1
+            let hashInput = duplicateIndex == 0 ? base : "\(base)\u{01}\(duplicateIndex + 1)"
+
+            var resolved = comment
+            resolved.id = "c-\(sha256Prefix(hashInput))"
+            resolved.anchorStrategy = strategy
+            return resolved
+        }
+    }
+
     private static func placeComments(
         _ comments: [MarkdownComment],
         on blocks: [MarkdownSourceBlock]
@@ -53,13 +77,44 @@ enum MarkdownRenderPipeline {
         var commentsByBlockID: [String: [MarkdownComment]] = [:]
         var commentBlockIDs: [String: String] = [:]
         for comment in comments.sorted(by: { $0.markerRange.lowerBound < $1.markerRange.lowerBound }) {
-            let block = blocks
-                .filter { $0.insertionIndex <= comment.markerRange.lowerBound }
-                .last ?? blocks[0]
+            let block = block(for: comment, in: blocks) ?? blocks[0]
             commentsByBlockID[block.id, default: []].append(comment)
             commentBlockIDs[comment.id] = block.id
         }
         return (commentsByBlockID, commentBlockIDs)
+    }
+
+    private static func block(
+        for comment: MarkdownComment,
+        in blocks: [MarkdownSourceBlock]
+    ) -> MarkdownSourceBlock? {
+        guard !blocks.isEmpty else { return nil }
+        return blocks
+            .filter { $0.insertionIndex <= comment.markerRange.lowerBound }
+            .last ?? blocks[0]
+    }
+
+    private static func anchorStrategy(
+        for anchor: String,
+        in blockText: String
+    ) -> MarkdownAnchorStrategy {
+        guard !anchor.isEmpty else { return .nearestBlock }
+        var count = 0
+        var searchStart = blockText.startIndex
+        while let range = blockText.range(of: anchor, range: searchStart ..< blockText.endIndex) {
+            count += 1
+            if count > 1 { return .nearestBlock }
+            searchStart = range.upperBound
+        }
+        return count == 1 ? .exactSelection : .nearestBlock
+    }
+
+    private static func sha256Prefix(_ text: String) -> String {
+        let digest = SHA256.hash(data: Data(text.utf8))
+        return digest
+            .prefix(4)
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
 }
 
@@ -146,7 +201,44 @@ private struct MarkdownSourceBlockCollector: MarkupVisitor {
             ordinal: ordinal,
             sourceRange: range,
             insertionIndex: range?.upperBound ?? sourceMap.bodyRange.upperBound,
-            renderedText: ""
+            renderedText: MarkdownPlainTextRenderer.render(markup)
         ))
+    }
+}
+
+private struct MarkdownPlainTextRenderer: MarkupVisitor {
+    typealias Result = String
+
+    static func render(_ markup: any Markup) -> String {
+        var renderer = MarkdownPlainTextRenderer()
+        let text = renderer.visit(markup)
+        return text
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    mutating func defaultVisit(_ markup: any Markup) -> String {
+        markup.children.map { visit($0) }.joined(separator: " ")
+    }
+
+    mutating func visitText(_ text: Text) -> String {
+        text.string
+    }
+
+    mutating func visitInlineCode(_ inlineCode: InlineCode) -> String {
+        inlineCode.code
+    }
+
+    mutating func visitCodeBlock(_ codeBlock: CodeBlock) -> String {
+        codeBlock.code
+    }
+
+    mutating func visitSoftBreak(_: SoftBreak) -> String {
+        " "
+    }
+
+    mutating func visitLineBreak(_: LineBreak) -> String {
+        " "
     }
 }

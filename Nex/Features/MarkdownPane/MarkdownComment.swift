@@ -18,7 +18,6 @@ enum MarkdownAnchorStrategy: String {
 
 struct MarkdownComment {
     var id: String
-    var createdAt: Date
     var anchorStrategy: MarkdownAnchorStrategy
     var anchorText: String
     var comment: String
@@ -148,7 +147,7 @@ enum MarkdownCommentParser {
                 inFence.toggle()
             }
 
-            if !inFence, leadingMarkdownIndent(line.text) < 4, trimmed == "<!-- nex-comment" {
+            if !inFence, leadingMarkdownIndent(line.text) < 4, isCandidateOpener(trimmed) {
                 let start = line.fullRange.lowerBound
                 var end = line.fullRange.upperBound
                 var commentLineCount = 1
@@ -201,20 +200,11 @@ enum MarkdownCommentParser {
     }
 
     static func serialize(_ comment: MarkdownComment, lineEnding: String) -> String {
-        let createdAt = isoFormatter().string(from: comment.createdAt)
-        let anchor = serializeBlockScalar(escapeField(comment.anchorText), lineEnding: lineEnding)
-        let note = serializeBlockScalar(escapeField(comment.comment), lineEnding: lineEnding)
-        return [
-            "<!-- nex-comment",
-            "id: \"\(escapeQuoted(comment.id))\"",
-            "createdAt: \"\(escapeQuoted(createdAt))\"",
-            "anchorStrategy: \"\(comment.anchorStrategy.rawValue)\"",
-            "anchorText: |-",
-            anchor,
-            "comment: |-",
-            note,
-            "-->"
-        ].joined(separator: lineEnding)
+        let body = comment.comment
+            .components(separatedBy: "\n")
+            .map(escapeField)
+        return (["<!--nx \"\(escapeAnchor(comment.anchorText))\""] + body + ["-->"])
+            .joined(separator: lineEnding)
     }
 
     static func escapeField(_ text: String) -> String {
@@ -231,58 +221,20 @@ enum MarkdownCommentParser {
         in source: String,
         range: Range<String.Index>
     ) -> MarkdownComment? {
-        let rawLines = MarkdownSourceLine.lines(in: source, range: range).map(\.text)
-        guard rawLines.first?.trimmingCharacters(in: .whitespacesAndNewlines) == "<!-- nex-comment",
+        let lines = MarkdownSourceLine.lines(in: source, range: range)
+        let rawLines = lines.map(\.text)
+        guard let first = rawLines.first?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let anchor = parseOpenerAnchor(first),
               rawLines.last?.trimmingCharacters(in: .whitespacesAndNewlines) == "-->"
         else { return nil }
 
-        var values: [String: String] = [:]
-        var index = 1
-        while index < rawLines.count - 1 {
-            let line = rawLines[index]
-            if line.hasPrefix("anchorText: |-") || line.hasPrefix("comment: |-") {
-                let key = line.hasPrefix("anchorText: |-") ? "anchorText" : "comment"
-                index += 1
-                var collected: [String] = []
-                while index < rawLines.count - 1 {
-                    let candidate = rawLines[index]
-                    if isTopLevelField(candidate) { break }
-                    if candidate.hasPrefix("  ") {
-                        collected.append(String(candidate.dropFirst(2)))
-                    } else if candidate.isEmpty {
-                        collected.append("")
-                    } else {
-                        break
-                    }
-                    index += 1
-                }
-                values[key] = unescapeField(collected.joined(separator: "\n"))
-                continue
-            }
-
-            if let colon = line.firstIndex(of: ":") {
-                let key = String(line[..<colon]).trimmingCharacters(in: .whitespaces)
-                let valueStart = line.index(after: colon)
-                let value = String(line[valueStart...]).trimmingCharacters(in: .whitespaces)
-                values[key] = unquote(value)
-            }
-            index += 1
-        }
-
-        guard let id = values["id"],
-              let createdAtRaw = values["createdAt"],
-              let createdAt = isoFormatter().date(from: createdAtRaw),
-              let rawStrategy = values["anchorStrategy"],
-              let strategy = MarkdownAnchorStrategy(rawValue: rawStrategy),
-              let anchorText = values["anchorText"],
-              let comment = values["comment"]
-        else { return nil }
+        let lineEnding = MarkdownSourceMap.dominantLineEnding(in: source)
+        let comment = unescapeField(rawLines.dropFirst().dropLast().joined(separator: lineEnding))
 
         return MarkdownComment(
-            id: id,
-            createdAt: createdAt,
-            anchorStrategy: strategy,
-            anchorText: anchorText,
+            id: "",
+            anchorStrategy: .nearestBlock,
+            anchorText: anchor,
             comment: comment,
             markerRange: range
         )
@@ -294,7 +246,6 @@ enum MarkdownCommentParser {
     ) -> MarkdownComment {
         MarkdownComment(
             id: "malformed-\(ordinal)",
-            createdAt: Date(timeIntervalSince1970: 0),
             anchorStrategy: .nearestBlock,
             anchorText: "",
             comment: "Malformed Nex comment",
@@ -303,41 +254,45 @@ enum MarkdownCommentParser {
         )
     }
 
-    private static func serializeBlockScalar(_ text: String, lineEnding: String) -> String {
-        let lines = text.components(separatedBy: "\n")
-        if lines.isEmpty {
-            return "  "
-        }
-        return lines.map { "  \($0)" }.joined(separator: lineEnding)
-    }
-
-    private static func escapeQuoted(_ text: String) -> String {
+    private static func escapeAnchor(_ text: String) -> String {
         text.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
     }
 
-    private static func unquote(_ value: String) -> String {
-        guard value.hasPrefix("\""), value.hasSuffix("\""), value.count >= 2 else {
-            return value
+    private static func parseOpenerAnchor(_ line: String) -> String? {
+        let prefix = "<!--nx \""
+        guard line.hasPrefix(prefix), line.hasSuffix("\"") else { return nil }
+        let inner = line.dropFirst(prefix.count).dropLast()
+        var result = ""
+        var index = inner.startIndex
+        while index < inner.endIndex {
+            let character = inner[index]
+            if character != "\\" {
+                result.append(character)
+                index = inner.index(after: index)
+                continue
+            }
+
+            let next = inner.index(after: index)
+            guard next < inner.endIndex else { return nil }
+            switch inner[next] {
+            case "\\":
+                result.append("\\")
+            case "\"":
+                result.append("\"")
+            case "n":
+                result.append("\n")
+            default:
+                return nil
+            }
+            index = inner.index(after: next)
         }
-        let inner = value.dropFirst().dropLast()
-        return inner.replacingOccurrences(of: "\\\"", with: "\"")
-            .replacingOccurrences(of: "\\\\", with: "\\")
+        return result
     }
 
-    private static func isTopLevelField(_ line: String) -> Bool {
-        line.hasPrefix("id:")
-            || line.hasPrefix("createdAt:")
-            || line.hasPrefix("anchorStrategy:")
-            || line.hasPrefix("anchorText:")
-            || line.hasPrefix("comment:")
-            || line.trimmingCharacters(in: .whitespacesAndNewlines) == "-->"
-    }
-
-    private static func isoFormatter() -> ISO8601DateFormatter {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
+    private static func isCandidateOpener(_ line: String) -> Bool {
+        line.hasPrefix("<!--nx \"")
     }
 
     private static func isFenceLine(_ line: String) -> Bool {

@@ -10,16 +10,15 @@ struct MarkdownSourceMutationTests {
             blockID: "block-1",
             selectedText: "First paragraph.",
             anchorStrategy: .exactSelection,
-            commentText: "Needs evidence.",
-            createdAt: Date(timeIntervalSince1970: 0)
+            commentText: "Needs evidence."
         )
 
         let firstRange = try #require(updated.range(of: "First paragraph."))
-        let commentRange = try #require(updated.range(of: "<!-- nex-comment"))
+        let commentRange = try #require(updated.range(of: "<!--nx"))
         let secondRange = try #require(updated.range(of: "Second paragraph."))
         #expect(firstRange.lowerBound < commentRange.lowerBound)
         #expect(commentRange.lowerBound < secondRange.lowerBound)
-        #expect(updated.contains("anchorStrategy: \"exact-selection\""))
+        #expect(updated.contains(#"<!--nx "First paragraph.""#))
         #expect(updated.contains("Needs evidence."))
     }
 
@@ -30,16 +29,15 @@ struct MarkdownSourceMutationTests {
             blockID: "block-1",
             selectedText: "Heading\n\nParagraph.",
             anchorStrategy: .nearestBlock,
-            commentText: "Spans blocks.",
-            createdAt: Date(timeIntervalSince1970: 0)
+            commentText: "Spans blocks."
         )
 
         let headingRange = try #require(updated.range(of: "# Heading"))
-        let commentRange = try #require(updated.range(of: "<!-- nex-comment"))
+        let commentRange = try #require(updated.range(of: "<!--nx"))
         let paragraphRange = try #require(updated.range(of: "Paragraph."))
         #expect(headingRange.lowerBound < commentRange.lowerBound)
         #expect(commentRange.lowerBound < paragraphRange.lowerBound)
-        #expect(updated.contains("anchorStrategy: \"nearest-block\""))
+        #expect(updated.contains(#"<!--nx "Heading\n\nParagraph.""#))
     }
 
     @Test func insertCommentAtEOFPreservesTrailingNewlineAbsence() throws {
@@ -49,11 +47,10 @@ struct MarkdownSourceMutationTests {
             blockID: "block-1",
             selectedText: "Only paragraph.",
             anchorStrategy: .exactSelection,
-            commentText: "No final newline.",
-            createdAt: Date(timeIntervalSince1970: 0)
+            commentText: "No final newline."
         )
 
-        #expect(updated.contains("Only paragraph.\n\n<!-- nex-comment"))
+        #expect(updated.contains("Only paragraph.\n\n<!--nx"))
         #expect(!updated.hasSuffix("\n"))
     }
 
@@ -114,14 +111,8 @@ struct MarkdownSourceMutationTests {
         let markdown = """
         Paragraph.
 
-        <!-- nex-comment
-        id: "nex-fence"
-        createdAt: "2026-05-15T00:00:00Z"
-        anchorStrategy: "nearest-block"
-        anchorText: |-
-          Paragraph.
-        comment: |-
-          ```
+        <!--nx "Paragraph."
+        ```
         -->
 
         - [ ] real
@@ -129,35 +120,30 @@ struct MarkdownSourceMutationTests {
         let context = MarkdownRenderPipeline.makeContext(markdown)
 
         #expect(context.taskMarkers.count == 1)
-        #expect(context.taskMarkers[0].sourceLine == 13)
+        #expect(context.taskMarkers[0].sourceLine == 7)
     }
 
     @Test func updatesCommentTextInPlacePreservingAnchor() throws {
         let markdown = """
         Paragraph.
 
-        <!-- nex-comment
-        id: "nex-test"
-        createdAt: "2026-05-15T00:00:00Z"
-        anchorStrategy: "exact-selection"
-        anchorText: |-
-          Paragraph.
-        comment: |-
-          Old note.
+        <!--nx "Paragraph."
+        Old note.
         -->
 
         Tail.
         """
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+        let commentID = try #require(context.comments.first?.id)
 
         let updated = try MarkdownSourceMutations.updateComment(
             in: markdown,
-            commentID: "nex-test",
+            commentID: commentID,
             commentText: "New note."
         )
 
-        #expect(updated.contains("comment: |-\n  New note."))
+        #expect(updated.contains("<!--nx \"Paragraph.\"\nNew note.\n-->"))
         #expect(!updated.contains("Old note."))
-        #expect(updated.contains("anchorText: |-\n  Paragraph."))
         #expect(updated.contains("Tail."))
     }
 
@@ -165,25 +151,21 @@ struct MarkdownSourceMutationTests {
         let markdown = """
         Before.
 
-        <!-- nex-comment
-        id: "nex-delete"
-        createdAt: "2026-05-15T00:00:00Z"
-        anchorStrategy: "nearest-block"
-        anchorText: |-
-          Before.
-        comment: |-
-          Remove me.
+        <!--nx "Before."
+        Remove me.
         -->
 
         After.
         """
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+        let commentID = try #require(context.comments.first?.id)
 
         let updated = try MarkdownSourceMutations.deleteComment(
             in: markdown,
-            commentID: "nex-delete"
+            commentID: commentID
         )
 
-        #expect(!updated.contains("<!-- nex-comment"))
+        #expect(!updated.contains("<!--nx"))
         #expect(!updated.contains("Remove me."))
         #expect(updated.contains("Before."))
         #expect(updated.contains("After."))
