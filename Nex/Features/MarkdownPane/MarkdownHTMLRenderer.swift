@@ -742,6 +742,8 @@ enum MarkdownRenderer {
             cursor: pointer;
             position: relative;
             box-sizing: border-box;
+            overflow: hidden;
+            transition: background 120ms ease, border-color 120ms ease, opacity 120ms ease;
         }
         .\(MarkdownDOMClass.commentRail).nex-comment-rail-positioned .nex-comment-card {
             position: absolute;
@@ -753,6 +755,14 @@ enum MarkdownRenderer {
             border-color: var(--nex-comment-accent-strong);
             outline: none;
             background: var(--nex-comment-card-active-bg);
+        }
+        .nex-comment-card.nex-comment-card-suppressed {
+            max-height: 52px;
+            opacity: 0.42;
+            pointer-events: none;
+        }
+        .nex-comment-card.nex-comment-card-suppressed .nex-comment-actions {
+            display: none;
         }
         .nex-comment-card-header {
             display: flex;
@@ -823,6 +833,12 @@ enum MarkdownRenderer {
         .nex-comment-card p {
             margin: 0;
             white-space: pre-wrap;
+        }
+        .nex-comment-card.nex-comment-card-suppressed p {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
         .nex-comment-card-malformed {
             border-color: #cf222e;

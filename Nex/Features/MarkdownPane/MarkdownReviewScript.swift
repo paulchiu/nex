@@ -100,20 +100,29 @@ enum MarkdownReviewScript {
         }
       }
 
+      function scrollElementIntoView(element, block) {
+        if (!element) return;
+        try {
+          element.scrollIntoView({ block: block || 'nearest', inline: 'nearest', behavior: 'smooth' });
+        } catch (_) {
+          element.scrollIntoView(false);
+        }
+      }
+
       function setActiveComment(id, options) {
         options = options || {};
         removeActiveComment();
         ns.activeCommentID = id || null;
-        if (!id) return;
+        if (!id) {
+          scheduleCommentLayout();
+          return;
+        }
 
         var escaped = CSS.escape(id);
         var card = document.querySelector('.nex-comment-card[data-nex-comment-id="' + escaped + '"]');
         var target = null;
         if (card) {
           card.classList.add('\(MarkdownDOMClass.commentCardActive)');
-          if (options.scrollCard) {
-            card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-          }
           var blockID = card.getAttribute('data-nex-comment-block-id');
           if (blockID) {
             var block = document.querySelector('[data-nex-block-id="' + CSS.escape(blockID) + '"]');
@@ -130,7 +139,11 @@ enum MarkdownReviewScript {
           if (!target) target = highlights[i];
         }
         if (options.scrollTarget && target) {
-          target.scrollIntoView({ block: 'center', inline: 'nearest' });
+          scrollElementIntoView(target, 'nearest');
+        }
+        positionCommentCards();
+        if (options.scrollCard && card) {
+          scrollElementIntoView(card, 'nearest');
         }
       }
 
@@ -359,6 +372,8 @@ enum MarkdownReviewScript {
           var mobileCards = rail.querySelectorAll('.nex-comment-card');
           for (var m = 0; m < mobileCards.length; m++) {
             mobileCards[m].style.top = '';
+            mobileCards[m].style.zIndex = '';
+            mobileCards[m].classList.remove('nex-comment-card-suppressed');
           }
           return;
         }
@@ -375,25 +390,74 @@ enum MarkdownReviewScript {
         var items = [];
         for (var i = 0; i < cards.length; i++) {
           var card = cards[i];
+          card.classList.remove('nex-comment-card-suppressed');
+          card.style.zIndex = '';
           var target = targetForCommentCard(card);
           var y = 0;
           if (target) {
             y = target.getBoundingClientRect().top - railRect.top;
           }
-          items.push({ card: card, y: Math.max(0, y) });
+          items.push({
+            card: card,
+            y: Math.max(0, y),
+            active: ns.activeCommentID && card.getAttribute('data-nex-comment-id') === ns.activeCommentID
+          });
         }
 
         items.sort(function(a, b) { return a.y - b.y; });
+        var activeItem = null;
+        for (var a = 0; a < items.length; a++) {
+          if (items[a].active) {
+            activeItem = items[a];
+            break;
+          }
+        }
+        var gap = 8;
+        var activeTop = null;
+        var activeBottom = null;
+        if (activeItem) {
+          activeTop = activeItem.y;
+          activeItem.card.style.top = activeTop + 'px';
+          activeItem.card.style.zIndex = '2';
+          activeBottom = activeTop + activeItem.card.offsetHeight;
+        }
+
         var cursor = 0;
         for (var j = 0; j < items.length; j++) {
           var item = items[j];
+          if (item.active) {
+            cursor = Math.max(cursor, activeBottom + gap);
+            continue;
+          }
+
+          var height = item.card.offsetHeight;
           var top = Math.max(item.y, cursor);
+          var displacedByActive = false;
+          if (activeItem) {
+            var overlapsActive = top < activeBottom + gap && top + height + gap > activeTop;
+            if (overlapsActive && item.y < activeTop && activeTop >= height + gap) {
+              top = Math.max(0, activeTop - height - gap);
+              overlapsActive = top < activeBottom + gap && top + height + gap > activeTop;
+            }
+            if (overlapsActive) {
+              top = activeBottom + gap;
+              displacedByActive = true;
+            }
+            if (Math.abs(top - item.y) > 16) {
+              displacedByActive = true;
+            }
+          }
+
           item.card.style.top = top + 'px';
-          cursor = top + item.card.offsetHeight + 8;
+          if (displacedByActive) {
+            item.card.classList.add('nex-comment-card-suppressed');
+          }
+          cursor = top + item.card.offsetHeight + gap;
         }
 
-        if (cursor > baseHeight) {
-          rail.style.minHeight = cursor + 'px';
+        var requiredHeight = Math.max(cursor, activeBottom || 0);
+        if (requiredHeight > baseHeight) {
+          rail.style.minHeight = requiredHeight + 'px';
         }
       }
 

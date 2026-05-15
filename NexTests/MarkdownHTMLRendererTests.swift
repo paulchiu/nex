@@ -434,6 +434,8 @@ struct MarkdownHTMLRendererTests {
         #expect(!html.contains(">Delete</button>"))
         #expect(html.contains(MarkdownDOMClass.commentCardActive))
         #expect(html.contains(MarkdownDOMClass.commentHighlightActive))
+        #expect(html.contains(".nex-comment-card.nex-comment-card-suppressed"))
+        #expect(html.contains("-webkit-line-clamp: 1;"))
     }
 
     @Test func commentRailTextIsNotSelectable() {
