@@ -115,17 +115,31 @@ struct MarkdownCheckboxRenderingTests {
         #expect(!html.contains("<input"))
     }
 
-    @Test func blockquotedTaskListIsAnUpstreamLimitation() {
-        // Pin current behaviour: swift-markdown's tasklist extension does not
-        // fire for `- [x]` inside a blockquote — the brackets reach us as
-        // plain text. If this starts producing a checkbox after a future
-        // swift-markdown bump, flip this test to assert task-list-item is
-        // present.
+    @Test func blockquotedTaskListDoesNotReceiveTaskID() {
         let html = MarkdownRenderer.renderToHTML("> - [x] inside a quote")
         #expect(html.contains("<blockquote data-nex-block-id="))
         #expect(html.contains("<ul>"))
-        #expect(!html.contains("class=\"task-list-item\""))
-        #expect(html.contains("[x] inside a quote"))
+        #expect(!html.contains("data-nex-task-id"))
+        if html.contains("class=\"task-list-item-checkbox\"") {
+            #expect(html.contains("disabled"))
+        } else {
+            #expect(html.contains("[x] inside a quote"))
+        }
+    }
+
+    @Test func blockquotedTaskDoesNotConsumeRealTaskMarker() throws {
+        let markdown = "> - [ ] quoted\n\n- [ ] real\n"
+        let context = MarkdownRenderPipeline.makeContext(markdown)
+        let html = MarkdownRenderer.renderToHTML(markdown)
+
+        let marker = try #require(context.taskMarkers.first)
+        let realLineRange = try #require(markdown.range(of: "- [ ] real"))
+        #expect(context.taskMarkers.count == 1)
+        #expect(marker.sourceLine == 3)
+        #expect(realLineRange.contains(marker.markerRange.lowerBound))
+        #expect(String(markdown[marker.markerRange]) == "[ ]")
+        #expect(html.components(separatedBy: "data-nex-task-id=\"").count - 1 == 1)
+        #expect(html.contains("data-nex-task-id=\"\(marker.id)\""))
     }
 
     @Test func nestedCheckboxRendersAsTaskItem() {

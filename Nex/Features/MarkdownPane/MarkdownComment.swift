@@ -30,6 +30,7 @@ struct MarkdownTaskMarker {
     var checked: Bool
     var markerRange: Range<String.Index>
     var sourceLine: Int
+    var itemRange: Range<String.Index>
 }
 
 struct MarkdownSourceBlock {
@@ -51,6 +52,7 @@ struct MarkdownRenderContext {
     var taskMarkers: [MarkdownTaskMarker]
     var sourceBlocks: [MarkdownSourceBlock]
     var cleanedMarkdown: String
+    var sourceMap: MarkdownSourceMap
     var bodyOffset: MarkdownBodyOffset
     var commentsByBlockID: [String: [MarkdownComment]]
     var commentBlockIDs: [String: String]

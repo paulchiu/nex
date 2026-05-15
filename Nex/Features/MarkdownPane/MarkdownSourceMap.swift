@@ -223,40 +223,71 @@ struct MarkdownSourceMap {
 
 enum MarkdownTaskMarkerBuilder {
     static func taskMarkers(
-        in source: String,
-        bodyRange: Range<String.Index>,
-        excluding commentRanges: [Range<String.Index>] = []
+        document: Document,
+        sourceMap: MarkdownSourceMap
     ) -> [MarkdownTaskMarker] {
-        let lines = MarkdownSourceLine.lines(in: source, range: bodyRange)
-        var markers: [MarkdownTaskMarker] = []
-        var inFence = false
-        var inCommentRange = false
+        var collector = MarkdownTaskMarkerCollector(sourceMap: sourceMap)
+        collector.visit(document)
+        return collector.markers
+    }
+}
 
-        for line in lines {
-            let trimmed = line.text.trimmingCharacters(in: .whitespaces)
-            if commentRanges.contains(where: { $0.overlaps(line.fullRange) }) {
-                inCommentRange = true
-            } else {
-                inCommentRange = false
-            }
-            if !inCommentRange, isFenceLine(line.text) {
-                inFence.toggle()
-            }
-            guard !inFence, !inCommentRange, !trimmed.hasPrefix(">"),
-                  let markerRange = taskMarkerRange(in: source, line: line)
-            else { continue }
+private struct MarkdownTaskMarkerCollector: MarkupVisitor {
+    typealias Result = Void
 
-            let marker = String(source[markerRange])
-            let checked = marker == "[x]" || marker == "[X]"
-            markers.append(MarkdownTaskMarker(
-                id: "task-\(markers.count + 1)",
-                checked: checked,
-                markerRange: markerRange,
-                sourceLine: line.number
-            ))
+    let sourceMap: MarkdownSourceMap
+    var markers: [MarkdownTaskMarker] = []
+    private var blockQuoteDepth = 0
+
+    init(sourceMap: MarkdownSourceMap) {
+        self.sourceMap = sourceMap
+    }
+
+    mutating func defaultVisit(_ markup: any Markup) {
+        for child in markup.children {
+            visit(child)
         }
+    }
 
-        return markers
+    mutating func visitDocument(_ document: Document) {
+        for child in document.children {
+            visit(child)
+        }
+    }
+
+    mutating func visitBlockQuote(_ blockQuote: BlockQuote) {
+        blockQuoteDepth += 1
+        for child in blockQuote.children {
+            visit(child)
+        }
+        blockQuoteDepth -= 1
+    }
+
+    mutating func visitListItem(_ item: ListItem) {
+        if item.checkbox != nil, blockQuoteDepth == 0 {
+            recordTaskMarker(for: item)
+        }
+        for child in item.children {
+            visit(child)
+        }
+    }
+
+    private mutating func recordTaskMarker(for item: ListItem) {
+        guard let sourceRange = item.range,
+              let itemRange = sourceMap.range(for: sourceRange),
+              let line = MarkdownSourceLine.lines(in: sourceMap.source, range: itemRange).first,
+              let markerRange = Self.taskMarkerRange(in: sourceMap.source, line: line)
+        else { return }
+
+        let marker = String(sourceMap.source[markerRange])
+        let checked = marker == "[x]" || marker == "[X]"
+        markers.append(MarkdownTaskMarker(
+            id: "task-\(markers.count + 1)",
+            checked: checked,
+            markerRange: markerRange,
+            sourceLine: line.number,
+            itemRange: itemRange
+        ))
     }
 
     private static func taskMarkerRange(
@@ -281,6 +312,8 @@ enum MarkdownTaskMarkerBuilder {
             cursor = source.index(after: digitEnd)
         } else if source[cursor] == "-" || source[cursor] == "+" || source[cursor] == "*" {
             cursor = source.index(after: cursor)
+        } else if let markerRange = checkboxMarkerRange(in: source, from: cursor, to: line.contentRange.upperBound) {
+            return markerRange
         } else {
             return nil
         }
@@ -293,7 +326,15 @@ enum MarkdownTaskMarkerBuilder {
             cursor = source.index(after: cursor)
         }
 
-        guard let markerEnd = source.index(cursor, offsetBy: 3, limitedBy: line.contentRange.upperBound),
+        return checkboxMarkerRange(in: source, from: cursor, to: line.contentRange.upperBound)
+    }
+
+    private static func checkboxMarkerRange(
+        in source: String,
+        from cursor: String.Index,
+        to upperBound: String.Index
+    ) -> Range<String.Index>? {
+        guard let markerEnd = source.index(cursor, offsetBy: 3, limitedBy: upperBound),
               source[cursor] == "[",
               source[source.index(after: cursor)] == " "
               || source[source.index(after: cursor)] == "x"
@@ -302,26 +343,6 @@ enum MarkdownTaskMarkerBuilder {
         else { return nil }
 
         return cursor ..< markerEnd
-    }
-
-    private static func isFenceLine(_ line: String) -> Bool {
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        return leadingMarkdownIndent(line) < 4 &&
-            (trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~"))
-    }
-
-    private static func leadingMarkdownIndent(_ line: String) -> Int {
-        var indent = 0
-        for character in line {
-            if character == " " {
-                indent += 1
-            } else if character == "\t" {
-                indent += 4
-            } else {
-                break
-            }
-        }
-        return indent
     }
 }
 

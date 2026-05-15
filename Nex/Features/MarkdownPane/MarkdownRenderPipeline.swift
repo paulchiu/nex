@@ -12,9 +12,8 @@ enum MarkdownRenderPipeline {
         )
         let document = Document(parsing: scan.cleanedMarkdown)
         let taskMarkers = MarkdownTaskMarkerBuilder.taskMarkers(
-            in: markdown,
-            bodyRange: body.bodyRange,
-            excluding: scan.commentRanges
+            document: document,
+            sourceMap: sourceMap
         )
         let sourceBlocks = MarkdownSourceBlockCollector.collect(
             document: document,
@@ -27,6 +26,7 @@ enum MarkdownRenderPipeline {
             taskMarkers: taskMarkers,
             sourceBlocks: sourceBlocks,
             cleanedMarkdown: scan.cleanedMarkdown,
+            sourceMap: sourceMap,
             bodyOffset: sourceMap.bodyOffset,
             commentsByBlockID: placement.commentsByBlockID,
             commentBlockIDs: placement.commentBlockIDs

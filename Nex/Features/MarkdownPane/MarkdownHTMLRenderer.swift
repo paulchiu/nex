@@ -22,7 +22,7 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
     private var skipAutolinkDepth = 0
     private var context: MarkdownRenderContext?
     private var blockCursor = 0
-    private var taskCursor = 0
+    private var blockQuoteDepth = 0
 
     init(context: MarkdownRenderContext? = nil) {
         self.context = context
@@ -96,7 +96,7 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
 
     mutating func visitListItem(_ item: ListItem) -> String {
         let block = nextBlock()
-        let taskMarker = item.checkbox == nil ? nil : nextTaskMarker()
+        let taskMarker = item.checkbox == nil ? nil : taskMarker(for: item)
         let content = item.children.map { visit($0) }.joined()
         if let checkbox = item.checkbox {
             let checkedAttr = checkbox == .checked ? " checked" : ""
@@ -131,7 +131,9 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
 
     mutating func visitBlockQuote(_ blockQuote: BlockQuote) -> String {
         let block = nextBlock()
+        blockQuoteDepth += 1
         let content = blockQuote.children.map { visit($0) }.joined()
+        blockQuoteDepth -= 1
         return "<blockquote\(blockAttributes(for: block))>\n\(content)</blockquote>\n"
     }
 
@@ -197,11 +199,13 @@ struct MarkdownHTMLRenderer: MarkupVisitor {
         return block
     }
 
-    private mutating func nextTaskMarker() -> MarkdownTaskMarker? {
-        guard let context, taskCursor < context.taskMarkers.count else { return nil }
-        let marker = context.taskMarkers[taskCursor]
-        taskCursor += 1
-        return marker
+    private func taskMarker(for item: ListItem) -> MarkdownTaskMarker? {
+        guard blockQuoteDepth == 0,
+              let context,
+              let sourceRange = item.range,
+              let itemRange = context.sourceMap.range(for: sourceRange)
+        else { return nil }
+        return context.taskMarkers.first { $0.itemRange == itemRange }
     }
 
     private func blockAttributes(
